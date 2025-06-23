@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Stack,
   Group,
@@ -61,6 +61,7 @@ export interface FileItem {
 export interface FileBrowserProps {
   onFileSelect?: (file: FileItem) => void;
   onMultipleFileSelect?: (files: FileItem[]) => void;
+  onFolderSelect?: (path: string) => void;
   extensions?: string[];
   allowMultipleSelection?: boolean;
   height?: number | string;
@@ -71,6 +72,7 @@ export interface FileBrowserProps {
 export function FileBrowser({
   onFileSelect,
   onMultipleFileSelect,
+  onFolderSelect,
   extensions = ['mp3'],
   allowMultipleSelection = false,
   height = 600,
@@ -87,6 +89,8 @@ export function FileBrowser({
   const [activeExtensions, setActiveExtensions] = useState<string[]>(extensions);
   const [includeHidden, setIncludeHidden] = useState(false);
   const [pathHistory, setPathHistory] = useState<string[]>([]);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
 
   // Initialize with home directory
   useEffect(() => {
@@ -146,6 +150,25 @@ export function FileBrowser({
     setFilteredItems(filtered);
   }, [items, searchQuery]);
 
+  // Ensure focus index stays within bounds when items change
+  useEffect(() => {
+    if (filteredItems.length === 0) {
+      setFocusedIndex(-1);
+      return;
+    }
+    setFocusedIndex((prev) => {
+      if (prev < 0) return 0;
+      return Math.min(prev, filteredItems.length - 1);
+    });
+  }, [filteredItems]);
+
+  // Move focus to the active row
+  useEffect(() => {
+    if (focusedIndex >= 0 && rowRefs.current[focusedIndex]) {
+      rowRefs.current[focusedIndex]?.focus();
+    }
+  }, [focusedIndex, filteredItems]);
+
   const navigateToPath = (path: string) => {
     setPathHistory(prev => [...prev, currentPath]);
     setCurrentPath(path);
@@ -192,6 +215,23 @@ export function FileBrowser({
       } else {
         onFileSelect?.(item);
       }
+    }
+  };
+
+  const handleRowKeyDown = (
+    e: React.KeyboardEvent<HTMLTableRowElement>,
+    index: number,
+    item: FileItem
+  ) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex((prev) => Math.min(prev + 1, filteredItems.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleItemClick(item);
     }
   };
 
@@ -246,8 +286,8 @@ export function FileBrowser({
         {/* Header with navigation */}
         <Group justify="space-between">
           <Group>
-            <ActionIcon 
-              variant="subtle" 
+            <ActionIcon
+              variant="subtle"
               onClick={navigateBack}
               disabled={pathHistory.length === 0}
               title="Back"
@@ -261,10 +301,16 @@ export function FileBrowser({
               <Text>🎵</Text>
             </ActionIcon>
           </Group>
-
-          <Text size="sm" c="dimmed">
-            {filteredItems.length} items
-          </Text>
+          <Group gap="sm">
+            {onFolderSelect && (
+              <Button size="xs" onClick={() => onFolderSelect(currentPath)}>
+                Use this Folder
+              </Button>
+            )}
+            <Text size="sm" c="dimmed">
+              {filteredItems.length} items
+            </Text>
+          </Group>
         </Group>
 
         {/* Breadcrumbs */}
@@ -337,11 +383,20 @@ export function FileBrowser({
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {filteredItems.map((item) => (
+                  {filteredItems.map((item, index) => (
                     <Table.Tr
                       key={item.path}
-                      style={{ cursor: 'pointer' }}
+                      tabIndex={0}
+                      ref={(el) => {
+                        rowRefs.current[index] = el;
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        outline: focusedIndex === index ? '2px solid var(--mantine-color-blue-6)' : undefined
+                      }}
                       onClick={() => handleItemClick(item)}
+                      onKeyDown={(e) => handleRowKeyDown(e, index, item)}
+                      aria-selected={focusedIndex === index}
                     >
                       {allowMultipleSelection && (
                         <Table.Td onClick={(e) => e.stopPropagation()}>
