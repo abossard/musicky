@@ -6,6 +6,7 @@ import {
   removePendingEdit,
   modifyPendingEdit
 } from '../database/sqlite/queries/mp3-edits';
+import { addHistory } from '../database/sqlite/queries/mp3-history';
 
 const mp3Manager = new MP3MetadataManager();
 
@@ -64,6 +65,7 @@ export async function onApplyPendingEdits(editIds?: number[]): Promise<{
   for (const edit of editsToApply) {
     try {
       await mp3Manager.writeComment(edit.filePath, edit.newComment);
+      addHistory(edit.filePath, edit.originalComment, edit.newComment);
       updatePendingEditStatus(edit.id, 'applied');
       successCount++;
     } catch (error) {
