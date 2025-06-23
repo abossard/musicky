@@ -140,3 +140,4 @@ dist
 # aws-cdk
 .cdk.staging
 cdk.out
+sqlite.db
