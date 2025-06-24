@@ -1,5 +1,5 @@
 import { MP3Library, type MP3LibraryScan, type MP3EditHistory } from '../lib/mp3-library';
-import { saveBaseFolder, readBaseFolder } from '../database/sqlite/queries/library-settings';
+import { saveBaseFolder, readBaseFolder, readPhases } from '../database/sqlite/queries/library-settings';
 import { fetchHistory, markHistoryReverted } from '../database/sqlite/queries/mp3-history';
 import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit } from '../database/sqlite/queries/mp3-edits';
 import { MP3MetadataManager } from '../lib/mp3-metadata';
@@ -102,6 +102,53 @@ export async function onRejectPendingEdit(editId: number): Promise<{ success: bo
     return { success: true };
   } catch (error) {
     console.error(`[MP3Library] Error rejecting edit ${editId}:`, error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
+export async function onGetAllMP3Files(): Promise<MP3LibraryScan> {
+  const base = readBaseFolder();
+  if (!base) throw new Error('Base folder not set');
+  return library.scan(base);
+}
+
+export async function onUpdateFilePhases(filePath: string, phases: string[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Read current metadata to get existing comment
+    const metadata = await mp3Manager.readMetadata(filePath);
+    const currentComment = metadata.comment || '';
+    
+    // Parse existing hashtags and non-phase content
+    const availablePhases = readPhases();
+    const existingTags = currentComment.match(/#\w+/g) || [];
+    const nonPhaseTags = existingTags.filter(tag => !availablePhases.includes(tag.slice(1)));
+    const nonTagContent = currentComment.replace(/#\w+/g, '').trim();
+    
+    // Build new comment with selected phases and existing non-phase content
+    const phaseTags = phases.map(phase => `#${phase}`);
+    const newCommentParts = [];
+    
+    if (nonTagContent) {
+      newCommentParts.push(nonTagContent);
+    }
+    
+    // Add non-phase tags back
+    newCommentParts.push(...nonPhaseTags);
+    
+    // Add selected phase tags
+    newCommentParts.push(...phaseTags);
+    
+    const newComment = newCommentParts.join(' ').trim();
+    
+    // Write the updated comment
+    await mp3Manager.writeComment(filePath, newComment);
+    
+    return { success: true };
+  } catch (error) {
+    console.error(`Error updating phases for ${filePath}:`, error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 

@@ -1,37 +1,39 @@
 .mp3-library {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  background: transparent;
 }
 
 .mp3-library h3 {
-  color: #333;
+  color: #c1c2c5;
   margin-bottom: 20px;
 }
 
 .error-message {
-  color: #ff4444;
-  background-color: #ffeeee;
+  color: #ff6b6b;
+  background-color: rgba(255, 107, 107, 0.1);
   padding: 10px;
   border-radius: 4px;
   margin: 10px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border: 1px solid rgba(255, 107, 107, 0.3);
 }
 
 .error-dismiss {
   margin-left: 10px;
   background: none;
   border: none;
-  color: #ff4444;
+  color: #ff6b6b;
   cursor: pointer;
   font-size: 16px;
 }
 
 .refresh-button {
   padding: 8px 16px;
-  background-color: #007acc;
+  background-color: #339af0;
   color: white;
   border: none;
   border-radius: 4px;
@@ -41,159 +43,216 @@
 }
 
 .refresh-button:hover {
-  background-color: #005a9e;
+  background-color: #228be6;
 }
 
-.no-pending-message {
-  color: #666;
+.no-files-message {
+  color: #868e96;
   font-style: italic;
   text-align: center;
-  padding: 40px 20px;
-  background-color: #f9f9f9;
+  padding: 40px;
+}
+
+.file-count {
+  margin-bottom: 20px;
+  color: #c1c2c5;
+}
+
+.mp3-table-container {
+  overflow-x: auto;
+  border: 1px solid #373a40;
   border-radius: 8px;
+  background: #25262b;
 }
 
-.pending-count {
-  margin-bottom: 15px;
-  color: #333;
+.mp3-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
 }
 
-.pending-edits-container {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+.mp3-table th {
+  background-color: #2c2e33;
+  color: #c1c2c5;
+  font-weight: 600;
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 2px solid #373a40;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
-.pending-edit-card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 15px;
-  background-color: #f9f9f9;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.mp3-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #373a40;
+  vertical-align: top;
+  color: #c1c2c5;
+  background: transparent;
 }
 
-.file-info {
-  margin-bottom: 10px;
+.mp3-table tr:hover {
+  background-color: rgba(73, 79, 88, 0.3);
+}
+
+.mp3-table tr.updating {
+  opacity: 0.6;
+  background-color: rgba(255, 212, 59, 0.1);
+}
+
+.mp3-table tr.has-pending {
+  background-color: rgba(255, 146, 43, 0.1);
+}
+
+.file-name-cell {
+  max-width: 200px;
 }
 
 .file-name {
-  color: #333;
-  font-weight: bold;
-  font-size: 16px;
-}
-
-.file-path {
-  font-size: 12px;
-  color: #666;
-  margin-top: 2px;
-  word-break: break-all;
-}
-
-.created-date {
-  font-size: 12px;
-  color: #666;
-}
-
-.comment-change-section {
-  margin-bottom: 15px;
-}
-
-.comment-change-label {
-  font-size: 14px;
-  margin-bottom: 5px;
-  font-weight: bold;
-  color: #333;
-}
-
-.comment-change-container {
-  background-color: #fff;
-  padding: 10px;
-  border-radius: 4px;
-  border: 1px solid #eee;
-}
-
-.comment-change-row {
-  margin-bottom: 8px;
-}
-
-.comment-change-row:last-child {
-  margin-bottom: 0;
-}
-
-.comment-label {
-  color: #888;
   font-weight: 500;
+  word-break: break-word;
+  cursor: help;
+  color: #c1c2c5;
 }
 
-.comment-from {
-  color: #d73a49;
+.phases-cell {
+  min-width: 250px;
 }
 
-.comment-from.no-comment {
+.phases-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phases-checkboxes .mantine-Checkbox-root {
+  margin: 0;
+}
+
+.phases-checkboxes .mantine-Checkbox-label {
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #c1c2c5;
+}
+
+.comment-cell {
+  max-width: 300px;
+}
+
+.comment-content {
+  font-family: monospace;
+  font-size: 12px;
+  color: #868e96;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.comment-pending {
+  color: #fd7e14;
   font-style: italic;
 }
 
-.comment-to {
-  color: #28a745;
-  font-weight: bold;
+.comment-pending::after {
+  content: " (pending)";
+  color: #fd7e14;
+  font-size: 10px;
+  background: rgba(253, 126, 20, 0.1);
+  padding: 2px 4px;
+  border-radius: 2px;
+  margin-left: 4px;
+}
+
+.actions-cell {
+  min-width: 120px;
 }
 
 .action-buttons {
   display: flex;
-  gap: 10px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.action-button {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.edit-button {
+  background-color: #339af0;
+  color: white;
+}
+
+.edit-button:hover:not(:disabled) {
+  background-color: #228be6;
 }
 
 .apply-button {
-  padding: 8px 16px;
-  background-color: #28a745;
+  background-color: #51cf66;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background-color 0.2s;
 }
 
 .apply-button:hover:not(:disabled) {
-  background-color: #218838;
-}
-
-.apply-button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
+  background-color: #40c057;
 }
 
 .reject-button {
-  padding: 8px 16px;
-  background-color: #dc3545;
+  background-color: #ff6b6b;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
 }
 
 .reject-button:hover:not(:disabled) {
-  background-color: #c82333;
+  background-color: #fa5252;
 }
 
-.reject-button:disabled {
-  background-color: #ccc;
+.action-button:disabled {
+  background-color: #495057;
+  color: #868e96;
   cursor: not-allowed;
 }
 
-/* MP3 Library page styles */
-.pending-comment-old {
-  text-decoration: line-through;
-  color: #999;
+/* Responsive design */
+@media (max-width: 1024px) {
+  .mp3-library {
+    max-width: 100%;
+    padding: 10px;
+  }
+  
+  .mp3-table th,
+  .mp3-table td {
+    padding: 8px 6px;
+  }
+  
+  .file-name-cell {
+    max-width: 150px;
+  }
+  
+  .phases-cell {
+    min-width: 200px;
+  }
+  
+  .comment-cell {
+    max-width: 200px;
+  }
 }
 
-.pending-comment-new {
-  color: #28a745;
-  font-weight: bold;
-}
-
-.pending-comment-arrow {
-  color: #666;
-  margin: 0 4px;
+@media (max-width: 768px) {
+  .phases-checkboxes {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .phases-checkboxes .mantine-Checkbox-label {
+    font-size: 12px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 4px;
+  }
 }
