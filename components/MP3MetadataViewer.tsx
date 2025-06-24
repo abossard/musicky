@@ -4,11 +4,11 @@ import type { MP3Metadata } from '../lib/mp3-metadata';
 
 interface MP3MetadataViewerProps {
   filePath: string;
-  availableTags?: string[];
+  phases?: string[];
   onPendingEditAdded?: () => void;
 }
 
-export function MP3MetadataViewer({ filePath, availableTags = [], onPendingEditAdded }: MP3MetadataViewerProps) {
+export function MP3MetadataViewer({ filePath, phases = [], onPendingEditAdded }: MP3MetadataViewerProps) {
   const [metadata, setMetadata] = useState<MP3Metadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,7 @@ export function MP3MetadataViewer({ filePath, availableTags = [], onPendingEditA
     return tags;
   };
 
-  const updateTag = (tag: string) => {
+  const togglePhase = (tag: string) => {
     const tags = new Set(extractTags(newComment));
     if (tags.has(tag)) {
       tags.delete(tag);
@@ -120,27 +120,29 @@ export function MP3MetadataViewer({ filePath, availableTags = [], onPendingEditA
           
           {editingComment ? (
             <div className="space-y-2">
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                placeholder="Enter comment..."
-              />
-              {availableTags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {availableTags.map(tag => (
-                    <label key={tag} className="flex items-center space-x-1 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={extractTags(newComment).includes(tag)}
-                        onChange={() => updateTag(tag)}
-                      />
-                      <span>#{tag}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-start gap-2">
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter comment..."
+                />
+                {phases.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {phases.map(tag => (
+                      <label key={tag} className="flex items-center space-x-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={extractTags(newComment).includes(tag)}
+                        onChange={() => togglePhase(tag)}
+                        />
+                        <span>#{tag}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex space-x-2">
                 <button
                   onClick={handleSaveComment}
