@@ -14,6 +14,7 @@ export function MP3Library({}: MP3LibraryProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingFiles, setUpdatingFiles] = useState<Set<string>>(new Set());
+  const [editActions, setEditActions] = useState<{ [key: number]: 'apply' | 'reject' }>({});
 
   const loadData = async () => {
     try {
@@ -33,6 +34,15 @@ export function MP3Library({}: MP3LibraryProps) {
       setError(err instanceof Error ? err.message : 'Failed to load MP3 library');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshPendingEdits = async () => {
+    try {
+      const edits = await onGetPendingEdits();
+      setPendingEdits(edits);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh pending edits');
     }
   };
 
@@ -70,7 +80,7 @@ export function MP3Library({}: MP3LibraryProps) {
       const result = await onUpdateFilePhases(filePath, newPhases);
       
       if (result.success) {
-        // Reload data to get the updated state
+        // Only reload data after successful phase update since file comments change
         await loadData();
       } else {
         setError(result.error || 'Failed to update phases');
@@ -87,28 +97,42 @@ export function MP3Library({}: MP3LibraryProps) {
   };
 
   const handleApplyEdit = async (editId: number) => {
+    setEditActions(prev => ({ ...prev, [editId]: 'apply' }));
     try {
       const result = await onApplyPendingEdit(editId);
       if (result.success) {
-        await loadData(); // Reload to get updated state
+        await refreshPendingEdits(); // Only refresh pending edits, not all data
       } else {
         setError(result.error || 'Failed to apply edit');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to apply edit');
+    } finally {
+      setEditActions(prev => {
+        const newState = { ...prev };
+        delete newState[editId];
+        return newState;
+      });
     }
   };
 
   const handleRejectEdit = async (editId: number) => {
+    setEditActions(prev => ({ ...prev, [editId]: 'reject' }));
     try {
       const result = await onRejectPendingEdit(editId);
       if (result.success) {
-        await loadData(); // Reload to get updated state
+        await refreshPendingEdits(); // Only refresh pending edits, not all data
       } else {
         setError(result.error || 'Failed to reject edit');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject edit');
+    } finally {
+      setEditActions(prev => {
+        const newState = { ...prev };
+        delete newState[editId];
+        return newState;
+      });
     }
   };
 
@@ -135,8 +159,8 @@ export function MP3Library({}: MP3LibraryProps) {
         </div>
       )}
       
-      <button onClick={loadData} className="refresh-button">
-        Refresh
+      <button onClick={loadData} className="refresh-button" disabled={loading}>
+        {loading ? 'Loading...' : 'Refresh'}
       </button>
 
       {mp3Files.length === 0 ? (
@@ -153,6 +177,7 @@ export function MP3Library({}: MP3LibraryProps) {
             <table className="mp3-table">
               <thead>
                 <tr>
+                  <th>Artwork</th>
                   <th>File Name</th>
                   <th>Phases</th>
                   <th>Comment</th>
@@ -172,6 +197,20 @@ export function MP3Library({}: MP3LibraryProps) {
                       key={file.filePath} 
                       className={`${isUpdating ? 'updating' : ''} ${hasPending ? 'has-pending' : ''}`}
                     >
+                      <td className="artwork-cell">
+                        <div className="artwork-thumbnail">
+                          {file.artworkDataUrl ? (
+                            <img 
+                              src={file.artworkDataUrl} 
+                              alt="Album artwork" 
+                              className="artwork-image"
+                            />
+                          ) : (
+                            <div className="artwork-placeholder">🎵</div>
+                          )}
+                        </div>
+                      </td>
+                      
                       <td className="file-name-cell">
                         <div className="file-name" title={file.filePath}>
                           {file.filePath.split('/').pop() || file.filePath}
@@ -207,16 +246,16 @@ export function MP3Library({}: MP3LibraryProps) {
                               <button
                                 className="action-button apply-button"
                                 onClick={() => handleApplyEdit(pendingEdit.id)}
-                                disabled={isUpdating}
+                                disabled={isUpdating || !!editActions[pendingEdit.id]}
                               >
-                                Apply
+                                {editActions[pendingEdit.id] === 'apply' ? 'Applying...' : 'Apply'}
                               </button>
                               <button
                                 className="action-button reject-button"
                                 onClick={() => handleRejectEdit(pendingEdit.id)}
-                                disabled={isUpdating}
+                                disabled={isUpdating || !!editActions[pendingEdit.id]}
                               >
-                                Reject
+                                {editActions[pendingEdit.id] === 'reject' ? 'Rejecting...' : 'Reject'}
                               </button>
                             </>
                           )}
