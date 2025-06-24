@@ -1,7 +1,7 @@
 import { MP3Library, type MP3LibraryScan, type MP3EditHistory } from '../lib/mp3-library';
 import { saveBaseFolder, readBaseFolder, readPhases } from '../database/sqlite/queries/library-settings';
 import { fetchHistory, markHistoryReverted } from '../database/sqlite/queries/mp3-history';
-import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit } from '../database/sqlite/queries/mp3-edits';
+import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit, addPendingEdit } from '../database/sqlite/queries/mp3-edits';
 import { MP3MetadataManager } from '../lib/mp3-metadata';
 import type { PendingEdit } from '../lib/mp3-metadata';
 
@@ -143,12 +143,12 @@ export async function onUpdateFilePhases(filePath: string, phases: string[]): Pr
     
     const newComment = newCommentParts.join(' ').trim();
     
-    // Write the updated comment
-    await mp3Manager.writeComment(filePath, newComment);
+    // Instead of writing directly, create a pending edit
+    addPendingEdit(filePath, currentComment, newComment);
     
     return { success: true };
   } catch (error) {
-    console.error(`Error updating phases for ${filePath}:`, error);
+    console.error(`Error creating pending edit for ${filePath}:`, error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 

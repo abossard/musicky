@@ -64,6 +64,11 @@ export function MP3Library({}: MP3LibraryProps) {
     return pendingEdit ? pendingEdit.newComment : originalComment;
   };
 
+  const getEffectivePhases = (filePath: string, originalComment: string): string[] => {
+    const effectiveComment = getEffectiveComment(filePath, originalComment);
+    return getFilePhases(effectiveComment);
+  };
+
   const handlePhaseToggle = async (filePath: string, phase: string, checked: boolean) => {
     setUpdatingFiles(prev => new Set([...prev, filePath]));
     
@@ -80,8 +85,8 @@ export function MP3Library({}: MP3LibraryProps) {
       const result = await onUpdateFilePhases(filePath, newPhases);
       
       if (result.success) {
-        // Only reload data after successful phase update since file comments change
-        await loadData();
+        // Only refresh pending edits, not all data
+        await refreshPendingEdits();
       } else {
         setError(result.error || 'Failed to update phases');
       }
@@ -101,7 +106,7 @@ export function MP3Library({}: MP3LibraryProps) {
     try {
       const result = await onApplyPendingEdit(editId);
       if (result.success) {
-        await refreshPendingEdits(); // Only refresh pending edits, not all data
+        await refreshPendingEdits();
       } else {
         setError(result.error || 'Failed to apply edit');
       }
@@ -121,7 +126,7 @@ export function MP3Library({}: MP3LibraryProps) {
     try {
       const result = await onRejectPendingEdit(editId);
       if (result.success) {
-        await refreshPendingEdits(); // Only refresh pending edits, not all data
+        await refreshPendingEdits();
       } else {
         setError(result.error || 'Failed to reject edit');
       }
@@ -241,7 +246,7 @@ export function MP3Library({}: MP3LibraryProps) {
                       
                       <td className="actions-cell">
                         <div className="action-buttons">
-                          {pendingEdit && (
+                          {pendingEdit ? (
                             <>
                               <button
                                 className="action-button apply-button"
@@ -258,6 +263,8 @@ export function MP3Library({}: MP3LibraryProps) {
                                 {editActions[pendingEdit.id] === 'reject' ? 'Rejecting...' : 'Reject'}
                               </button>
                             </>
+                          ) : (
+                            <span className="no-pending-text">No pending changes</span>
                           )}
                         </div>
                       </td>
