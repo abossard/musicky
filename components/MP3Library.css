@@ -245,6 +245,12 @@
   text-align: center;
 }
 
+/* Action buttons styling */
+.no-pending-text {
+  color: #666;
+  font-size: 12px;
+}
+
 /* Responsive design */
 @media (max-width: 1024px) {
   .mp3-library {
