@@ -143,3 +143,4 @@ cdk.out
 sqlite.db
 test-mp3-manager.js
 sqlite*.db
+.artwork-cache/*

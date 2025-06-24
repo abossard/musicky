@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Checkbox } from '@mantine/core';
 import type { MP3Metadata, PendingEdit } from '../lib/mp3-metadata';
-import { onGetAllMP3Files, onCreatePendingPhaseEdit, onGetPendingEdits, onApplyPendingEdit, onRejectPendingEdit } from './MP3Library.telefunc';
+import { onGetAllMP3Files, onUpdateFilePhases, onGetPendingEdits, onApplyPendingEdit, onRejectPendingEdit } from './MP3Library.telefunc';
 import { onGetPhases } from './Settings.telefunc';
 import './MP3Library.css';
 
@@ -67,17 +67,16 @@ export function MP3Library({}: MP3LibraryProps) {
         ? [...currentPhases, phase]
         : currentPhases.filter(p => p !== phase);
       
-      const result = await onCreatePendingPhaseEdit(filePath, newPhases);
+      const result = await onUpdateFilePhases(filePath, newPhases);
       
       if (result.success) {
-        // Just reload pending edits instead of all data to avoid full refresh
-        const updatedPendingEdits = await onGetPendingEdits();
-        setPendingEdits(updatedPendingEdits);
+        // Reload data to get the updated state
+        await loadData();
       } else {
-        setError(result.error || 'Failed to create pending phase edit');
+        setError(result.error || 'Failed to update phases');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create pending phase edit');
+      setError(err instanceof Error ? err.message : 'Failed to update phases');
     } finally {
       setUpdatingFiles(prev => {
         const newSet = new Set(prev);
@@ -87,22 +86,11 @@ export function MP3Library({}: MP3LibraryProps) {
     }
   };
 
-  const handleApplyEdit = async (editId: number, event?: React.MouseEvent<HTMLButtonElement>) => {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    
+  const handleApplyEdit = async (editId: number) => {
     try {
       const result = await onApplyPendingEdit(editId);
       if (result.success) {
-        // Reload both MP3 files and pending edits since the file metadata changed
-        const [scanResult, updatedPendingEdits] = await Promise.all([
-          onGetAllMP3Files(),
-          onGetPendingEdits()
-        ]);
-        setMp3Files(scanResult.files);
-        setPendingEdits(updatedPendingEdits);
+        await loadData(); // Reload to get updated state
       } else {
         setError(result.error || 'Failed to apply edit');
       }
@@ -115,9 +103,7 @@ export function MP3Library({}: MP3LibraryProps) {
     try {
       const result = await onRejectPendingEdit(editId);
       if (result.success) {
-        // Only reload pending edits since no file metadata changed
-        const updatedPendingEdits = await onGetPendingEdits();
-        setPendingEdits(updatedPendingEdits);
+        await loadData(); // Reload to get updated state
       } else {
         setError(result.error || 'Failed to reject edit');
       }
@@ -145,11 +131,11 @@ export function MP3Library({}: MP3LibraryProps) {
       {error && (
         <div className="error-message">
           <span>{error}</span>
-          <button type="button" onClick={dismissError} className="error-dismiss">×</button>
+          <button onClick={dismissError} className="error-dismiss">×</button>
         </div>
       )}
       
-      <button type="button" onClick={loadData} className="refresh-button">
+      <button onClick={loadData} className="refresh-button">
         Refresh
       </button>
 
@@ -219,7 +205,6 @@ export function MP3Library({}: MP3LibraryProps) {
                           {pendingEdit && (
                             <>
                               <button
-                                type="button"
                                 className="action-button apply-button"
                                 onClick={() => handleApplyEdit(pendingEdit.id)}
                                 disabled={isUpdating}
@@ -227,7 +212,6 @@ export function MP3Library({}: MP3LibraryProps) {
                                 Apply
                               </button>
                               <button
-                                type="button"
                                 className="action-button reject-button"
                                 onClick={() => handleRejectEdit(pendingEdit.id)}
                                 disabled={isUpdating}
@@ -249,5 +233,3 @@ export function MP3Library({}: MP3LibraryProps) {
     </div>
   );
 }
-
-export default MP3Library;
