@@ -9,6 +9,7 @@ export default function ReviewChangesPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [hideApplied, setHideApplied] = useState(false);
+  const [actionLoading, setActionLoading] = useState<{ [key: number]: 'apply' | 'reject' | 'undo' }>({});
 
   useEffect(() => {
     loadEdits();
@@ -28,18 +29,51 @@ export default function ReviewChangesPage() {
   };
 
   const handleApply = async (id: number) => {
-    await onApplyPendingEdits([id]);
-    await loadEdits();
+    setActionLoading(prev => ({ ...prev, [id]: 'apply' }));
+    try {
+      await onApplyPendingEdits([id]);
+      await loadEdits();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to apply edit');
+    } finally {
+      setActionLoading(prev => {
+        const newState = { ...prev };
+        delete newState[id];
+        return newState;
+      });
+    }
   };
 
   const handleReject = async (id: number) => {
-    await onDeletePendingEdit(id);
-    await loadEdits();
+    setActionLoading(prev => ({ ...prev, [id]: 'reject' }));
+    try {
+      await onDeletePendingEdit(id);
+      await loadEdits();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reject edit');
+    } finally {
+      setActionLoading(prev => {
+        const newState = { ...prev };
+        delete newState[id];
+        return newState;
+      });
+    }
   };
 
   const handleUndo = async (id: number) => {
-    await onUndoAppliedEdit(id);
-    await loadEdits();
+    setActionLoading(prev => ({ ...prev, [id]: 'undo' }));
+    try {
+      await onUndoAppliedEdit(id);
+      await loadEdits();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to undo edit');
+    } finally {
+      setActionLoading(prev => {
+        const newState = { ...prev };
+        delete newState[id];
+        return newState;
+      });
+    }
   };
 
   const filtered = edits.filter(e => {
@@ -83,12 +117,34 @@ export default function ReviewChangesPage() {
               <Table.Td>
                 {edit.status === 'pending' && (
                   <Group gap="xs">
-                    <Button size="xs" onClick={() => handleApply(edit.id)}>Apply</Button>
-                    <Button size="xs" color="red" onClick={() => handleReject(edit.id)}>Reject</Button>
+                    <Button 
+                      size="xs" 
+                      onClick={() => handleApply(edit.id)}
+                      loading={actionLoading[edit.id] === 'apply'}
+                      disabled={!!actionLoading[edit.id]}
+                    >
+                      Apply
+                    </Button>
+                    <Button 
+                      size="xs" 
+                      color="red" 
+                      onClick={() => handleReject(edit.id)}
+                      loading={actionLoading[edit.id] === 'reject'}
+                      disabled={!!actionLoading[edit.id]}
+                    >
+                      Reject
+                    </Button>
                   </Group>
                 )}
                 {edit.status === 'applied' && (
-                  <Button size="xs" onClick={() => handleUndo(edit.id)}>Undo</Button>
+                  <Button 
+                    size="xs" 
+                    onClick={() => handleUndo(edit.id)}
+                    loading={actionLoading[edit.id] === 'undo'}
+                    disabled={!!actionLoading[edit.id]}
+                  >
+                    Undo
+                  </Button>
                 )}
               </Table.Td>
             </Table.Tr>

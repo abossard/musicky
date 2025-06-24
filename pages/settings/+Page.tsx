@@ -5,6 +5,7 @@ import { onGetPhases, onSetPhases } from '../../components/Settings.telefunc';
 export default function SettingsPage() {
   const [phasesStr, setPhasesStr] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -14,13 +15,18 @@ export default function SettingsPage() {
   }, []);
 
   const handleSave = async () => {
-    const phases = phasesStr
-      .split(',')
-      .map(p => p.trim())
-      .filter(p => p.length > 0);
-    await onSetPhases(phases);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaving(true);
+    try {
+      const phases = phasesStr
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+      await onSetPhases(phases);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -32,7 +38,9 @@ export default function SettingsPage() {
         onChange={e => setPhasesStr(e.currentTarget.value)}
       />
       <Group>
-        <Button size="xs" onClick={handleSave}>Save</Button>
+        <Button size="xs" onClick={handleSave} loading={saving} disabled={saving}>
+          Save
+        </Button>
         {saved && <Text c="green">Saved!</Text>}
       </Group>
     </Stack>
