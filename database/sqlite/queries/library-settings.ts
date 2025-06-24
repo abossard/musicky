@@ -1,5 +1,10 @@
 import { db } from '../db.js';
-import { setBaseFolder, getBaseFolder } from '../schema/library-settings.js';
+import {
+  setBaseFolder,
+  getBaseFolder,
+  setPhases,
+  getPhases
+} from '../schema/library-settings.js';
 
 export function saveBaseFolder(folder: string): void {
   const stmt = db().prepare(setBaseFolder);
@@ -10,4 +15,22 @@ export function readBaseFolder(): string | null {
   const stmt = db().prepare(getBaseFolder);
   const row = stmt.get() as any;
   return row ? (row.base_folder as string | null) : null;
+}
+
+export function savePhases(phases: string[]): void {
+  const stmt = db().prepare(setPhases);
+  stmt.run(JSON.stringify(phases));
+}
+
+export function readPhases(): string[] {
+  const stmt = db().prepare(getPhases);
+  const row = stmt.get() as any;
+  if (!row || row.phases == null) {
+    return ['starter', 'buildup', 'peak', 'release', 'feature'];
+  }
+  try {
+    return JSON.parse(row.phases) as string[];
+  } catch {
+    return ['starter', 'buildup', 'peak', 'release', 'feature'];
+  }
 }

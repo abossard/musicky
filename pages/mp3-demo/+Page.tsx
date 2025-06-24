@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MP3MetadataViewer } from '../../components/MP3MetadataViewer';
 import { PendingEditsManager } from '../../components/PendingEditsManager';
+import { onGetPhases } from '../../components/Settings.telefunc';
 
 export function Page() {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [phases, setPhases] = useState<string[]>([]);
   
   // Path to the demo MP3 file (relative to project root)
   const demoFilePath = './lifekiller.mp3';
+
+  useEffect(() => {
+    (async () => {
+      const p = await onGetPhases();
+      setPhases(p);
+    })();
+  }, []);
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
@@ -30,9 +39,10 @@ export function Page() {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               MP3 Metadata
             </h2>
-            <MP3MetadataViewer 
+            <MP3MetadataViewer
               key={`metadata-${refreshKey}`}
               filePath={demoFilePath}
+              phases={phases}
               onPendingEditAdded={handleRefresh}
             />
           </div>

@@ -11,6 +11,7 @@ import {
   onApplyPendingEdit,
   onRejectPendingEdit
 } from '../../components/MP3Library.telefunc';
+import { onGetPhases } from '../../components/Settings.telefunc';
 import type { MP3LibraryScan, MP3EditHistory } from '../../lib/mp3-library';
 import type { PendingEdit } from '../../lib/mp3-metadata';
 import { Modal, Button, Group, Stack, MultiSelect, Text, Table, Paper, Tabs, Badge } from '@mantine/core';
@@ -27,6 +28,7 @@ export default function MP3LibraryPage() {
   const [history, setHistory] = useState<MP3EditHistory[]>([]);
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const [processingEdits, setProcessingEdits] = useState<Set<number>>(new Set());
+  const [phases, setPhases] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +36,8 @@ export default function MP3LibraryPage() {
       if (folder) {
         setBaseFolder(folder);
       }
+      const p = await onGetPhases();
+      setPhases(p);
     })();
   }, []);
 
@@ -299,7 +303,7 @@ export default function MP3LibraryPage() {
         {selectedFile && (
           <MP3MetadataViewer
             filePath={selectedFile}
-            availableTags={tags}
+            phases={phases}
             onPendingEditAdded={performScan}
           />
         )}
