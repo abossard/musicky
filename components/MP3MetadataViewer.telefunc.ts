@@ -4,8 +4,10 @@ import {
   getAllPendingEdits,
   updatePendingEditStatus,
   removePendingEdit,
-  modifyPendingEdit
+  modifyPendingEdit,
+  getPendingEditById
 } from '../database/sqlite/queries/mp3-edits';
+import { addHistory, fetchHistory, markHistoryReverted } from '../database/sqlite/queries/mp3-history';
 
 const mp3Manager = new MP3MetadataManager();
 
@@ -64,6 +66,7 @@ export async function onApplyPendingEdits(editIds?: number[]): Promise<{
   for (const edit of editsToApply) {
     try {
       await mp3Manager.writeComment(edit.filePath, edit.newComment);
+      addHistory(edit.filePath, edit.originalComment, edit.newComment);
       updatePendingEditStatus(edit.id, 'applied');
       successCount++;
     } catch (error) {
@@ -94,6 +97,23 @@ export async function onUpdatePendingEdit(id: number, newComment: string): Promi
   if (!newComment.trim()) {
     throw new Error('Comment cannot be empty');
   }
-  
+
   modifyPendingEdit(id, newComment);
+}
+
+export async function onUndoAppliedEdit(id: number): Promise<void> {
+  const edit = getPendingEditById(id);
+  if (!edit) throw new Error('Edit not found');
+  if (edit.status !== 'applied') throw new Error('Edit is not applied');
+
+  await mp3Manager.writeComment(edit.filePath, edit.originalComment || '');
+
+  const history = fetchHistory().find(
+    h => h.filePath === edit.filePath && h.newComment === edit.newComment && !h.reverted
+  );
+  if (history) {
+    markHistoryReverted(history.id);
+  }
+
+  updatePendingEditStatus(id, 'pending');
 }
