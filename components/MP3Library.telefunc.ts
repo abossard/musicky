@@ -1,7 +1,9 @@
 import { MP3Library, type MP3LibraryScan, type MP3EditHistory } from '../lib/mp3-library';
 import { saveBaseFolder, readBaseFolder } from '../database/sqlite/queries/library-settings';
 import { fetchHistory, markHistoryReverted } from '../database/sqlite/queries/mp3-history';
+import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit } from '../database/sqlite/queries/mp3-edits';
 import { MP3MetadataManager } from '../lib/mp3-metadata';
+import type { PendingEdit } from '../lib/mp3-metadata';
 
 const library = new MP3Library();
 const mp3Manager = new MP3MetadataManager();
@@ -36,4 +38,73 @@ export async function onRevertHistory(id: number): Promise<void> {
   if (!history) throw new Error('History not found');
   await mp3Manager.writeComment(history.filePath, history.oldComment || '');
   markHistoryReverted(id);
+}
+
+export async function onGetPendingEdits(): Promise<PendingEdit[]> {
+  return getAllPendingEdits();
+}
+
+export async function onApplyPendingEdit(editId: number): Promise<{ success: boolean; error?: string }> {
+  console.log(`[MP3Library] Applying single pending edit: ${editId}`);
+  
+  try {
+    const edits = getAllPendingEdits();
+    const edit = edits.find(e => e.id === editId);
+    
+    if (!edit) {
+      return { success: false, error: 'Edit not found' };
+    }
+    
+    if (edit.status !== 'pending') {
+      return { success: false, error: 'Edit is not in pending status' };
+    }
+    
+    console.log(`[MP3Library] Applying edit to file: ${edit.filePath}`);
+    console.log(`[MP3Library] Comment change: "${edit.originalComment}" -> "${edit.newComment}"`);
+    
+    // Write the comment to the file
+    await mp3Manager.writeComment(edit.filePath, edit.newComment);
+    
+    // Update status to applied
+    updatePendingEditStatus(editId, 'applied');
+    
+    console.log(`[MP3Library] Successfully applied edit ${editId}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[MP3Library] Error applying edit ${editId}:`, error);
+    updatePendingEditStatus(editId, 'failed');
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
+export async function onRejectPendingEdit(editId: number): Promise<{ success: boolean; error?: string }> {
+  console.log(`[MP3Library] Rejecting pending edit: ${editId}`);
+  
+  try {
+    const edits = getAllPendingEdits();
+    const edit = edits.find(e => e.id === editId);
+    
+    if (!edit) {
+      return { success: false, error: 'Edit not found' };
+    }
+    
+    if (edit.status !== 'pending') {
+      return { success: false, error: 'Edit is not in pending status' };
+    }
+    
+    // Remove the pending edit
+    removePendingEdit(editId);
+    
+    console.log(`[MP3Library] Successfully rejected edit ${editId}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[MP3Library] Error rejecting edit ${editId}:`, error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
 }

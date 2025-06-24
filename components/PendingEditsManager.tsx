@@ -1,12 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { onGetPendingEdits, onApplyPendingEdits, onDeletePendingEdit, onUpdatePendingEdit } from './MP3MetadataViewer.telefunc';
+import { 
+  onGetPendingEdits, 
+  onApplyPendingEdits, 
+  onDeletePendingEdit, 
+  onUpdatePendingEdit,
+  onGetLastApplyError,
+  onClearLastApplyError,
+  onTestMP3CommentWriting,
+  onTestPendingEditWorkflow
+} from './MP3MetadataViewer.telefunc';
 import type { PendingEdit } from '../lib/mp3-metadata';
 
 interface PendingEditsManagerProps {
   onRefresh?: () => void;
+  testFilePath?: string; // Add optional test file path
 }
 
-export function PendingEditsManager({ onRefresh }: PendingEditsManagerProps) {
+interface TestResult {
+  name: string;
+  success: boolean;
+  error?: string;
+  details?: any;
+}
+
+export function PendingEditsManager({ onRefresh, testFilePath }: PendingEditsManagerProps) {
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,9 +31,13 @@ export function PendingEditsManager({ onRefresh }: PendingEditsManagerProps) {
   const [selectedEdits, setSelectedEdits] = useState<number[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingComment, setEditingComment] = useState('');
+  const [lastError, setLastError] = useState<{ timestamp: Date; error: string; filePath?: string } | null>(null);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     loadPendingEdits();
+    loadLastError();
   }, []);
 
   const loadPendingEdits = async () => {
@@ -29,6 +50,15 @@ export function PendingEditsManager({ onRefresh }: PendingEditsManagerProps) {
       setError(err instanceof Error ? err.message : 'Failed to load pending edits');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadLastError = async () => {
+    try {
+      const lastApplyError = await onGetLastApplyError();
+      setLastError(lastApplyError);
+    } catch (err) {
+      console.error('Failed to load last error:', err);
     }
   };
 
@@ -45,6 +75,7 @@ export function PendingEditsManager({ onRefresh }: PendingEditsManagerProps) {
       }
       
       await loadPendingEdits();
+      await loadLastError(); // Refresh last error info
       setSelectedEdits([]);
       onRefresh?.();
     } catch (err) {
@@ -97,6 +128,30 @@ export function PendingEditsManager({ onRefresh }: PendingEditsManagerProps) {
     );
   };
 
+  const runTests = async (testType: 'comment' | 'workflow') => {
+    if (!testFilePath) {
+      setError('No test file path provided');
+      return;
+    }
+
+    setTesting(true);
+    setTestResults([]);
+    
+    try {
+      let results: TestResult[];
+      if (testType === 'comment') {
+        results = await onTestMP3CommentWriting(testFilePath);
+      } else {
+        results = await onTestPendingEditWorkflow(testFilePath);
+      }
+      setTestResults(results);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Test failed');
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const handleSelectAll = (selected: boolean) => {
     setSelectedEdits(selected ? pendingEdits.map(edit => edit.id) : []);
   };
@@ -132,7 +187,107 @@ export function PendingEditsManager({ onRefresh }: PendingEditsManagerProps) {
   const someSelected = selectedEdits.length > 0;
 
   return (
-    <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div className="space-y-4">
+      {/* Last Error Display */}
+      {lastError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-red-800 mb-1">
+                Last Apply Error
+              </h4>
+              <p className="text-sm text-red-700 mb-1">
+                <strong>File:</strong> {lastError.filePath}
+              </p>
+              <p className="text-sm text-red-700 mb-1">
+                <strong>Error:</strong> {lastError.error}
+              </p>
+              <p className="text-xs text-red-600">
+                {lastError.timestamp.toLocaleString()}
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                await onClearLastApplyError();
+                setLastError(null);
+              }}
+              className="ml-3 text-red-400 hover:text-red-600"
+              aria-label="Clear error"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Test Panel */}
+      {testFilePath && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="text-sm font-medium text-blue-800 mb-3">
+            MP3 Comment Testing
+          </h4>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <button
+              onClick={() => runTests('comment')}
+              disabled={testing}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400"
+            >
+              {testing ? 'Testing...' : 'Test Comment Writing'}
+            </button>
+            <button
+              onClick={() => runTests('workflow')}
+              disabled={testing}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400"
+            >
+              {testing ? 'Testing...' : 'Test Full Workflow'}
+            </button>
+            {testResults.length > 0 && (
+              <button
+                onClick={() => setTestResults([])}
+                className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+              >
+                Clear Results
+              </button>
+            )}
+          </div>
+          
+          {testResults.length > 0 && (
+            <div className="space-y-2">
+              <h5 className="text-sm font-medium text-blue-800">Test Results:</h5>
+              {testResults.map((result, index) => (
+                <div 
+                  key={index}
+                  className={`p-2 rounded text-sm ${
+                    result.success 
+                      ? 'bg-green-100 border-green-200 text-green-800' 
+                      : 'bg-red-100 border-red-200 text-red-800'
+                  } border`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span>{result.success ? '✅' : '❌'}</span>
+                    <strong>{result.name}</strong>
+                  </div>
+                  {result.error && (
+                    <div className="mt-1 text-xs opacity-75">
+                      Error: {result.error}
+                    </div>
+                  )}
+                  {result.details && (
+                    <div className="mt-1 text-xs opacity-75">
+                      <pre className="whitespace-pre-wrap">
+                        {JSON.stringify(result.details, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pending Edits Manager */}
+      <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">
           Pending Edits ({pendingEdits.length})
@@ -251,6 +406,7 @@ export function PendingEditsManager({ onRefresh }: PendingEditsManagerProps) {
             </div>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
