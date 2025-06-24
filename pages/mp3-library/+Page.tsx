@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FileBrowser } from '../../components/FileBrowser';
 import { MP3MetadataViewer } from '../../components/MP3MetadataViewer';
-import { PendingEditsManager } from '../../components/PendingEditsManager';
 import {
   onGetBaseFolder,
   onSetBaseFolder,
@@ -256,7 +255,6 @@ export default function MP3LibraryPage() {
                   </Table.Tbody>
                 </Table>
               )}
-              <PendingEditsManager onRefresh={performScan} />
             </Tabs.Panel>
 
             <Tabs.Panel value="history" pt="md">
