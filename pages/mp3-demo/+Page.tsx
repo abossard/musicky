@@ -45,6 +45,7 @@ export function Page() {
             <PendingEditsManager 
               key={`edits-${refreshKey}`}
               onRefresh={handleRefresh}
+              testFilePath={demoFilePath}
             />
           </div>
         </div>

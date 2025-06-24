@@ -1,7 +1,18 @@
 import * as mm from 'music-metadata';
-import * as NodeID3 from 'node-id3';
+// import NodeID3 from 'node-id3';
 import { promises as fs } from 'fs';
 import path from 'path';
+
+// Try dynamic import for node-id3 to handle CommonJS/ESM issues
+const getNodeID3 = async () => {
+  try {
+    const NodeID3 = await import('node-id3');
+    return NodeID3.default || NodeID3;
+  } catch (error) {
+    console.error('[MP3Manager] Failed to import NodeID3:', error);
+    throw new Error('Failed to load node-id3 library');
+  }
+};
 
 export interface MP3Metadata {
   filePath: string;
@@ -74,26 +85,63 @@ export class MP3MetadataManager {
    * Write comment to MP3 file
    */
   async writeComment(filePath: string, comment: string): Promise<void> {
+    console.log(`[MP3Manager] Starting writeComment for: ${filePath}`);
+    console.log(`[MP3Manager] Comment to write: "${comment}"`);
+    
     try {
       // Check if file exists
+      console.log(`[MP3Manager] Checking file access: ${filePath}`);
       await fs.access(filePath);
+      console.log(`[MP3Manager] File access confirmed: ${filePath}`);
+      
+      // Get file stats for additional validation
+      const stats = await fs.stat(filePath);
+      console.log(`[MP3Manager] File stats:`, {
+        size: stats.size,
+        isFile: stats.isFile(),
+        mode: stats.mode.toString(8)
+      });
+      
+      // Dynamically import NodeID3
+      console.log(`[MP3Manager] Loading NodeID3...`);
+      const NodeID3 = await getNodeID3();
+      console.log(`[MP3Manager] NodeID3 loaded:`, NodeID3);
+      console.log(`[MP3Manager] NodeID3.update type:`, typeof NodeID3.update);
+      console.log(`[MP3Manager] Available NodeID3 methods:`, Object.keys(NodeID3));
       
       // Prepare ID3 tags with only the comment field
-      const tags: NodeID3.Tags = {
+      const tags: any = {
         comment: {
           language: 'eng',
           text: comment
         }
       };
       
+      console.log(`[MP3Manager] Prepared tags:`, tags);
+      console.log(`[MP3Manager] Calling NodeID3.update...`);
+      
       // Write only the comment tag
       const success = NodeID3.update(tags, filePath);
       
+      console.log(`[MP3Manager] NodeID3.update result:`, success);
+      
       if (!success) {
-        throw new Error('Failed to write comment to MP3 file');
+        const errorMsg = 'NodeID3.update returned false - failed to write comment to MP3 file';
+        console.error(`[MP3Manager] ${errorMsg}`);
+        throw new Error(errorMsg);
       }
+      
+      console.log(`[MP3Manager] Successfully wrote comment to: ${filePath}`);
     } catch (error) {
-      throw new Error(`Failed to write MP3 comment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMsg = `Failed to write MP3 comment: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`[MP3Manager] Error in writeComment:`, error);
+      console.error(`[MP3Manager] Error details:`, {
+        filePath,
+        comment,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw new Error(errorMsg);
     }
   }
   
