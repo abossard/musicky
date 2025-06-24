@@ -107,6 +107,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <Link href="/mp3-demo" label="MP3 Tags Demo" onClick={handleNavLinkClick} />
           <Link href="/mp3-library" label="MP3 Library" onClick={handleNavLinkClick} />
           <Link href="/review-changes" label="Review changes" onClick={handleNavLinkClick} />
+          <Link href="/settings" label="Settings" onClick={handleNavLinkClick} />
         </Stack>
       </AppShell.Navbar>
 
