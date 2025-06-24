@@ -22,6 +22,47 @@
   border: 1px solid rgba(255, 107, 107, 0.3);
 }
 
+/* DataTable row styling */
+.updating {
+  opacity: 0.6;
+  background-color: rgba(255, 212, 59, 0.1) !important;
+}
+
+.has-pending {
+  background-color: rgba(255, 146, 43, 0.1) !important;
+}
+
+/* Artwork styling for DataTable */
+.artwork-thumbnail {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #2e2e2e;
+}
+
+.artwork-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.artwork-placeholder {
+  font-size: 20px;
+  color: #666;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Legacy table styles - keeping for reference but not used with DataTable
 .error-dismiss {
   margin-left: 10px;
   background: none;
@@ -57,7 +98,9 @@
   margin-bottom: 20px;
   color: #c1c2c5;
 }
+*/
 
+/* Legacy table styles - commented out as we now use DataTable
 .mp3-table-container {
   overflow-x: auto;
   border: 1px solid #373a40;
@@ -103,7 +146,9 @@
 .mp3-table tr.has-pending {
   background-color: rgba(255, 146, 43, 0.1);
 }
+*/
 
+/* Legacy table cell styles - commented out as we now use DataTable
 .file-name-cell {
   max-width: 200px;
 }
@@ -214,8 +259,9 @@
   color: #868e96;
   cursor: not-allowed;
 }
+*/
 
-/* Artwork styling */
+/* Legacy artwork and responsive styles - commented out as we now use DataTable
 .artwork-cell {
   width: 60px;
   padding: 8px;
@@ -245,13 +291,11 @@
   text-align: center;
 }
 
-/* Action buttons styling */
 .no-pending-text {
   color: #666;
   font-size: 12px;
 }
 
-/* Responsive design */
 @media (max-width: 1024px) {
   .mp3-library {
     max-width: 100%;
@@ -292,3 +336,4 @@
     gap: 4px;
   }
 }
+*/

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Checkbox } from '@mantine/core';
+import { Checkbox, Stack, Group, Badge, Text, Button, Box, Image, ActionIcon } from '@mantine/core';
+import { DataTable } from 'mantine-datatable';
+import { IconMusic, IconApps, IconX } from '@tabler/icons-react';
 import type { MP3Metadata, PendingEdit } from '../lib/mp3-metadata';
 import { onGetAllMP3Files, onUpdateFilePhases, onGetPendingEdits, onApplyPendingEdit, onRejectPendingEdit, onGetSingleMP3File } from './MP3Library.telefunc';
 import { onGetPhases } from './Settings.telefunc';
@@ -176,137 +178,195 @@ export function MP3Library({}: MP3LibraryProps) {
     setError(null);
   };
 
+  // Helper function to format genre array as string
+  const formatGenre = (genre?: string[]) => {
+    if (!genre || genre.length === 0) return '—';
+    return genre.join(', ');
+  };
+
+  // Helper function to format track number
+  const formatTrack = (track?: { no: number | null; of: number | null }) => {
+    if (!track || !track.no) return '—';
+    if (track.of) return `${track.no}/${track.of}`;
+    return track.no.toString();
+  };
+
+  // Helper function to get filename from path
+  const getFileName = (filePath: string) => {
+    return filePath.split('/').pop() || filePath;
+  };
+
   if (loading) {
     return (
-      <div className="mp3-library">
-        <p>Loading MP3 library...</p>
-      </div>
+      <Stack gap="md" className="mp3-library">
+        <Text>Loading MP3 library...</Text>
+      </Stack>
     );
   }
 
+  const columns = [
+    {
+      accessor: 'artworkDataUrl',
+      title: 'Album Art',
+      width: 80,
+      render: ({ artworkDataUrl }: MP3Metadata) => (
+        <Box className="artwork-thumbnail">
+          {artworkDataUrl ? (
+            <Image
+              src={artworkDataUrl}
+              alt="Album artwork"
+              className="artwork-image"
+              w={50}
+              h={50}
+              fit="cover"
+              radius="sm"
+            />
+          ) : (
+            <Box className="artwork-placeholder">
+              <IconMusic size={20} />
+            </Box>
+          )}
+        </Box>
+      ),
+    },
+    {
+      accessor: 'title',
+      title: 'Song Name',
+      render: ({ title, filePath }: MP3Metadata) => (
+        <Text size="sm" fw={500} title={filePath}>
+          {title || getFileName(filePath)}
+        </Text>
+      ),
+    },
+    {
+      accessor: 'artist',
+      title: 'Artist',
+      render: ({ artist }: MP3Metadata) => (
+        <Text size="sm">{artist || '—'}</Text>
+      ),
+    },
+    {
+      accessor: 'genre',
+      title: 'Genre',
+      render: ({ genre }: MP3Metadata) => (
+        <Text size="sm">{formatGenre(genre)}</Text>
+      ),
+    },
+    {
+      accessor: 'phases',
+      title: 'Phases',
+      width: 250,
+      render: (file: MP3Metadata) => {
+        const pendingEdit = getFilePendingEdit(file.filePath);
+        const effectiveComment = getEffectiveComment(file.filePath, file.comment || '');
+        const currentPhases = getFilePhases(effectiveComment);
+        const isUpdating = updatingFiles.has(file.filePath);
+
+        return (
+          <Stack gap="xs">
+            {phases.map((phase) => (
+              <Checkbox
+                key={phase}
+                label={phase}
+                size="xs"
+                checked={currentPhases.includes(phase)}
+                onChange={(event) => 
+                  handlePhaseToggle(file.filePath, phase, event.currentTarget.checked)
+                }
+                disabled={isUpdating}
+              />
+            ))}
+          </Stack>
+        );
+      },
+    },
+    {
+      accessor: 'actions',
+      title: 'Actions',
+      width: 140,
+      render: (file: MP3Metadata) => {
+        const pendingEdit = getFilePendingEdit(file.filePath);
+        const isUpdating = updatingFiles.has(file.filePath);
+
+        return (
+          <Group gap="xs">
+            {pendingEdit ? (
+              <>
+                <Button
+                  size="xs"
+                  color="green"
+                  onClick={() => handleApplyEdit(pendingEdit.id)}
+                  disabled={isUpdating || !!editActions[pendingEdit.id]}
+                  loading={editActions[pendingEdit.id] === 'apply'}
+                >
+                  Apply
+                </Button>
+                <ActionIcon
+                  size="sm"
+                  color="red"
+                  onClick={() => handleRejectEdit(pendingEdit.id)}
+                  disabled={isUpdating || !!editActions[pendingEdit.id]}
+                  loading={editActions[pendingEdit.id] === 'reject'}
+                >
+                  <IconX size={14} />
+                </ActionIcon>
+              </>
+            ) : (
+              <Text size="xs" c="dimmed">No pending</Text>
+            )}
+          </Group>
+        );
+      },
+    },
+  ];
+
   return (
-    <div className="mp3-library">
-      <h3>MP3 Library</h3>
+    <Stack gap="md" className="mp3-library">
+      <Group justify="space-between">
+        <Text size="xl" fw={700}>MP3 Library</Text>
+        <Button onClick={loadData} disabled={loading} leftSection={<IconApps size={16} />}>
+          {loading ? 'Loading...' : 'Refresh'}
+        </Button>
+      </Group>
       
       {error && (
-        <div className="error-message">
-          <span>{error}</span>
-          <button onClick={dismissError} className="error-dismiss">×</button>
-        </div>
+        <Box className="error-message">
+          <Text>{error}</Text>
+          <ActionIcon onClick={dismissError} variant="subtle" color="red">
+            <IconX size={16} />
+          </ActionIcon>
+        </Box>
       )}
-      
-      <button onClick={loadData} className="refresh-button" disabled={loading}>
-        {loading ? 'Loading...' : 'Refresh'}
-      </button>
 
       {mp3Files.length === 0 ? (
-        <div className="no-files-message">
+        <Text ta="center" c="dimmed" py="xl">
           No MP3 files found. Make sure the base folder is set and contains MP3 files.
-        </div>
+        </Text>
       ) : (
-        <>
-          <div className="file-count">
+        <Box>
+          <Text size="sm" c="dimmed" mb="md">
             Found {mp3Files.length} MP3 file{mp3Files.length !== 1 ? 's' : ''}
-          </div>
+          </Text>
           
-          <div className="mp3-table-container">
-            <table className="mp3-table">
-              <thead>
-                <tr>
-                  <th>Artwork</th>
-                  <th>File Name</th>
-                  <th>Phases</th>
-                  <th>Comment</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mp3Files.map((file) => {
-                  const pendingEdit = getFilePendingEdit(file.filePath);
-                  const effectiveComment = getEffectiveComment(file.filePath, file.comment || '');
-                  const currentPhases = getFilePhases(effectiveComment);
-                  const isUpdating = updatingFiles.has(file.filePath);
-                  const hasPending = !!pendingEdit;
-
-                  return (
-                    <tr 
-                      key={file.filePath} 
-                      className={`${isUpdating ? 'updating' : ''} ${hasPending ? 'has-pending' : ''}`}
-                    >
-                      <td className="artwork-cell">
-                        <div className="artwork-thumbnail">
-                          {file.artworkDataUrl ? (
-                            <img 
-                              src={file.artworkDataUrl} 
-                              alt="Album artwork" 
-                              className="artwork-image"
-                            />
-                          ) : (
-                            <div className="artwork-placeholder">🎵</div>
-                          )}
-                        </div>
-                      </td>
-                      
-                      <td className="file-name-cell">
-                        <div className="file-name" title={file.filePath}>
-                          {file.filePath.split('/').pop() || file.filePath}
-                        </div>
-                      </td>
-                      
-                      <td className="phases-cell">
-                        <div className="phases-checkboxes">
-                          {phases.map((phase) => (
-                            <Checkbox
-                              key={phase}
-                              label={phase}
-                              checked={currentPhases.includes(phase)}
-                              onChange={(event) => 
-                                handlePhaseToggle(file.filePath, phase, event.currentTarget.checked)
-                              }
-                              disabled={isUpdating}
-                            />
-                          ))}
-                        </div>
-                      </td>
-                      
-                      <td className="comment-cell">
-                        <div className={`comment-content ${hasPending ? 'comment-pending' : ''}`}>
-                          {effectiveComment || '(no comment)'}
-                        </div>
-                      </td>
-                      
-                      <td className="actions-cell">
-                        <div className="action-buttons">
-                          {pendingEdit ? (
-                            <>
-                              <button
-                                className="action-button apply-button"
-                                onClick={() => handleApplyEdit(pendingEdit.id)}
-                                disabled={isUpdating || !!editActions[pendingEdit.id]}
-                              >
-                                {editActions[pendingEdit.id] === 'apply' ? 'Applying...' : 'Apply'}
-                              </button>
-                              <button
-                                className="action-button reject-button"
-                                onClick={() => handleRejectEdit(pendingEdit.id)}
-                                disabled={isUpdating || !!editActions[pendingEdit.id]}
-                              >
-                                {editActions[pendingEdit.id] === 'reject' ? 'Rejecting...' : 'Reject'}
-                              </button>
-                            </>
-                          ) : (
-                            <span className="no-pending-text">No pending changes</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
+          <DataTable
+            withTableBorder
+            borderRadius="sm"
+            withColumnBorders
+            striped
+            highlightOnHover
+            records={mp3Files}
+            columns={columns}
+            rowClassName={(file) => {
+              const pendingEdit = getFilePendingEdit(file.filePath);
+              const isUpdating = updatingFiles.has(file.filePath);
+              const hasPending = !!pendingEdit;
+              
+              return `${isUpdating ? 'updating' : ''} ${hasPending ? 'has-pending' : ''}`;
+            }}
+            noRecordsText="No MP3 files found"
+          />
+        </Box>
       )}
-    </div>
+    </Stack>
   );
 }
