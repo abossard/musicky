@@ -14,6 +14,13 @@ client.exec(`
   );
 `);
 
+// Add phases column if it doesn't exist (for existing databases)
+try {
+  client.exec(`ALTER TABLE library_settings ADD COLUMN phases TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore the error
+}
+
 export const setBaseFolder = `
   INSERT INTO library_settings (id, base_folder)
   VALUES (1, ?)
