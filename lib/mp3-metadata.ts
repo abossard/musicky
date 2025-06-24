@@ -131,14 +131,10 @@ export class MP3MetadataManager {
    * Write comment to MP3 file
    */
   async writeComment(filePath: string, comment: string): Promise<void> {
-    console.log(`[MP3Manager] Starting writeComment for: ${filePath}`);
-    console.log(`[MP3Manager] Comment to write: "${comment}"`);
     
     try {
       // Check if file exists
-      console.log(`[MP3Manager] Checking file access: ${filePath}`);
       await fs.access(filePath);
-      console.log(`[MP3Manager] File access confirmed: ${filePath}`);
       
       // Get file stats for additional validation
       const stats = await fs.stat(filePath);
@@ -149,11 +145,7 @@ export class MP3MetadataManager {
       });
       
       // Dynamically import NodeID3
-      console.log(`[MP3Manager] Loading NodeID3...`);
       const NodeID3 = await getNodeID3();
-      console.log(`[MP3Manager] NodeID3 loaded:`, NodeID3);
-      console.log(`[MP3Manager] NodeID3.update type:`, typeof NodeID3.update);
-      console.log(`[MP3Manager] Available NodeID3 methods:`, Object.keys(NodeID3));
       
       // Prepare ID3 tags with only the comment field
       const tags: any = {
@@ -162,9 +154,6 @@ export class MP3MetadataManager {
           text: comment
         }
       };
-      
-      console.log(`[MP3Manager] Prepared tags:`, tags);
-      console.log(`[MP3Manager] Calling NodeID3.update...`);
       
       // Write only the comment tag
       const success = NodeID3.update(tags, filePath);

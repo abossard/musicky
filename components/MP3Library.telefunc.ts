@@ -1,7 +1,7 @@
 import { MP3Library, type MP3LibraryScan, type MP3EditHistory } from '../lib/mp3-library';
 import { saveBaseFolder, readBaseFolder, readPhases } from '../database/sqlite/queries/library-settings';
 import { fetchHistory, markHistoryReverted } from '../database/sqlite/queries/mp3-history';
-import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit, addPendingEdit } from '../database/sqlite/queries/mp3-edits';
+import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit, addPendingEdit, modifyPendingEdit, getPendingEditByFilePath } from '../database/sqlite/queries/mp3-edits';
 import { MP3MetadataManager } from '../lib/mp3-metadata';
 import type { PendingEdit } from '../lib/mp3-metadata';
 
@@ -115,17 +115,42 @@ export async function onGetAllMP3Files(): Promise<MP3LibraryScan> {
   return library.scan(base);
 }
 
+export async function onGetSingleMP3File(filePath: string): Promise<{ success: boolean; file?: any; error?: string }> {
+  try {
+    console.log(`[MP3Library] Loading metadata for single file: ${filePath}`);
+    
+    // Read the updated metadata from the file
+    const metadata = await mp3Manager.readMetadata(filePath);
+    
+    console.log(`[MP3Library] Successfully loaded metadata for: ${filePath}`);
+    return { 
+      success: true, 
+      file: metadata 
+    };
+  } catch (error) {
+    console.error(`[MP3Library] Error loading metadata for ${filePath}:`, error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to load file metadata' 
+    };
+  }
+}
+
 export async function onUpdateFilePhases(filePath: string, phases: string[]): Promise<{ success: boolean; error?: string }> {
   try {
-    // Read current metadata to get existing comment
-    const metadata = await mp3Manager.readMetadata(filePath);
-    const currentComment = metadata.comment || '';
+    // Check if there's already a pending edit for this file
+    const existingPendingEdit = getPendingEditByFilePath(filePath);
     
-    // Parse existing hashtags and non-phase content
+    // Read current metadata to get the original comment (if no pending edit exists)
+    const metadata = await mp3Manager.readMetadata(filePath);
+    const originalComment = existingPendingEdit ? existingPendingEdit.originalComment : (metadata.comment || '');
+    
+    // Parse existing hashtags and non-phase content from the original comment
     const availablePhases = readPhases();
-    const existingTags = currentComment.match(/#\w+/g) || [];
+    const commentText = originalComment || '';
+    const existingTags = commentText.match(/#\w+/g) || [];
     const nonPhaseTags = existingTags.filter(tag => !availablePhases.includes(tag.slice(1)));
-    const nonTagContent = currentComment.replace(/#\w+/g, '').trim();
+    const nonTagContent = commentText.replace(/#\w+/g, '').trim();
     
     // Build new comment with selected phases and existing non-phase content
     const phaseTags = phases.map(phase => `#${phase}`);
@@ -143,12 +168,17 @@ export async function onUpdateFilePhases(filePath: string, phases: string[]): Pr
     
     const newComment = newCommentParts.join(' ').trim();
     
-    // Instead of writing directly, create a pending edit
-    addPendingEdit(filePath, currentComment, newComment);
+    if (existingPendingEdit) {
+      // Update the existing pending edit
+      modifyPendingEdit(existingPendingEdit.id, newComment);
+    } else {
+      // Create a new pending edit
+      addPendingEdit(filePath, originalComment, newComment);
+    }
     
     return { success: true };
   } catch (error) {
-    console.error(`Error creating pending edit for ${filePath}:`, error);
+    console.error(`Error creating/updating pending edit for ${filePath}:`, error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
