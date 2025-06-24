@@ -63,3 +63,17 @@ export function getPendingEditById(id: number): PendingEdit | null {
     status: row.status
   };
 }
+
+export function getPendingEditByFilePath(filePath: string): PendingEdit | null {
+  const stmt = db().prepare("SELECT id, file_path, original_comment, new_comment, created_at, status FROM mp3_pending_edits WHERE file_path = ? AND status = 'pending'");
+  const row = stmt.get(filePath) as any;
+  if (!row) return null;
+  return {
+    id: row.id,
+    filePath: row.file_path,
+    originalComment: row.original_comment,
+    newComment: row.new_comment,
+    createdAt: row.created_at,
+    status: row.status
+  };
+}

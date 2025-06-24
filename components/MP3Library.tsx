@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Checkbox } from '@mantine/core';
 import type { MP3Metadata, PendingEdit } from '../lib/mp3-metadata';
-import { onGetAllMP3Files, onUpdateFilePhases, onGetPendingEdits, onApplyPendingEdit, onRejectPendingEdit } from './MP3Library.telefunc';
+import { onGetAllMP3Files, onUpdateFilePhases, onGetPendingEdits, onApplyPendingEdit, onRejectPendingEdit, onGetSingleMP3File } from './MP3Library.telefunc';
 import { onGetPhases } from './Settings.telefunc';
 import './MP3Library.css';
 
@@ -43,6 +43,26 @@ export function MP3Library({}: MP3LibraryProps) {
       setPendingEdits(edits);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to refresh pending edits');
+    }
+  };
+
+  const updateSingleFile = async (filePath: string) => {
+    try {
+      console.log(`[MP3Library] Updating metadata for file: ${filePath}`);
+      const result = await onGetSingleMP3File(filePath);
+      
+      if (result.success && result.file) {
+        setMp3Files(prev => prev.map(file => 
+          file.filePath === filePath ? result.file : file
+        ));
+        console.log(`[MP3Library] Successfully updated metadata for: ${filePath}`);
+      } else {
+        console.warn(`[MP3Library] Failed to update file metadata: ${result.error}`);
+        setError(result.error || 'Failed to update file metadata');
+      }
+    } catch (err) {
+      console.error(`[MP3Library] Error updating single file:`, err);
+      setError(err instanceof Error ? err.message : 'Failed to update file metadata');
     }
   };
 
@@ -104,9 +124,20 @@ export function MP3Library({}: MP3LibraryProps) {
   const handleApplyEdit = async (editId: number) => {
     setEditActions(prev => ({ ...prev, [editId]: 'apply' }));
     try {
+      // Find the edit to get the file path before applying
+      const edit = pendingEdits.find(e => e.id === editId);
+      if (!edit) {
+        setError('Edit not found');
+        return;
+      }
+      
       const result = await onApplyPendingEdit(editId);
       if (result.success) {
-        await refreshPendingEdits();
+        // Refresh pending edits AND update the affected file's metadata
+        await Promise.all([
+          refreshPendingEdits(),
+          updateSingleFile(edit.filePath)
+        ]);
       } else {
         setError(result.error || 'Failed to apply edit');
       }
