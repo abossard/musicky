@@ -70,11 +70,12 @@ musicky/
 - **Search & Filter**: Real-time search with extension filtering
 - **Multiple Selection**: Single or multi-file selection modes
 - **Responsive**: Works seamlessly on desktop and mobile
+- **Keyboard Friendly**: Navigate files with arrow keys and Enter
 
 ### 🎨 UI/UX
 - **Modern Design**: Clean, music-focused interface
 - **Dark Theme**: Default dark theme with Mantine components
-- **Accessibility**: ARIA labels and keyboard navigation
+- **Accessibility**: ARIA labels and full keyboard navigation
 - **Performance**: Efficient rendering and state management
 
 ## 🔧 Key Components
@@ -149,7 +150,6 @@ npm run type-check # Run TypeScript checks
 - File preview functionality
 - Drag and drop support
 - Custom icons (when icon package issues are resolved)
-- Keyboard navigation shortcuts
 
 ### Additional Features
 - Music library indexing

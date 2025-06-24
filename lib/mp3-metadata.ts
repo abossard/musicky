@@ -82,7 +82,6 @@ export class MP3MetadataManager {
       const tags: NodeID3.Tags = {
         comment: {
           language: 'eng',
-          shortText: '',
           text: comment
         }
       };

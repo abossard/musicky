@@ -4,16 +4,40 @@ import type { MP3Metadata } from '../lib/mp3-metadata';
 
 interface MP3MetadataViewerProps {
   filePath: string;
+  availableTags?: string[];
   onPendingEditAdded?: () => void;
 }
 
-export function MP3MetadataViewer({ filePath, onPendingEditAdded }: MP3MetadataViewerProps) {
+export function MP3MetadataViewer({ filePath, availableTags = [], onPendingEditAdded }: MP3MetadataViewerProps) {
   const [metadata, setMetadata] = useState<MP3Metadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const extractTags = (comment: string): string[] => {
+    const regex = /#(\w+)/g;
+    const tags: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(comment))) {
+      tags.push(match[1]);
+    }
+    return tags;
+  };
+
+  const updateTag = (tag: string) => {
+    const tags = new Set(extractTags(newComment));
+    if (tags.has(tag)) {
+      tags.delete(tag);
+    } else {
+      tags.add(tag);
+    }
+    const baseText = newComment.replace(/#\w+/g, '').trim();
+    const tagString = Array.from(tags).map(t => `#${t}`).join(' ');
+    const combined = `${baseText} ${tagString}`.trim();
+    setNewComment(combined);
+  };
 
   useEffect(() => {
     loadMetadata();
@@ -103,6 +127,20 @@ export function MP3MetadataViewer({ filePath, onPendingEditAdded }: MP3MetadataV
                 rows={3}
                 placeholder="Enter comment..."
               />
+              {availableTags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map(tag => (
+                    <label key={tag} className="flex items-center space-x-1 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={extractTags(newComment).includes(tag)}
+                        onChange={() => updateTag(tag)}
+                      />
+                      <span>#{tag}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
               <div className="flex space-x-2">
                 <button
                   onClick={handleSaveComment}
@@ -124,6 +162,13 @@ export function MP3MetadataViewer({ filePath, onPendingEditAdded }: MP3MetadataV
             <div className="flex items-start space-x-2">
               <div className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-md min-h-[2.5rem]">
                 {metadata.comment || <span className="text-gray-400">No comment</span>}
+                {extractTags(metadata.comment || '').length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {extractTags(metadata.comment || '').map(t => (
+                      <span key={t} className="text-xs bg-blue-100 text-blue-800 px-1 rounded">#{t}</span>
+                    ))}
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => setEditingComment(true)}
