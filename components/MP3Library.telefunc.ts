@@ -1,7 +1,7 @@
 import { MP3Library, type MP3LibraryScan, type MP3EditHistory } from '../lib/mp3-library';
 import { saveBaseFolder, readBaseFolder, readPhases } from '../database/sqlite/queries/library-settings';
 import { fetchHistory, markHistoryReverted } from '../database/sqlite/queries/mp3-history';
-import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit } from '../database/sqlite/queries/mp3-edits';
+import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit, addPendingEdit, modifyPendingEdit } from '../database/sqlite/queries/mp3-edits';
 import { MP3MetadataManager } from '../lib/mp3-metadata';
 import type { PendingEdit } from '../lib/mp3-metadata';
 
@@ -113,6 +113,56 @@ export async function onGetAllMP3Files(): Promise<MP3LibraryScan> {
   const base = readBaseFolder();
   if (!base) throw new Error('Base folder not set');
   return library.scan(base);
+}
+
+export async function onCreatePendingPhaseEdit(filePath: string, phases: string[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Read current metadata to get existing comment
+    const metadata = await mp3Manager.readMetadata(filePath);
+    const currentComment = metadata.comment || '';
+    
+    // Parse existing hashtags and non-phase content
+    const availablePhases = readPhases();
+    const existingTags = currentComment.match(/#\w+/g) || [];
+    const nonPhaseTags = existingTags.filter(tag => !availablePhases.includes(tag.slice(1)));
+    const nonTagContent = currentComment.replace(/#\w+/g, '').trim();
+    
+    // Build new comment with selected phases and existing non-phase content
+    const phaseTags = phases.map(phase => `#${phase}`);
+    const newCommentParts = [];
+    
+    if (nonTagContent) {
+      newCommentParts.push(nonTagContent);
+    }
+    
+    // Add non-phase tags back
+    newCommentParts.push(...nonPhaseTags);
+    
+    // Add selected phase tags
+    newCommentParts.push(...phaseTags);
+    
+    const newComment = newCommentParts.join(' ').trim();
+    
+    // Check if there's already a pending edit for this file
+    const existingEdits = getAllPendingEdits();
+    const existingEdit = existingEdits.find(edit => edit.filePath === filePath && edit.status === 'pending');
+    
+    if (existingEdit) {
+      // Update the existing pending edit with the new comment
+      modifyPendingEdit(existingEdit.id, newComment);
+    } else {
+      // Create a new pending edit
+      addPendingEdit(filePath, currentComment, newComment);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error(`Error creating pending phase edit for ${filePath}:`, error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
 }
 
 export async function onUpdateFilePhases(filePath: string, phases: string[]): Promise<{ success: boolean; error?: string }> {
