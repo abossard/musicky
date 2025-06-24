@@ -2,6 +2,7 @@ import * as mm from 'music-metadata';
 // import NodeID3 from 'node-id3';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { artworkCache } from './artwork-cache';
 
 // Try dynamic import for node-id3 to handle CommonJS/ESM issues
 const getNodeID3 = async () => {
@@ -13,6 +14,16 @@ const getNodeID3 = async () => {
     throw new Error('Failed to load node-id3 library');
   }
 };
+
+export interface AlbumArtwork {
+  mime: string;
+  type: {
+    id: number;
+    name: string;
+  };
+  description?: string;
+  imageBuffer: Buffer;
+}
 
 export interface MP3Metadata {
   filePath: string;
@@ -32,6 +43,8 @@ export interface MP3Metadata {
   sampleRate?: number;
   format?: string;
   fileSize?: number;
+  artwork?: AlbumArtwork;
+  artworkDataUrl?: string; // Base64 data URL for frontend display
 }
 
 export interface PendingEdit {
@@ -74,6 +87,39 @@ export class MP3MetadataManager {
         format: metadata.format.container,
         fileSize: stats.size
       };
+      
+      // Try to get artwork from cache first
+      try {
+        await artworkCache.init(); // Ensure cache is initialized
+        
+        const cached = await artworkCache.get(filePath, {
+          size: stats.size,
+          mtime: stats.mtime
+        });
+        
+        if (cached) {
+          // Use cached artwork
+          result.artwork = cached.artwork;
+          result.artworkDataUrl = cached.dataUrl;
+        } else {
+          // Extract artwork and cache it
+          const artworkInfo = await this.extractArtworkUncached(filePath);
+          if (artworkInfo) {
+            const dataUrl = this.createDataUrl(artworkInfo);
+            result.artwork = artworkInfo;
+            result.artworkDataUrl = dataUrl;
+            
+            // Cache the artwork
+            await artworkCache.set(filePath, {
+              size: stats.size,
+              mtime: stats.mtime
+            }, artworkInfo, dataUrl);
+          }
+        }
+      } catch (artworkError) {
+        console.warn(`[MP3Manager] Failed to extract/cache artwork from ${filePath}:`, artworkError);
+        // Continue without artwork - not a critical error
+      }
       
       return result;
     } catch (error) {
@@ -165,6 +211,50 @@ export class MP3MetadataManager {
     }
     
     return undefined;
+  }
+
+  /**
+   * Extract artwork from MP3 file using node-id3
+   */
+  private async extractArtworkUncached(filePath: string): Promise<AlbumArtwork | null> {
+    try {
+      const NodeID3 = await getNodeID3();
+      
+      // Read only the APIC (image) tag to avoid loading all metadata
+      const tags = NodeID3.read(filePath, {
+        include: ['APIC'],
+        noRaw: true
+      });
+      
+      if (tags && tags.image) {
+        const imageData = tags.image;
+        
+        // Handle both single image and array of images
+        const artwork = Array.isArray(imageData) ? imageData[0] : imageData;
+        
+        if (artwork && artwork.imageBuffer) {
+          return {
+            mime: artwork.mime || 'image/jpeg',
+            type: artwork.type || { id: 3, name: 'front cover' },
+            description: artwork.description,
+            imageBuffer: artwork.imageBuffer
+          };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn(`[MP3Manager] Failed to extract artwork with node-id3:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Create data URL from artwork for frontend display
+   */
+  private createDataUrl(artwork: AlbumArtwork): string {
+    const base64 = artwork.imageBuffer.toString('base64');
+    return `data:${artwork.mime};base64,${base64}`;
   }
 
   /**

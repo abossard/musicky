@@ -12,6 +12,7 @@
     "@fastify/static": "^8.2.0",
     "@mantine/core": "^8.1.1",
     "@mantine/hooks": "^8.1.1",
+    "@mantine/notifications": "^8.1.1",
     "@tabler/icons-react": "^3.34.0",
     "@universal-middleware/core": "^0.4.8",
     "@universal-middleware/fastify": "^0.5.19",

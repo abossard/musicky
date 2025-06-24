@@ -1,4 +1,5 @@
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 import { 
   AppShell, 
   Burger,
@@ -11,6 +12,7 @@ import {
   Badge,
   Flex
 } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 import { useState, useEffect } from "react";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import theme from "./theme.js";
@@ -141,6 +143,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 export default function LayoutDefault({ children }: { children: React.ReactNode }) {
   return (
     <MantineProvider theme={theme} defaultColorScheme="dark">
+      <Notifications />
       <StatusProvider>
         <LayoutContent>{children}</LayoutContent>
       </StatusProvider>
