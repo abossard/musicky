@@ -1,6 +1,5 @@
-import React from 'react';
 import type { PendingEdit } from '../lib/mp3-metadata';
-import { getStatusClasses, getButtonClasses, getTestResultClasses, formatTestResults } from '../lib/pending-edits-utils';
+import { getStatusClasses, getButtonClasses, formatTestResults } from '../lib/pending-edits-utils';
 
 // Pure render functions for UI components
 
@@ -12,6 +11,7 @@ export const renderErrorState = (error: string, onRetry: () => void) => (
   <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
     <p className="text-red-700 whitespace-pre-line">Error: {error}</p>
     <button 
+      type="button"
       onClick={onRetry}
       className={getButtonClasses('danger')}
     >
@@ -48,6 +48,7 @@ export const renderLastError = (
         </p>
       </div>
       <button
+        type="button"
         onClick={onClear}
         className="ml-3 text-red-400 hover:text-red-600"
         aria-label="Clear error"
@@ -59,7 +60,6 @@ export const renderLastError = (
 );
 
 interface TestPanelProps {
-  testFilePath: string;
   testing: boolean;
   testResults: Array<{ name: string; success: boolean; error?: string; details?: any }>;
   onRunTest: (type: 'comment' | 'workflow') => void;
@@ -67,7 +67,6 @@ interface TestPanelProps {
 }
 
 export const renderTestPanel = ({
-  testFilePath,
   testing,
   testResults,
   onRunTest,
@@ -79,6 +78,7 @@ export const renderTestPanel = ({
     </h4>
     <div className="flex flex-wrap gap-2 mb-3">
       <button
+        type="button"
         onClick={() => onRunTest('comment')}
         disabled={testing}
         className={getButtonClasses('primary', testing)}
@@ -86,6 +86,7 @@ export const renderTestPanel = ({
         {testing ? 'Testing...' : 'Test Comment Writing'}
       </button>
       <button
+        type="button"
         onClick={() => onRunTest('workflow')}
         disabled={testing}
         className={getButtonClasses('primary', testing)}
@@ -94,6 +95,7 @@ export const renderTestPanel = ({
       </button>
       {testResults.length > 0 && (
         <button
+          type="button"
           onClick={onClearResults}
           className={getButtonClasses('secondary')}
         >
@@ -158,12 +160,14 @@ export const renderEditingForm = ({ comment, onChange, onSave, onCancel }: Editi
     />
     <div className="flex space-x-1">
       <button
+        type="button"
         onClick={onSave}
         className={getButtonClasses('primary')}
       >
         Save
       </button>
       <button
+        type="button"
         onClick={onCancel}
         className={getButtonClasses('secondary')}
       >
@@ -250,6 +254,7 @@ export const renderEditItem = ({
       <div className="flex flex-col space-y-1">
         {!isEditing && (
           <button
+            type="button"
             onClick={() => onStartEdit(edit)}
             className={getButtonClasses('primary')}
           >
@@ -257,6 +262,7 @@ export const renderEditItem = ({
           </button>
         )}
         <button
+          type="button"
           onClick={() => onDelete(edit.id)}
           className={getButtonClasses('danger')}
         >
@@ -301,6 +307,7 @@ export const renderHeader = ({
       </label>
       
       <button
+        type="button"
         onClick={onApplyEdits}
         disabled={applying}
         className={getButtonClasses('success', applying)}
