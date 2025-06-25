@@ -31,21 +31,26 @@ export function ProgressBar({
   onSeek,
   mb
 }: ProgressBarProps) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragTime, setDragTime] = useState(0);
+  const [seekingTo, setSeekingTo] = useState<number | null>(null);
 
-  const displayTime = isDragging ? dragTime : currentTime;
+  const displayTime = seekingTo ?? currentTime;
   const marks = generateMarks(duration);
 
   const handleChange = useCallback((value: number) => {
-    setIsDragging(true);
-    setDragTime(value);
+    setSeekingTo(value);
   }, []);
 
   const handleChangeEnd = useCallback((value: number) => {
-    setIsDragging(false);
+    // Keep showing the target position until seek is complete
     onSeek(value);
   }, [onSeek]);
+
+  // Clear seeking state when currentTime catches up to target
+  React.useEffect(() => {
+    if (seekingTo !== null && Math.abs(currentTime - seekingTo) < 0.5) {
+      setSeekingTo(null);
+    }
+  }, [currentTime, seekingTo]);
 
   return (
     <Box mb={mb}>
@@ -61,7 +66,7 @@ export function ProgressBar({
 
       {/* Slider */}
       <Slider
-        value={isDragging ? dragTime : currentTime}
+        value={seekingTo ?? currentTime}
         min={0}
         max={duration || 100}
         step={0.1}

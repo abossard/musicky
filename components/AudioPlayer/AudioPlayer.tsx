@@ -66,12 +66,8 @@ export function AudioPlayer({
 
   // Seeking functionality
   const seekTo = useCallback(async (time: number) => {
-    dispatch({ type: 'SEEK_START' });
-    
     const command = createSeekCommand(time, state.duration);
     await executeCommand(audioRef.current, command);
-    
-    setTimeout(() => dispatch({ type: 'SEEK_END' }), 100);
   }, [state.duration]);
 
   // Volume control
