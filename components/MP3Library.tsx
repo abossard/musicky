@@ -5,6 +5,9 @@ import { IconMusic, IconApps, IconX } from '@tabler/icons-react';
 import type { MP3Metadata, PendingEdit } from '../lib/mp3-metadata';
 import { onGetAllMP3Files, onUpdateFilePhases, onGetPendingEdits, onApplyPendingEdit, onRejectPendingEdit, onGetSingleMP3File } from './MP3Library.telefunc';
 import { onGetPhases } from './Settings.telefunc';
+import { useAudioQueue } from '../hooks/useAudioQueue';
+import { GlobalAudioPlayer } from './GlobalAudioPlayer';
+import { PlayButton } from './PlayButton';
 import './MP3Library.css';
 
 interface MP3LibraryProps {}
@@ -17,6 +20,9 @@ export function MP3Library({}: MP3LibraryProps) {
   const [error, setError] = useState<string | null>(null);
   const [updatingFiles, setUpdatingFiles] = useState<Set<string>>(new Set());
   const [editActions, setEditActions] = useState<{ [key: number]: 'apply' | 'reject' }>({});
+  
+  // Audio queue management
+  const audioQueue = useAudioQueue();
 
   const loadData = async () => {
     try {
@@ -206,6 +212,20 @@ export function MP3Library({}: MP3LibraryProps) {
 
   const columns = [
     {
+      accessor: 'play',
+      title: 'Play',
+      width: 60,
+      render: (file: MP3Metadata) => (
+        <PlayButton
+          track={file}
+          isCurrentTrack={audioQueue.currentTrack?.filePath === file.filePath}
+          isPlaying={audioQueue.isPlaying}
+          onPlayTrack={audioQueue.playTrack}
+          onTogglePlayPause={audioQueue.togglePlayPause}
+        />
+      ),
+    },
+    {
       accessor: 'artworkDataUrl',
       title: 'Album Art',
       width: 80,
@@ -328,6 +348,23 @@ export function MP3Library({}: MP3LibraryProps) {
           {loading ? 'Loading...' : 'Refresh'}
         </Button>
       </Group>
+
+      {/* Global Audio Player */}
+      <GlobalAudioPlayer
+        currentTrack={audioQueue.currentTrack}
+        isPlaying={audioQueue.isPlaying}
+        volume={audioQueue.volume}
+        onPlayPauseChange={audioQueue.setIsPlaying}
+        onVolumeChange={audioQueue.setVolume}
+        onError={(error) => {
+          console.error('Audio player error:', error);
+          setError(`Audio error: ${error}`);
+        }}
+        onEnded={() => {
+          console.log('Track ended');
+          audioQueue.setIsPlaying(false);
+        }}
+      />
       
       {error && (
         <Box className="error-message">
@@ -360,8 +397,14 @@ export function MP3Library({}: MP3LibraryProps) {
               const pendingEdit = getFilePendingEdit(file.filePath);
               const isUpdating = updatingFiles.has(file.filePath);
               const hasPending = !!pendingEdit;
+              const isCurrentTrack = audioQueue.currentTrack?.filePath === file.filePath;
               
-              return `${isUpdating ? 'updating' : ''} ${hasPending ? 'has-pending' : ''}`;
+              const classes = [];
+              if (isUpdating) classes.push('updating');
+              if (hasPending) classes.push('has-pending');
+              if (isCurrentTrack) classes.push('current-track');
+              
+              return classes.join(' ');
             }}
             noRecordsText="No MP3 files found"
           />
