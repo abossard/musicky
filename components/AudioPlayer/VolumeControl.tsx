@@ -10,11 +10,15 @@ export interface VolumeControlProps {
 export function VolumeControl({ volume, onChange }: VolumeControlProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const volumeIcons = [
+    { threshold: 0, icon: <IconVolumeOff size={16} /> },
+    { threshold: 0.33, icon: <IconVolume size={16} /> },
+    { threshold: 0.66, icon: <IconVolume2 size={16} /> },
+    { threshold: 1, icon: <IconVolume3 size={16} /> }
+  ];
+
   const getVolumeIcon = () => {
-    if (volume === 0) return <IconVolumeOff size={16} />;
-    if (volume <= 0.33) return <IconVolume size={16} />;
-    if (volume <= 0.66) return <IconVolume2 size={16} />;
-    return <IconVolume3 size={16} />;
+    return volumeIcons.find(({ threshold }) => volume <= threshold || threshold === 1)?.icon || volumeIcons[0].icon;
   };
 
   const toggleMute = () => {
