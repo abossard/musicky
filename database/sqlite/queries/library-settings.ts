@@ -3,7 +3,9 @@ import {
   setBaseFolder,
   getBaseFolder,
   setPhases,
-  getPhases
+  getPhases,
+  setKeepPlayHead,
+  getKeepPlayHead
 } from '../schema/library-settings.js';
 
 export function saveBaseFolder(folder: string): void {
@@ -33,4 +35,15 @@ export function readPhases(): string[] {
   } catch {
     return ['starter', 'buildup', 'peak', 'release', 'feature'];
   }
+}
+
+export function saveKeepPlayHead(enabled: boolean): void {
+  const stmt = db().prepare(setKeepPlayHead);
+  stmt.run(enabled ? 1 : 0);
+}
+
+export function readKeepPlayHead(): boolean {
+  const stmt = db().prepare(getKeepPlayHead);
+  const row = stmt.get() as any;
+  return row ? Boolean(row.keep_play_head) : false;
 }

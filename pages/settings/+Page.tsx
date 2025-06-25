@@ -1,48 +1,6 @@
-import { useEffect, useState } from 'react';
-import { TextInput, Button, Stack, Group, Text } from '@mantine/core';
-import { onGetPhases, onSetPhases } from '../../components/Settings.telefunc';
+import React from 'react';
+import { Settings } from '../../components/Settings';
 
 export default function SettingsPage() {
-  const [phasesStr, setPhasesStr] = useState('');
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const phases = await onGetPhases();
-      setPhasesStr(phases.join(', '));
-    })();
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const phases = phasesStr
-        .split(',')
-        .map(p => p.trim())
-        .filter(p => p.length > 0);
-      await onSetPhases(phases);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Stack gap="md">
-      <Text fw={600} size="lg">Settings</Text>
-      <TextInput
-        label="Phases (comma separated)"
-        value={phasesStr}
-        onChange={e => setPhasesStr(e.currentTarget.value)}
-      />
-      <Group>
-        <Button size="xs" onClick={handleSave} loading={saving} disabled={saving}>
-          Save
-        </Button>
-        {saved && <Text c="green">Saved!</Text>}
-      </Group>
-    </Stack>
-  );
+  return <Settings />;
 }

@@ -4,7 +4,7 @@ import { DataTable } from 'mantine-datatable';
 import { IconMusic, IconApps, IconX } from '@tabler/icons-react';
 import type { MP3Metadata, PendingEdit } from '../lib/mp3-metadata';
 import { onGetAllMP3Files, onUpdateFilePhases, onGetPendingEdits, onApplyPendingEdit, onRejectPendingEdit, onGetSingleMP3File } from './MP3Library.telefunc';
-import { onGetPhases } from './Settings.telefunc';
+import { onGetPhases, onGetKeepPlayHead } from './Settings.telefunc';
 import { useAudioQueue } from '../hooks/useAudioQueue';
 import { GlobalAudioPlayer } from './GlobalAudioPlayer';
 import { PlayButton } from './PlayButton';
@@ -23,6 +23,19 @@ export function MP3Library({}: MP3LibraryProps) {
   
   // Audio queue management
   const audioQueue = useAudioQueue();
+
+  // Load keep play head setting on mount
+  useEffect(() => {
+    const loadKeepPlayHeadSetting = async () => {
+      try {
+        const keepPlayHead = await onGetKeepPlayHead();
+        audioQueue.setKeepPlayHead(keepPlayHead);
+      } catch (error) {
+        console.error('Failed to load keep play head setting:', error);
+      }
+    };
+    loadKeepPlayHeadSetting();
+  }, [audioQueue]);
 
   const loadData = async () => {
     try {
@@ -353,8 +366,10 @@ export function MP3Library({}: MP3LibraryProps) {
         currentTrack={audioQueue.currentTrack}
         isPlaying={audioQueue.isPlaying}
         volume={audioQueue.volume}
+        savedPosition={audioQueue.savedPosition}
         onPlayPauseChange={audioQueue.setIsPlaying}
         onVolumeChange={audioQueue.setVolume}
+        onTimeUpdate={audioQueue.setCurrentTime}
         onError={(error) => {
           console.error('Audio player error:', error);
           setError(`Audio error: ${error}`);

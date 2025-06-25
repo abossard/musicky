@@ -8,8 +8,10 @@ export interface GlobalAudioPlayerProps {
   currentTrack: MP3Metadata | null;
   isPlaying: boolean;
   volume: number;
+  savedPosition?: number;
   onPlayPauseChange: (playing: boolean) => void;
   onVolumeChange: (volume: number) => void;
+  onTimeUpdate?: (time: number) => void;
   onError?: (error: string) => void;
   onEnded?: () => void;
 }
@@ -18,8 +20,10 @@ export function GlobalAudioPlayer({
   currentTrack,
   isPlaying,
   volume,
+  savedPosition,
   onPlayPauseChange,
   onVolumeChange,
+  onTimeUpdate,
   onError,
   onEnded
 }: GlobalAudioPlayerProps) {
@@ -39,7 +43,8 @@ export function GlobalAudioPlayer({
   console.log('GlobalAudioPlayer rendering with:', {
     currentTrack: currentTrack.title || currentTrack.filePath,
     isPlaying,
-    audioSrc
+    audioSrc,
+    savedPosition
   });
 
   return (
@@ -52,8 +57,10 @@ export function GlobalAudioPlayer({
           artist={currentTrack.artist || 'Unknown Artist'}
           externalIsPlaying={isPlaying}
           externalVolume={volume}
+          initialPosition={savedPosition}
           onPlayStateChange={onPlayPauseChange}
           onVolumeChange={onVolumeChange}
+          onTimeUpdate={onTimeUpdate}
           onError={onError}
           onEnded={onEnded}
         />
