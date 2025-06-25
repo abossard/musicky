@@ -20,6 +20,8 @@ export function PlayButton({
 }: PlayButtonProps) {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent row click if this is in a table
+    console.log('PlayButton clicked for track:', track.title || track.filePath);
+    console.log('isCurrentTrack:', isCurrentTrack, 'isPlaying:', isPlaying);
     onPlayTrack(track);
   };
 

@@ -221,7 +221,6 @@ export function MP3Library({}: MP3LibraryProps) {
           isCurrentTrack={audioQueue.currentTrack?.filePath === file.filePath}
           isPlaying={audioQueue.isPlaying}
           onPlayTrack={audioQueue.playTrack}
-          onTogglePlayPause={audioQueue.togglePlayPause}
         />
       ),
     },

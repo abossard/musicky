@@ -25,9 +25,12 @@ export function useAudioQueue(): AudioQueueState & AudioQueueActions {
   });
 
   const playTrack = useCallback((track: MP3Metadata) => {
+    console.log('useAudioQueue.playTrack called with:', track.title || track.filePath);
     setState(prev => {
+      console.log('Previous state:', prev);
       // If clicking the same track, toggle play/pause
       if (prev.currentTrack?.filePath === track.filePath) {
+        console.log('Same track clicked, toggling play/pause');
         return {
           ...prev,
           isPlaying: !prev.isPlaying,
@@ -35,11 +38,12 @@ export function useAudioQueue(): AudioQueueState & AudioQueueActions {
         };
       }
       
-      // If clicking a different track, load it and play if we were playing before
+      // If clicking a different track, load it and start playing
+      console.log('Different track clicked, setting as current track and starting playback');
       return {
         ...prev,
         currentTrack: track,
-        isPlaying: prev.wasPlaying || prev.isPlaying,
+        isPlaying: true, // Always start playing when selecting a new track
         wasPlaying: prev.isPlaying
       };
     });

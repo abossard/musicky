@@ -36,6 +36,11 @@ export function GlobalAudioPlayer({
 
   // Convert file path to audio URL
   const audioSrc = `/audio/${encodeURIComponent(currentTrack.filePath)}`;
+  console.log('GlobalAudioPlayer rendering with:', {
+    currentTrack: currentTrack.title || currentTrack.filePath,
+    isPlaying,
+    audioSrc
+  });
 
   return (
     <Paper shadow="sm" p="lg" mb="md" withBorder>
