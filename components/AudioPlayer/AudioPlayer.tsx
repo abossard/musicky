@@ -11,6 +11,10 @@ export interface AudioPlayerProps {
   title?: string;
   artist?: string;
   autoPlay?: boolean;
+  externalIsPlaying?: boolean;
+  externalVolume?: number;
+  onPlayStateChange?: (isPlaying: boolean) => void;
+  onVolumeChange?: (volume: number) => void;
   onEnded?: () => void;
   onError?: (error: string) => void;
 }
@@ -30,10 +34,15 @@ export function AudioPlayer({
   title = 'Unknown Track',
   artist = 'Unknown Artist',
   autoPlay = false,
+  externalIsPlaying,
+  externalVolume,
+  onPlayStateChange,
+  onVolumeChange,
   onEnded,
   onError
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const isUpdatingRef = useRef(false); // Prevent state update loops
   
   const [state, setState] = useState<AudioState>({
     isPlaying: false,
@@ -52,20 +61,22 @@ export function AudioPlayer({
 
   // Play/pause functionality
   const togglePlayPause = useCallback(async () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || state.isLoading) return;
 
     try {
       if (state.isPlaying) {
         audioRef.current.pause();
+        // State will be updated by the 'pause' event listener
       } else {
         await audioRef.current.play();
+        // State will be updated by the 'play' event listener
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Playback failed';
-      updateState({ error: errorMessage });
+      updateState({ error: errorMessage, isPlaying: false });
       onError?.(errorMessage);
     }
-  }, [state.isPlaying, updateState, onError]);
+  }, [state.isPlaying, state.isLoading, updateState, onError]);
 
   // Seeking functionality
   const seekTo = useCallback((time: number) => {
@@ -190,6 +201,58 @@ export function AudioPlayer({
       togglePlayPause();
     }
   }, [autoPlay, state.isLoading, state.error, togglePlayPause]);
+
+  // Sync external play state
+  useEffect(() => {
+    if (externalIsPlaying !== undefined && audioRef.current && !state.isLoading && !isUpdatingRef.current) {
+      const audio = audioRef.current;
+      
+      // Only act if there's an actual difference
+      if (externalIsPlaying !== state.isPlaying && !state.isSeeking) {
+        isUpdatingRef.current = true;
+        
+        if (externalIsPlaying && audio.paused) {
+          audio.play().catch(error => {
+            const errorMessage = error instanceof Error ? error.message : 'Playback failed';
+            updateState({ error: errorMessage, isPlaying: false });
+            onError?.(errorMessage);
+          }).finally(() => {
+            isUpdatingRef.current = false;
+          });
+        } else if (!externalIsPlaying && !audio.paused) {
+          audio.pause();
+          isUpdatingRef.current = false;
+        } else {
+          isUpdatingRef.current = false;
+        }
+      }
+    }
+  }, [externalIsPlaying, state.isPlaying, state.isLoading, state.isSeeking, updateState, onError]);
+
+  // Sync external volume
+  useEffect(() => {
+    if (externalVolume !== undefined && Math.abs(externalVolume - state.volume) > 0.01) {
+      setVolume(externalVolume);
+    }
+  }, [externalVolume, state.volume, setVolume]);
+
+  // Notify parent of play state changes (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onPlayStateChange?.(state.isPlaying);
+    }, 50); // Small delay to prevent rapid fire events
+    
+    return () => clearTimeout(timer);
+  }, [state.isPlaying, onPlayStateChange]);
+
+  // Notify parent of volume changes (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onVolumeChange?.(state.volume);
+    }, 100); // Slightly longer delay for volume changes
+    
+    return () => clearTimeout(timer);
+  }, [state.volume, onVolumeChange]);
 
   return (
     <Box>

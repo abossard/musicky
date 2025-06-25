@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { vikeHandler } from "./server/vike-handler";
 import { telefuncHandler } from "./server/telefunc-handler";
 import Fastify from "fastify";
@@ -47,6 +49,49 @@ async function startServer() {
   }
 
   await app.register(createMiddleware(dbMiddleware)());
+
+  // Audio file serving route with HTTP Range support for seeking
+  app.get<{ Params: { '*': string } }>('/audio/*', async (request, reply) => {
+    try {
+      // Extract file path from URL (remove /audio/ prefix)
+      const filePath = request.params['*'];
+      if (!filePath) {
+        return reply.code(400).send({ error: 'File path required' });
+      }
+
+      // Get file stats
+      const stats = await stat(filePath);
+      const fileSize = stats.size;
+
+      // Set content type
+      reply.header('Content-Type', 'audio/mpeg');
+      reply.header('Accept-Ranges', 'bytes');
+
+      // Handle range requests for seeking support
+      const range = request.headers.range;
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = (end - start) + 1;
+
+        reply.code(206);
+        reply.header('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+        reply.header('Content-Length', chunkSize.toString());
+
+        const stream = createReadStream(filePath, { start, end });
+        return reply.send(stream);
+      } else {
+        // No range request, send entire file
+        reply.header('Content-Length', fileSize.toString());
+        const stream = createReadStream(filePath);
+        return reply.send(stream);
+      }
+    } catch (error) {
+      console.error('Error serving audio file:', error);
+      return reply.code(404).send({ error: 'File not found' });
+    }
+  });
 
   app.post<{ Body: string }>("/_telefunc", createHandler(telefuncHandler)());
 

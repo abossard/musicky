@@ -337,3 +337,13 @@
   }
 }
 */
+
+/* Current track highlighting */
+.current-track {
+  background-color: rgba(124, 58, 237, 0.1) !important;
+  border-left: 3px solid #7c3aed;
+}
+
+.current-track:hover {
+  background-color: rgba(124, 58, 237, 0.15) !important;
+}
