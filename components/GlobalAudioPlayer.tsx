@@ -55,6 +55,7 @@ export function GlobalAudioPlayer({
           src={audioSrc}
           title={currentTrack.title || 'Unknown Title'}
           artist={currentTrack.artist || 'Unknown Artist'}
+          autoPlay={true} // Always autoplay when a new track is selected
           externalIsPlaying={isPlaying}
           externalVolume={volume}
           initialPosition={savedPosition}
