@@ -393,6 +393,7 @@ export function MP3Library({}: MP3LibraryProps) {
             highlightOnHover
             records={mp3Files}
             columns={columns}
+            idAccessor="filePath"
             rowClassName={(file) => {
               const pendingEdit = getFilePendingEdit(file.filePath);
               const isUpdating = updatingFiles.has(file.filePath);
