@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { MP3Metadata } from '../lib/mp3-metadata';
 
 export interface AudioQueueState {
@@ -6,6 +6,8 @@ export interface AudioQueueState {
   isPlaying: boolean;
   wasPlaying: boolean; // Remember if we were playing when switching tracks
   volume: number;
+  keepPlayHead: boolean; // Setting to preserve playback position
+  savedPosition: number; // Stored playback position for keep play head feature
 }
 
 export interface AudioQueueActions {
@@ -14,6 +16,9 @@ export interface AudioQueueActions {
   setIsPlaying: (playing: boolean) => void;
   setVolume: (volume: number) => void;
   clearTrack: () => void;
+  setKeepPlayHead: (enabled: boolean) => void;
+  setCurrentTime: (time: number) => void;
+  getSavedPosition: () => number;
 }
 
 export function useAudioQueue(): AudioQueueState & AudioQueueActions {
@@ -21,8 +26,13 @@ export function useAudioQueue(): AudioQueueState & AudioQueueActions {
     currentTrack: null,
     isPlaying: false,
     wasPlaying: false,
-    volume: 1
+    volume: 1,
+    keepPlayHead: false,
+    savedPosition: 0
   });
+
+  // Store the current playback position when pausing or switching tracks
+  const savedPositionRef = useRef<number>(0);
 
   const playTrack = useCallback((track: MP3Metadata) => {
     console.log('useAudioQueue.playTrack called with:', track.title || track.filePath);
@@ -44,7 +54,9 @@ export function useAudioQueue(): AudioQueueState & AudioQueueActions {
         ...prev,
         currentTrack: track,
         isPlaying: true, // Always start playing when selecting a new track
-        wasPlaying: prev.isPlaying
+        wasPlaying: prev.isPlaying,
+        // If keep play head is enabled, preserve the saved position, otherwise start from beginning
+        savedPosition: prev.keepPlayHead ? savedPositionRef.current : 0
       };
     });
   }, []);
@@ -77,8 +89,30 @@ export function useAudioQueue(): AudioQueueState & AudioQueueActions {
       ...prev,
       currentTrack: null,
       isPlaying: false,
-      wasPlaying: false
+      wasPlaying: false,
+      savedPosition: 0
     }));
+    savedPositionRef.current = 0;
+  }, []);
+
+  const setKeepPlayHead = useCallback((enabled: boolean) => {
+    setState(prev => ({
+      ...prev,
+      keepPlayHead: enabled
+    }));
+  }, []);
+
+  const setCurrentTime = useCallback((time: number) => {
+    // Store the current playback position for keep play head feature
+    savedPositionRef.current = time;
+    setState(prev => ({
+      ...prev,
+      savedPosition: time
+    }));
+  }, []);
+
+  const getSavedPosition = useCallback(() => {
+    return savedPositionRef.current;
   }, []);
 
   return {
@@ -87,6 +121,9 @@ export function useAudioQueue(): AudioQueueState & AudioQueueActions {
     togglePlayPause,
     setIsPlaying,
     setVolume,
-    clearTrack
+    clearTrack,
+    setKeepPlayHead,
+    setCurrentTime,
+    getSavedPosition
   };
 }

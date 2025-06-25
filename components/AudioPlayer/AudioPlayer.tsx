@@ -13,8 +13,10 @@ export interface AudioPlayerProps {
   autoPlay?: boolean;
   externalIsPlaying?: boolean;
   externalVolume?: number;
+  initialPosition?: number;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onVolumeChange?: (volume: number) => void;
+  onTimeUpdate?: (time: number) => void;
   onEnded?: () => void;
   onError?: (error: string) => void;
 }
@@ -36,8 +38,10 @@ export function AudioPlayer({
   autoPlay = false,
   externalIsPlaying,
   externalVolume,
+  initialPosition,
   onPlayStateChange,
   onVolumeChange,
+  onTimeUpdate,
   onEnded,
   onError
 }: AudioPlayerProps) {
@@ -125,6 +129,7 @@ export function AudioPlayer({
     const handleTimeUpdate = () => {
       if (!state.isSeeking) {
         updateState({ currentTime: audio.currentTime });
+        onTimeUpdate?.(audio.currentTime);
       }
     };
 
@@ -194,6 +199,17 @@ export function AudioPlayer({
     audioRef.current.src = src;
     audioRef.current.load();
   }, [src, updateState]);
+
+  // Handle initial position for keep play head feature
+  useEffect(() => {
+    if (!audioRef.current || state.isLoading || typeof initialPosition !== 'number') return;
+    
+    // Set the initial position when the audio is ready
+    if (initialPosition > 0 && initialPosition !== state.currentTime) {
+      audioRef.current.currentTime = initialPosition;
+      updateState({ currentTime: initialPosition });
+    }
+  }, [initialPosition, state.isLoading, state.currentTime, updateState]);
 
   // Handle autoPlay
   useEffect(() => {
