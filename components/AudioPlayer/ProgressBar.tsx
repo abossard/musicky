@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { Box, Progress, Group, Text } from '@mantine/core';
+import React, { useState, useCallback } from 'react';
+import { Box, Group, Text, Slider } from '@mantine/core';
 
 export interface ProgressBarProps {
   currentTime: number;
@@ -17,6 +17,29 @@ function formatTime(seconds: number): string {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
+// Generate marks with a maximum of 10 marks
+function generateMarks(duration: number) {
+  if (!duration || duration <= 0) return [];
+  
+  const marks = [];
+  const maxMarks = 10;
+  
+  // Calculate appropriate interval to never exceed 10 marks
+  const interval = Math.ceil(duration / maxMarks / 60) * 60; // Round up to nearest minute
+  
+  // Only add marks for longer tracks
+  if (duration > 120) { // Only show marks for tracks longer than 2 minutes
+    for (let i = interval; i < duration; i += interval) {
+      marks.push({
+        value: i,
+        label: formatTime(i)
+      });
+    }
+  }
+  
+  return marks;
+}
+
 export function ProgressBar({
   currentTime,
   duration,
@@ -26,72 +49,24 @@ export function ProgressBar({
 }: ProgressBarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState(0);
-  const progressRef = useRef<HTMLDivElement>(null);
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const displayTime = isDragging ? dragTime : currentTime;
+  const marks = generateMarks(duration);
 
-  const handleClick = useCallback((event: React.MouseEvent) => {
-    if (!progressRef.current || isLoading || duration === 0) return;
-
-    const rect = progressRef.current.getBoundingClientRect();
-    const clickX = event.clientX - rect.left;
-    const percentage = clickX / rect.width;
-    const newTime = Math.max(0, Math.min(duration, percentage * duration));
-    
-    onSeek(newTime);
-  }, [duration, isLoading, onSeek]);
-
-  const handleMouseDown = useCallback((event: React.MouseEvent) => {
-    if (!progressRef.current || isLoading || duration === 0) return;
-
+  const handleChange = useCallback((value: number) => {
     setIsDragging(true);
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!progressRef.current) return;
-      
-      const rect = progressRef.current.getBoundingClientRect();
-      const moveX = e.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(1, moveX / rect.width));
-      const newTime = percentage * duration;
-      
-      setDragTime(newTime);
-    };
+    setDragTime(value);
+  }, []);
 
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      onSeek(dragTime);
-      
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    // Initial position
-    handleMouseMove(event.nativeEvent);
-  }, [duration, isLoading, onSeek, dragTime]);
+  const handleChangeEnd = useCallback((value: number) => {
+    setIsDragging(false);
+    onSeek(value);
+  }, [onSeek]);
 
   return (
     <Box mb={mb}>
-      {/* Progress bar */}
-      <Box
-        ref={progressRef}
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        className={`progress-bar-container ${isLoading || duration === 0 ? 'disabled' : ''}`}
-      >
-        <Progress
-          value={isDragging ? (dragTime / duration) * 100 : progress}
-          size="sm"
-          color="violet"
-          className={isDragging ? 'progress-bar-instant' : 'progress-bar-smooth'}
-        />
-      </Box>
-
       {/* Time display */}
-      <Group justify="space-between" mt={4}>
+      <Group justify="space-between" mb="xs">
         <Text size="xs" c="dimmed">
           {formatTime(displayTime)}
         </Text>
@@ -99,6 +74,43 @@ export function ProgressBar({
           {formatTime(duration)}
         </Text>
       </Group>
+
+      {/* Slider */}
+      <Slider
+        value={isDragging ? dragTime : currentTime}
+        min={0}
+        max={duration || 100}
+        step={0.1}
+        marks={marks}
+        disabled={isLoading || duration === 0}
+        onChange={handleChange}
+        onChangeEnd={handleChangeEnd}
+        color="violet"
+        size="sm"
+        thumbSize={27}
+        label={formatTime}
+        styles={{
+          mark: {
+            borderColor: 'rgba(255, 255, 255, 0.5)',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          },
+          markLabel: {
+            fontSize: '12px',
+            color: 'rgba(255, 255, 255, 0.8)',
+            marginTop: '8px',
+            fontWeight: 500,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            padding: '2px 4px',
+            borderRadius: '3px',
+          },
+          track: {
+            height: '6px',
+          },
+          bar: {
+            height: '6px',
+          },
+        }}
+      />
     </Box>
   );
 }
