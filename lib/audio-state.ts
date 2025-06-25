@@ -5,7 +5,6 @@ export interface AudioState {
   volume: number;
   isLoading: boolean;
   error: string | null;
-  isSeeking: boolean;
 }
 
 export type AudioAction =
@@ -14,8 +13,6 @@ export type AudioAction =
   | { type: 'PLAY' }
   | { type: 'PAUSE' }
   | { type: 'TIME_UPDATE'; currentTime: number }
-  | { type: 'SEEK_START' }
-  | { type: 'SEEK_END' }
   | { type: 'VOLUME_CHANGE'; volume: number }
   | { type: 'DURATION_CHANGE'; duration: number }
   | { type: 'ENDED' }
@@ -28,8 +25,7 @@ export const initialAudioState: AudioState = {
   duration: 0,
   volume: 1,
   isLoading: true,
-  error: null,
-  isSeeking: false
+  error: null
 };
 
 export function audioReducer(state: AudioState, action: AudioAction): AudioState {
@@ -47,13 +43,7 @@ export function audioReducer(state: AudioState, action: AudioAction): AudioState
       return { ...state, isPlaying: false };
     
     case 'TIME_UPDATE':
-      return state.isSeeking ? state : { ...state, currentTime: action.currentTime };
-    
-    case 'SEEK_START':
-      return { ...state, isSeeking: true };
-    
-    case 'SEEK_END':
-      return { ...state, isSeeking: false };
+      return { ...state, currentTime: action.currentTime };
     
     case 'VOLUME_CHANGE':
       return { ...state, volume: action.volume };
