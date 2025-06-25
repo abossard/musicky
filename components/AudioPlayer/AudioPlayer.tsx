@@ -48,6 +48,7 @@ export function AudioPlayer({
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const isUpdatingRef = useRef(false); // Prevent state update loops
+  const userActionRef = useRef(false); // Track user-initiated actions
   
   const [state, setState] = useState<AudioState>({
     isPlaying: false,
@@ -68,18 +69,31 @@ export function AudioPlayer({
   const togglePlayPause = useCallback(async () => {
     if (!audioRef.current || state.isLoading) return;
 
+    console.log('AudioPlayer.togglePlayPause called, current state.isPlaying:', state.isPlaying);
+    
+    // Mark as user action to prevent external sync interference
+    userActionRef.current = true;
+
     try {
       if (state.isPlaying) {
+        console.log('Attempting to pause audio');
         audioRef.current.pause();
         // State will be updated by the 'pause' event listener
       } else {
+        console.log('Attempting to play audio');
         await audioRef.current.play();
         // State will be updated by the 'play' event listener
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Playback failed';
+      console.error('AudioPlayer.togglePlayPause error:', errorMessage);
       updateState({ error: errorMessage, isPlaying: false });
       onError?.(errorMessage);
+    } finally {
+      // Clear user action flag after a short delay to allow state propagation
+      setTimeout(() => {
+        userActionRef.current = false;
+      }, 200);
     }
   }, [state.isPlaying, state.isLoading, updateState, onError]);
 
@@ -122,8 +136,14 @@ export function AudioPlayer({
         }
       },
       
-      play: () => updateState({ isPlaying: true }),
-      pause: () => updateState({ isPlaying: false }),
+      play: () => {
+        console.log('Audio play event fired');
+        updateState({ isPlaying: true });
+      },
+      pause: () => {
+        console.log('Audio pause event fired');
+        updateState({ isPlaying: false });
+      },
       
       timeupdate: () => {
         if (!state.isSeeking) {
@@ -201,14 +221,24 @@ export function AudioPlayer({
 
   // Sync external play state
   useEffect(() => {
-    if (externalIsPlaying !== undefined && audioRef.current && !state.isLoading && !isUpdatingRef.current) {
+    if (externalIsPlaying !== undefined && audioRef.current && !state.isLoading && !isUpdatingRef.current && !userActionRef.current) {
       const audio = audioRef.current;
+      
+      console.log('External play state sync:', {
+        externalIsPlaying,
+        stateIsPlaying: state.isPlaying,
+        audioPaused: audio.paused,
+        isSeeking: state.isSeeking,
+        userAction: userActionRef.current
+      });
       
       // Only act if there's an actual difference
       if (externalIsPlaying !== state.isPlaying && !state.isSeeking) {
         isUpdatingRef.current = true;
+        console.log('External state differs from internal state, syncing...');
         
         if (externalIsPlaying && audio.paused) {
+          console.log('External says play, audio is paused - playing');
           audio.play().catch(error => {
             const errorMessage = error instanceof Error ? error.message : 'Playback failed';
             updateState({ error: errorMessage, isPlaying: false });
@@ -217,6 +247,7 @@ export function AudioPlayer({
             isUpdatingRef.current = false;
           });
         } else if (!externalIsPlaying && !audio.paused) {
+          console.log('External says pause, audio is playing - pausing');
           audio.pause();
           isUpdatingRef.current = false;
         } else {
