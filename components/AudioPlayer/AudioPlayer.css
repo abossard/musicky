@@ -1,0 +1,23 @@
+.audio-player-hidden {
+  display: none;
+}
+
+.progress-bar-container {
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.progress-bar-container.disabled {
+  cursor: default;
+}
+
+.progress-bar-smooth {
+  transition: width 0.1s ease;
+}
+
+.progress-bar-instant {
+  transition: none;
+}
