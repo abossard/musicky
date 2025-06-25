@@ -1,5 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { onGetPhases, onSetPhases, onGetKeepPlayHead, onSetKeepPlayHead } from './Settings.telefunc';
+import { SortablePhaseItem } from './SortablePhaseItem';
 import './Settings.css';
 
 export function Settings() {
@@ -8,6 +24,18 @@ export function Settings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [keepPlayHead, setKeepPlayHead] = useState(false);
+
+  // Configure drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Minimum distance to start dragging
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     loadSettings();
@@ -85,6 +113,21 @@ export function Settings() {
     }
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = phases.indexOf(active.id as string);
+      const newIndex = phases.indexOf(over?.id as string);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reorderedPhases = arrayMove(phases, oldIndex, newIndex);
+        setPhases(reorderedPhases);
+        savePhases(reorderedPhases);
+      }
+    }
+  };
+
   if (isLoading) {
     return <div className="settings-loading">Loading settings...</div>;
   }
@@ -141,21 +184,25 @@ export function Settings() {
           {phases.length === 0 ? (
             <p className="no-phases">No phases configured yet.</p>
           ) : (
-            <ul className="phases">
-              {phases.map((phase) => (
-                <li key={phase} className="phase-item">
-                  <span className="phase-name">{phase}</span>
-                  <button
-                    onClick={() => handleRemovePhase(phase)}
-                    className="remove-phase-btn"
-                    disabled={isSaving}
-                    title={`Remove ${phase}`}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={phases} strategy={verticalListSortingStrategy}>
+                <ul className="phases">
+                  {phases.map((phase) => (
+                    <SortablePhaseItem
+                      key={phase}
+                      id={phase}
+                      phase={phase}
+                      onRemove={handleRemovePhase}
+                      disabled={isSaving}
+                    />
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
           )}
         </div>
 
