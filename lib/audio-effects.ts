@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AudioAction } from './audio-state';
 
 export function useAudioEventListeners(
-  audioRef: React.RefObject<HTMLAudioElement>,
+  audioRef: React.RefObject<HTMLAudioElement | null>,
   dispatch: React.Dispatch<AudioAction>,
   onTimeUpdate?: (time: number) => void,
   onEnded?: () => void,
@@ -49,30 +49,40 @@ export function useAudioEventListeners(
 }
 
 export function useExternalSync(
-  audioRef: React.RefObject<HTMLAudioElement>,
+  audioRef: React.RefObject<HTMLAudioElement | null>,
   externalIsPlaying: boolean | undefined,
   isPlaying: boolean,
   isLoading: boolean,
   onError?: (error: string) => void
 ) {
   const syncInProgress = useRef(false);
+  const userActionInProgress = useRef(false);
 
   useEffect(() => {
-    if (externalIsPlaying === undefined || !audioRef.current || isLoading || syncInProgress.current) {
+    if (externalIsPlaying === undefined || !audioRef.current || isLoading || syncInProgress.current || userActionInProgress.current) {
       return;
     }
 
     const audio = audioRef.current;
     const needsSync = externalIsPlaying !== isPlaying;
 
+    console.log('useExternalSync: checking sync', {
+      externalIsPlaying,
+      isPlaying,
+      needsSync,
+      userActionInProgress: userActionInProgress.current
+    });
+
     if (needsSync) {
       syncInProgress.current = true;
+      console.log('useExternalSync: syncing to external state', externalIsPlaying);
       
       const syncOperation = externalIsPlaying ? audio.play() : Promise.resolve(audio.pause());
       
       Promise.resolve(syncOperation)
         .catch(error => {
           const errorMessage = error instanceof Error ? error.message : 'Sync failed';
+          console.error('useExternalSync error:', errorMessage);
           onError?.(errorMessage);
         })
         .finally(() => {
@@ -80,6 +90,21 @@ export function useExternalSync(
         });
     }
   }, [externalIsPlaying, isPlaying, isLoading, onError]);
+
+  // Expose a way to temporarily disable sync during user actions
+  return {
+    setUserActionInProgress: (inProgress: boolean) => {
+      userActionInProgress.current = inProgress;
+      console.log('useExternalSync: user action in progress set to', inProgress);
+      if (inProgress) {
+        // Clear after a delay to allow state propagation
+        setTimeout(() => {
+          userActionInProgress.current = false;
+          console.log('useExternalSync: user action in progress cleared');
+        }, 300);
+      }
+    }
+  };
 }
 
 export function useCallbackNotifications(

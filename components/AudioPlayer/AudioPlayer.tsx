@@ -42,18 +42,27 @@ export function AudioPlayer({
   const audioRef = useRef<HTMLAudioElement>(null);
   const [state, dispatch] = useReducer(audioReducer, initialAudioState);
 
+  // Sync external play state and get control function
+  const { setUserActionInProgress } = useExternalSync(audioRef, externalIsPlaying, state.isPlaying, state.isLoading, onError);
+
   // Play/pause functionality
   const togglePlayPause = useCallback(async () => {
     if (state.isLoading) return;
+    
+    console.log('AudioPlayer.togglePlayPause called, current state.isPlaying:', state.isPlaying);
+    
+    // Prevent external sync from interfering with user action
+    setUserActionInProgress(true);
     
     const command = state.isPlaying ? createPauseCommand() : createPlayCommand();
     const error = await executeCommand(audioRef.current, command);
     
     if (error) {
+      console.error('AudioPlayer.togglePlayPause error:', error);
       dispatch({ type: 'ERROR', error });
       onError?.(error);
     }
-  }, [state.isPlaying, state.isLoading, onError]);
+  }, [state.isPlaying, state.isLoading, onError, setUserActionInProgress]);
 
   // Seeking functionality
   const seekTo = useCallback(async (time: number) => {
@@ -100,9 +109,6 @@ export function AudioPlayer({
       togglePlayPause();
     }
   }, [autoPlay, state.isLoading, state.error, state.isPlaying, togglePlayPause]);
-
-  // Sync external play state
-  useExternalSync(audioRef, externalIsPlaying, state.isPlaying, state.isLoading, onError);
 
   // Sync external volume
   useEffect(() => {
