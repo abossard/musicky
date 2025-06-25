@@ -4,6 +4,7 @@ import { IconAlertTriangle } from '@tabler/icons-react';
 import { PlayerControls } from './PlayerControls';
 import { ProgressBar } from './ProgressBar';
 import { VolumeControl } from './VolumeControl';
+import { clamp } from '../../lib/math-utils';
 import './AudioPlayer.css';
 
 export interface AudioPlayerProps {
@@ -87,7 +88,7 @@ export function AudioPlayer({
     if (!audioRef.current) return;
     
     updateState({ isSeeking: true });
-    audioRef.current.currentTime = Math.max(0, Math.min(time, state.duration));
+    audioRef.current.currentTime = clamp(time, 0, state.duration);
     
     // Clear seeking state after a short delay
     setTimeout(() => updateState({ isSeeking: false }), 100);
@@ -97,7 +98,7 @@ export function AudioPlayer({
   const setVolume = useCallback((volume: number) => {
     if (!audioRef.current) return;
     
-    const clampedVolume = Math.max(0, Math.min(1, volume));
+    const clampedVolume = clamp(volume, 0, 1);
     audioRef.current.volume = clampedVolume;
     updateState({ volume: clampedVolume });
   }, [updateState]);
@@ -107,90 +108,58 @@ export function AudioPlayer({
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleLoadStart = () => {
-      updateState({ isLoading: true, error: null });
-    };
-
-    const handleCanPlay = () => {
-      updateState({ 
-        isLoading: false, 
-        duration: audio.duration || 0 
-      });
+    const eventHandlers = {
+      loadstart: () => updateState({ isLoading: true, error: null }),
       
-      // If external state says we should be playing, start playback when ready
-      if (externalIsPlaying && audio.paused) {
-        audio.play().catch(error => {
-          const errorMessage = error instanceof Error ? error.message : 'Auto-play failed';
-          updateState({ error: errorMessage, isPlaying: false });
-          onError?.(errorMessage);
-        });
-      }
-    };
-
-    const handlePlay = () => {
-      updateState({ isPlaying: true });
-    };
-
-    const handlePause = () => {
-      updateState({ isPlaying: false });
-    };
-
-    const handleTimeUpdate = () => {
-      if (!state.isSeeking) {
-        updateState({ currentTime: audio.currentTime });
-        onTimeUpdate?.(audio.currentTime);
-      }
-    };
-
-    const handleEnded = () => {
-      updateState({ isPlaying: false, currentTime: 0 });
-      onEnded?.();
-    };
-
-    const handleError = (e: Event) => {
-      const target = e.target as HTMLAudioElement;
-      const errorMessage = target.error 
-        ? `Audio error: ${target.error.message}` 
-        : 'Unknown audio error';
+      canplay: () => {
+        updateState({ isLoading: false, duration: audio.duration || 0 });
+        if (externalIsPlaying && audio.paused) {
+          audio.play().catch(error => {
+            const errorMessage = error instanceof Error ? error.message : 'Auto-play failed';
+            updateState({ error: errorMessage, isPlaying: false });
+            onError?.(errorMessage);
+          });
+        }
+      },
       
-      updateState({ 
-        error: errorMessage, 
-        isLoading: false, 
-        isPlaying: false 
-      });
-      onError?.(errorMessage);
+      play: () => updateState({ isPlaying: true }),
+      pause: () => updateState({ isPlaying: false }),
+      
+      timeupdate: () => {
+        if (!state.isSeeking) {
+          updateState({ currentTime: audio.currentTime });
+          onTimeUpdate?.(audio.currentTime);
+        }
+      },
+      
+      ended: () => {
+        updateState({ isPlaying: false, currentTime: 0 });
+        onEnded?.();
+      },
+      
+      error: (e: Event) => {
+        const target = e.target as HTMLAudioElement;
+        const errorMessage = target.error 
+          ? `Audio error: ${target.error.message}` 
+          : 'Unknown audio error';
+        updateState({ error: errorMessage, isLoading: false, isPlaying: false });
+        onError?.(errorMessage);
+      },
+      
+      durationchange: () => updateState({ duration: audio.duration || 0 }),
+      volumechange: () => updateState({ volume: audio.volume })
     };
 
-    const handleDurationChange = () => {
-      updateState({ duration: audio.duration || 0 });
-    };
-
-    const handleVolumeChange = () => {
-      updateState({ volume: audio.volume });
-    };
-
-    // Add event listeners
-    audio.addEventListener('loadstart', handleLoadStart);
-    audio.addEventListener('canplay', handleCanPlay);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('error', handleError);
-    audio.addEventListener('durationchange', handleDurationChange);
-    audio.addEventListener('volumechange', handleVolumeChange);
+    // Add all event listeners
+    Object.entries(eventHandlers).forEach(([event, handler]) => {
+      audio.addEventListener(event, handler);
+    });
 
     // Cleanup
     return () => {
-      audio.removeEventListener('loadstart', handleLoadStart);
-      audio.removeEventListener('canplay', handleCanPlay);
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('pause', handlePause);
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('error', handleError);
-      audio.removeEventListener('durationchange', handleDurationChange);
-      audio.removeEventListener('volumechange', handleVolumeChange);
+      Object.entries(eventHandlers).forEach(([event, handler]) => {
+        audio.removeEventListener(event, handler);
+      });
     };
   }, [state.isSeeking, updateState, onEnded, onError, externalIsPlaying]);
 

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Group, Text, Slider } from '@mantine/core';
+import { formatTime } from '../../lib/format-utils';
 
 export interface ProgressBarProps {
   currentTime: number;
@@ -9,36 +10,19 @@ export interface ProgressBarProps {
   mb?: string | number;
 }
 
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
-  
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-}
 
-// Generate marks with a maximum of 10 marks
-function generateMarks(duration: number) {
-  if (!duration || duration <= 0) return [];
+const generateMarks = (duration: number) => {
+  if (!duration || duration <= 0 || duration <= 120) return [];
   
-  const marks = [];
   const maxMarks = 10;
+  const interval = Math.ceil(duration / maxMarks / 60) * 60;
+  const markCount = Math.floor(duration / interval);
   
-  // Calculate appropriate interval to never exceed 10 marks
-  const interval = Math.ceil(duration / maxMarks / 60) * 60; // Round up to nearest minute
-  
-  // Only add marks for longer tracks
-  if (duration > 120) { // Only show marks for tracks longer than 2 minutes
-    for (let i = interval; i < duration; i += interval) {
-      marks.push({
-        value: i,
-        label: formatTime(i)
-      });
-    }
-  }
-  
-  return marks;
-}
+  return Array.from({ length: markCount }, (_, i) => {
+    const value = interval * (i + 1);
+    return value < duration ? { value, label: formatTime(value) } : null;
+  }).filter(Boolean) as { value: number; label: string }[];
+};
 
 export function ProgressBar({
   currentTime,
