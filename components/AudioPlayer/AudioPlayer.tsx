@@ -116,6 +116,15 @@ export function AudioPlayer({
         isLoading: false, 
         duration: audio.duration || 0 
       });
+      
+      // If external state says we should be playing, start playback when ready
+      if (externalIsPlaying && audio.paused) {
+        audio.play().catch(error => {
+          const errorMessage = error instanceof Error ? error.message : 'Auto-play failed';
+          updateState({ error: errorMessage, isPlaying: false });
+          onError?.(errorMessage);
+        });
+      }
     };
 
     const handlePlay = () => {
@@ -183,22 +192,25 @@ export function AudioPlayer({
       audio.removeEventListener('durationchange', handleDurationChange);
       audio.removeEventListener('volumechange', handleVolumeChange);
     };
-  }, [state.isSeeking, updateState, onEnded, onError]);
+  }, [state.isSeeking, updateState, onEnded, onError, externalIsPlaying]);
 
   // Handle src changes
   useEffect(() => {
     if (!audioRef.current) return;
     
+    // Preserve the external playing state when changing tracks
+    const shouldPreservePlayingState = externalIsPlaying !== undefined ? externalIsPlaying : false;
+    
     updateState({ 
       isLoading: true, 
       error: null, 
       currentTime: 0, 
-      isPlaying: false 
+      isPlaying: shouldPreservePlayingState // Preserve external play state instead of always setting to false
     });
     
     audioRef.current.src = src;
     audioRef.current.load();
-  }, [src, updateState]);
+  }, [src, updateState, externalIsPlaying]);
 
   // Handle initial position for keep play head feature
   useEffect(() => {

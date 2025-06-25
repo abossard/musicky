@@ -48,12 +48,15 @@ export function useAudioQueue(): AudioQueueState & AudioQueueActions {
         };
       }
       
-      // If clicking a different track, load it and start playing
-      console.log('Different track clicked, setting as current track and starting playback');
+      // If clicking a different track:
+      // - If music was playing, continue playing the new track
+      // - If music was paused/stopped, start playing the new track
+      const shouldPlay = true; // Always play when selecting a new track
+      console.log('Different track clicked, setting as current track and playing');
       return {
         ...prev,
         currentTrack: track,
-        isPlaying: true, // Always start playing when selecting a new track
+        isPlaying: shouldPlay,
         wasPlaying: prev.isPlaying,
         // If keep play head is enabled, preserve the saved position, otherwise start from beginning
         savedPosition: prev.keepPlayHead ? savedPositionRef.current : 0
