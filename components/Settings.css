@@ -128,13 +128,19 @@
 
 .phase-item {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
+  gap: 8px;
   padding: 12px;
   border: 1px solid #333;
   border-radius: 4px;
   margin-bottom: 8px;
   background: #2a2a2a;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.phase-item:hover {
+  border-color: #555;
 }
 
 .phase-name {
@@ -175,4 +181,37 @@
   font-size: 14px;
   font-style: italic;
   margin-top: 10px;
+}
+
+/* Drag and Drop Styles */
+.drag-handle {
+  cursor: grab;
+  color: #666;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px;
+  margin-right: 8px;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.drag-handle:hover {
+  color: #007acc;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.phase-item.dragging {
+  opacity: 0.8;
+  transform: rotate(-1deg);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+
+.phases-list-container {
+  position: relative;
 }
