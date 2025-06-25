@@ -324,7 +324,7 @@ export function AudioPlayer({
         duration={state.duration}
         isLoading={state.isLoading}
         onSeek={seekTo}
-        mb="sm"
+        mb="xl"
       />
 
       {/* Player controls */}
