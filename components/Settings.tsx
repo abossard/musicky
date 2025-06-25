@@ -116,9 +116,10 @@ export function Settings() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
+    // Only proceed if we have a valid drop target and it's different from the source
+    if (active.id !== over?.id && over?.id) {
       const oldIndex = phases.indexOf(active.id as string);
-      const newIndex = phases.indexOf(over?.id as string);
+      const newIndex = phases.indexOf(over.id as string);
 
       if (oldIndex !== -1 && newIndex !== -1) {
         const reorderedPhases = arrayMove(phases, oldIndex, newIndex);
@@ -159,7 +160,7 @@ export function Settings() {
       
       <div className="phases-section">
         <h3>Library Phases</h3>
-        <p>Manage the phases used to organize your MP3 library.</p>
+        <p>Manage the phases used to organize your MP3 library. Drag the ⋮⋮ handle to reorder phases.</p>
         
         <div className="add-phase">
           <input
