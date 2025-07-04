@@ -144,3 +144,4 @@ sqlite.db
 test-mp3-manager.js
 sqlite*.db
 .artwork-cache/*
+scripts/capture-mp3-library.js

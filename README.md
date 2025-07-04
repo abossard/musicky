@@ -4,7 +4,35 @@ Generated with [vike.dev/new](https://vike.dev/new) ([version 450](https://www.n
 npm create vike@latest --- --react --compiled-css --mantine --telefunc --fastify --sqlite --eslint
 ```
 
+## Screenshots
+
+### Homepage
+![Homepage](screenshots/homepage.png)
+
+### File Browser
+![File Browser](screenshots/file-browser.png)
+
+### MP3 Demo
+![MP3 Demo](screenshots/mp3-demo.png)
+
+### MP3 Library
+![MP3 Library](screenshots/mp3-library.png)
+
+### Review Changes
+![Review Changes](screenshots/review-changes.png)
+
+### Audio Player
+![Audio Player](screenshots/audio-player.png)
+
+### Settings
+![Settings](screenshots/settings.png)
+
+### Todo
+![Todo](screenshots/todo.png)
+
 ## Contents
+
+* [Screenshots](#screenshots)
 
 * [React](#react)
 
