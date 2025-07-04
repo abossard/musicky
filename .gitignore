@@ -145,3 +145,6 @@ test-mp3-manager.js
 sqlite*.db
 .artwork-cache/*
 scripts/capture-mp3-library.js
+
+# Database files (keep schema, ignore data)
+database-*.sqlite
