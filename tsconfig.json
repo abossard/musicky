@@ -22,7 +22,14 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js",
+    "**/*.jsx"
+  ],
   "exclude": [
-    "dist"
+    "dist",
+    "node_modules"
   ]
 }
