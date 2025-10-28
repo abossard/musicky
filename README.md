@@ -50,7 +50,7 @@ graph TB
     end
 ```
 
-### Key Design Principles
+### 🎯 Key Design Principles
 
 - **Deep Modules**: Complex functionality hidden behind simple interfaces
 - **Information Hiding**: Implementation details abstracted from consumers  
@@ -59,12 +59,12 @@ graph TB
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 📋 Prerequisites
 
 - Node.js 18+ and npm
 - Local MP3 music collection
 
-### Installation
+### ⚙️ Installation
 
 ```bash
 # Clone and install dependencies
@@ -82,7 +82,7 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-### Production Deployment
+### 🚀 Production Deployment
 
 ```bash
 # Build for production
@@ -94,13 +94,13 @@ npm run preview
 
 ## 📱 User Guide
 
-### Setting Up Your Music Library
+### 🎵 Setting Up Your Music Library
 
 1. Navigate to **Settings** page
 2. Set your **Base Folder** to your music directory
 3. The app will automatically scan for MP3 files
 
-### Phase Tagging System
+### 🏷️ Phase Tagging System
 
 Organize your tracks using hashtag-based phases:
 
@@ -110,7 +110,7 @@ Organize your tracks using hashtag-based phases:
 - `#release` - Wind-down tracks
 - `#feature` - Special highlights
 
-### Audio Player Features
+### 🎧 Audio Player Features
 
 - **Play Control**: Click the play button next to any track
 - **Volume Control**: Adjust using the slider
@@ -129,17 +129,58 @@ Organize your tracks using hashtag-based phases:
 
 ```
 musicky/
-├── components/          # React UI components
-│   ├── MP3Library.tsx   # Main library interface
-│   └── AudioPlayer/     # Audio player components
-├── lib/                 # Business logic and utilities
-│   ├── music-data-service.ts    # Centralized data management
-│   ├── mp3-business-logic.ts    # Pure business functions
-│   └── error-manager.ts         # Error handling system
-├── hooks/               # React hooks
-│   └── use-music-library.ts     # Simplified data hooks
-├── database/            # SQLite schema and queries
-└── pages/              # Vike page components
+├── api/                    # Telefunc API endpoints
+│   └── file-browser.telefunc.ts
+├── assets/                 # Static assets
+│   └── logo.svg
+├── components/             # React UI components
+│   ├── AudioPlayer/        # Audio player components
+│   │   ├── AudioPlayer.tsx
+│   │   ├── PlayerControls.tsx
+│   │   ├── ProgressBar.tsx
+│   │   └── VolumeControl.tsx
+│   ├── FileBrowser.tsx     # File browser component
+│   ├── MP3Library.tsx      # Main library interface
+│   ├── Settings.tsx        # Settings management
+│   └── GlobalAudioPlayer.tsx # Global audio player
+├── contexts/               # React contexts
+│   └── StatusContext.tsx   # Global status management
+├── database/               # SQLite database
+│   ├── sqlite/             # Database configuration
+│   │   ├── db.ts          # Database connection
+│   │   ├── queries/       # SQL queries
+│   │   └── schema/        # Database schemas
+│   └── schema/            # Data schemas
+├── hooks/                  # Custom React hooks
+│   ├── use-music-library.ts # Music library hooks
+│   ├── useAudioQueue.ts    # Audio queue management
+│   └── useStatus.ts        # Status context hook
+├── layouts/                # Page layouts
+│   ├── LayoutDefault.tsx   # Main layout with sidebar
+│   └── theme.ts           # Mantine theme configuration
+├── lib/                    # Business logic and utilities
+│   ├── music-data-service.ts # Centralized data management
+│   ├── mp3-business-logic.ts # Pure business functions
+│   ├── error-manager.ts     # Error handling system
+│   ├── file-browser.ts      # File system operations
+│   └── audio-*.ts          # Audio-related utilities
+├── pages/                  # Vike page components
+│   ├── index/             # Homepage
+│   ├── mp3-library/       # MP3 library page
+│   ├── file-browser/      # File browser demo
+│   ├── audio-player/      # Audio player page
+│   ├── settings/          # Settings page
+│   ├── review-changes/    # Review changes page
+│   └── todo/             # Todo example
+├── scripts/               # Build and utility scripts
+│   └── capture-screenshots.js
+├── server/                # Server configuration
+│   ├── db-middleware.ts   # Database middleware
+│   ├── telefunc-handler.ts # Telefunc handler
+│   └── vike-handler.ts    # Page rendering
+├── screenshots/           # Application screenshots
+└── tests/                # Test files
+    └── mp3-metadata.test.ts
 ```
 
 ## 🛡️ Security Features
@@ -166,21 +207,21 @@ musicky/
 
 ## 🧪 Development
 
-### Running Tests
+### ✅ Running Tests
 
 ```bash
 npm run test          # Run unit tests
 npm run test:e2e      # Run end-to-end tests
 ```
 
-### Code Quality
+### 🔍 Code Quality
 
 ```bash
 npm run lint          # ESLint checking
 npm run build         # Production build validation
 ```
 
-### Architecture Guidelines
+### 📐 Architecture Guidelines
 
 Follow these principles when contributing:
 
@@ -191,7 +232,7 @@ Follow these principles when contributing:
 
 ## 📚 API Reference
 
-### Music Data Service
+### 🎵 Music Data Service
 
 ```typescript
 // Load all library data
@@ -204,7 +245,7 @@ await musicDataService.refresh('files');
 musicDataService.updateFile(updatedFile);
 ```
 
-### Business Logic Functions
+### ⚙️ Business Logic Functions
 
 ```typescript
 // Pure calculations
@@ -229,19 +270,31 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## Screenshots
+## 📸 Screenshots
 
-### Homepage
+### 🏠 Homepage
 ![Homepage](screenshots/homepage.png)
 
-### File Browser  
+### 📁 File Browser  
 ![File Browser](screenshots/file-browser.png)
 
-### MP3 Library
+### 🎵 MP3 Library
 ![MP3 Library](screenshots/mp3-library.png)
 
-### Audio Player
+### 🎧 Audio Player
 ![Audio Player](screenshots/audio-player.png)
+
+### ⚙️ Settings
+![Settings](screenshots/settings.png)
+
+### 📝 Review Changes
+![Review Changes](screenshots/review-changes.png)
+
+### 🎵 MP3 Demo
+![MP3 Demo](screenshots/mp3-demo.png)
+
+### ✅ Todo Example
+![Todo](screenshots/todo.png)
 
 ---
 
