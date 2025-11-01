@@ -88,11 +88,11 @@ npm run preview          # Preview production build
 
 ### Quality Checks
 ```bash
-npm run lint             # Run ESLint (Note: requires jiti package to load TypeScript config)
+npm run lint             # Run ESLint (Note: currently non-functional - requires jiti package)
 npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 ```
 
-**Important**: The linting command requires the `jiti` package to load `eslint.config.ts`. Focus on TypeScript type checking as the primary quality gate until this is resolved.
+**Important**: The linting command currently fails due to missing `jiti` dependency (required for loading TypeScript config files in ESLint 9.x). Use TypeScript type checking as the primary quality gate. To fix: add `jiti` to devDependencies.
 
 ### Testing
 - Tests are located in `/tests` directory
@@ -193,8 +193,9 @@ npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 - Write tests for business logic functions
 - Test component behavior, not implementation details
 - Use Playwright for E2E tests of critical user flows
-- Ensure tests pass before committing: `npx tsc -p tsconfig.json`
-- **Note**: There may be pre-existing TypeScript errors in the codebase that are unrelated to your changes. Focus only on ensuring your new code doesn't introduce additional errors.
+- **Before making changes**: Run `npx tsc -p tsconfig.json` to establish a baseline of existing errors
+- **Before committing**: Run `npx tsc -p tsconfig.json` again and ensure no new errors were introduced
+- **Note**: There may be pre-existing TypeScript errors in the codebase. Focus only on ensuring your changes don't introduce additional errors.
 
 ## Performance Optimization
 
