@@ -6,14 +6,334 @@ on:
   pull_request:
     branches: [ main, master ]
 
+# Limit permissions of GITHUB_TOKEN to minimum required
+permissions:
+  contents: read
+
 jobs:
-  build:
+  # =============================================================================
+  # Linting - Code Style and Quality Checks
+  # =============================================================================
+  lint:
+    name: Lint Code
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    # Node.js version matrix for testing across versions
+    # Adjust if different language/runtime is used
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
-      - run: npm install --ignore-scripts
-      - run: npx tsc -p tsconfig.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint
+        # PLACEHOLDER: Ensure 'npm run lint' script is configured in package.json
+        # For non-JS/TS projects, replace with appropriate linting command
+      
+      - name: Check TypeScript compilation
+        run: npx tsc -p tsconfig.json --noEmit
+        # PLACEHOLDER: For non-TypeScript projects, replace with appropriate build check
+
+  # =============================================================================
+  # Unit Tests - Fast, Isolated Tests for Pure Logic
+  # =============================================================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run unit tests
+        run: npm run test:unit
+        # PLACEHOLDER: Add 'test:unit' script to package.json
+        # Example: "test:unit": "vitest run tests/unit --coverage"
+        # For domain layer calculations, aim for 100% coverage
+      
+      - name: Generate coverage report
+        run: npm run test:coverage
+        continue-on-error: true
+        # PLACEHOLDER: Add 'test:coverage' script to package.json
+        # Example: "test:coverage": "vitest run --coverage"
+      
+      - name: Upload coverage to artifacts
+        uses: actions/upload-artifact@v4
+        if: matrix.node-version == '20.x'
+        with:
+          name: coverage-unit
+          path: coverage/
+          retention-days: 30
+        # PLACEHOLDER: Ensure coverage reports are generated to coverage/ directory
+
+  # =============================================================================
+  # Integration Tests - Tests Across Module Boundaries with Real Dependencies
+  # =============================================================================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    # Services needed for integration tests (database, cache, etc.)
+    services:
+      # PLACEHOLDER: Uncomment and configure if database is needed
+      # postgres:
+      #   image: postgres:15
+      #   env:
+      #     POSTGRES_PASSWORD: testpass
+      #     POSTGRES_DB: musicky_test
+      #   options: >-
+      #     --health-cmd pg_isready
+      #     --health-interval 10s
+      #     --health-timeout 5s
+      #     --health-retries 5
+      #   ports:
+      #     - 5432:5432
+      
+      # PLACEHOLDER: Uncomment if Redis cache is needed
+      # redis:
+      #   image: redis:7
+      #   options: >-
+      #     --health-cmd "redis-cli ping"
+      #     --health-interval 10s
+      #     --health-timeout 5s
+      #     --health-retries 5
+      #   ports:
+      #     - 6379:6379
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      # PLACEHOLDER: Setup test database if needed
+      # - name: Setup test database
+      #   run: npm run db:migrate:test
+      #   env:
+      #     DATABASE_URL: postgresql://postgres:testpass@localhost:5432/musicky_test
+      
+      - name: Run integration tests
+        run: npm run test:integration
+        # PLACEHOLDER: Add 'test:integration' script to package.json
+        # Example: "test:integration": "vitest run tests/integration"
+        # Tests interactions between application, domain, and infrastructure layers
+        env:
+          NODE_ENV: test
+          # PLACEHOLDER: Add environment variables as needed
+          # DATABASE_URL: postgresql://postgres:testpass@localhost:5432/musicky_test
+          # REDIS_URL: redis://localhost:6379
+      
+      - name: Upload integration test coverage
+        uses: actions/upload-artifact@v4
+        if: matrix.node-version == '20.x'
+        with:
+          name: coverage-integration
+          path: coverage/
+          retention-days: 30
+
+  # =============================================================================
+  # E2E Tests - Full User Workflow Tests
+  # =============================================================================
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      # PLACEHOLDER: Install E2E test dependencies (Playwright, Cypress, etc.)
+      # - name: Install Playwright browsers
+      #   run: npx playwright install --with-deps
+      
+      - name: Build application
+        run: npm run build
+      
+      # PLACEHOLDER: Start application server for E2E tests
+      # - name: Start application server
+      #   run: npm run preview &
+      #   env:
+      #     NODE_ENV: test
+      #     PORT: 3000
+      
+      # PLACEHOLDER: Wait for server to be ready
+      # - name: Wait for server
+      #   run: npx wait-on http://localhost:3000 --timeout 60000
+      
+      - name: Run E2E tests
+        run: npm run test:e2e
+        # PLACEHOLDER: Add 'test:e2e' script to package.json
+        # Example: "test:e2e": "playwright test tests/e2e"
+        # Tests complete user workflows from UI to database
+        env:
+          NODE_ENV: test
+      
+      # PLACEHOLDER: Upload E2E test artifacts (screenshots, videos)
+      # - name: Upload E2E test artifacts
+      #   uses: actions/upload-artifact@v4
+      #   if: failure()
+      #   with:
+      #     name: e2e-test-results
+      #     path: test-results/
+      #     retention-days: 30
+
+  # =============================================================================
+  # Build - Final Build Verification
+  # =============================================================================
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: [lint, unit-tests]
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+          retention-days: 7
+        # PLACEHOLDER: Adjust 'path' to match your build output directory
+
+  # =============================================================================
+  # Coverage Report - Aggregate Coverage from All Test Tiers
+  # =============================================================================
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download unit test coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage-unit/
+      
+      - name: Download integration test coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage-integration/
+      
+      # PLACEHOLDER: Merge coverage reports and generate summary
+      # - name: Merge coverage reports
+      #   run: npm run coverage:merge
+      
+      # PLACEHOLDER: Comment coverage report on PR
+      # - name: Comment coverage on PR
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     files: ./coverage/lcov.info
+      #     flags: unittests,integration
+      #     fail_ci_if_error: false
+
+# =============================================================================
+# ADAPTATION NOTES
+# =============================================================================
+#
+# This CI workflow is designed for a Node.js/TypeScript application.
+# If using a different language or runtime, adapt as follows:
+#
+# For Python:
+#   - Replace actions/setup-node with actions/setup-python
+#   - Replace 'npm ci' with 'pip install -r requirements.txt'
+#   - Replace 'npm run' commands with appropriate Python commands
+#   - Use pytest for testing, coverage.py for coverage
+#
+# For Java:
+#   - Replace actions/setup-node with actions/setup-java
+#   - Replace 'npm' commands with Maven ('mvn') or Gradle ('gradle')
+#   - Use JUnit for testing, JaCoCo for coverage
+#
+# For Go:
+#   - Replace actions/setup-node with actions/setup-go
+#   - Replace 'npm' commands with 'go test', 'go build'
+#   - Use go test -cover for coverage
+#
+# For Rust:
+#   - Use actions-rs/toolchain for Rust setup
+#   - Replace 'npm' commands with 'cargo test', 'cargo build'
+#   - Use tarpaulin or cargo-llvm-cov for coverage
+#
+# Regardless of language, maintain the three test tier structure:
+#   1. Unit tests - fast, isolated, pure logic
+#   2. Integration tests - module interactions, real dependencies
+#   3. E2E tests - complete user workflows
+#
+# =============================================================================

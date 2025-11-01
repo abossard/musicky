@@ -1,0 +1,140 @@
+# CODEOWNERS file for Musicky
+#
+# This file defines code ownership for automatic review requests.
+# When a PR modifies files matching these patterns, the specified
+# owners will automatically be requested for review.
+#
+# Syntax: <file-pattern> <owner1> <owner2> ...
+# Owners can be: @username, @org/team-name, email@example.com
+#
+# Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# =============================================================================
+# INSTRUCTIONS FOR MAINTAINERS
+# =============================================================================
+#
+# 1. Replace placeholder owners with actual GitHub usernames/teams after merge
+# 2. Follow the principle of expertise-based ownership, not territorial
+# 3. Prefer team ownership (@org/team) over individual ownership for resilience
+# 4. Keep the list current as team structure evolves
+# 5. Review and update quarterly or when team changes occur
+#
+# Example team setup:
+#   @abossard/core-team      - Core maintainers
+#   @abossard/architecture   - Architecture decisions
+#   @abossard/domain-experts - Business logic reviewers
+#   @abossard/security       - Security-sensitive code
+#
+# =============================================================================
+
+# Default owners for everything in the repo
+# Fallback if no specific owner is matched
+* @abossard
+
+# =============================================================================
+# DOCUMENTATION
+# =============================================================================
+
+# Architecture documentation requires architectural review
+/docs/design/                  @abossard
+/docs/decisions/               @abossard
+
+# Contributing guidelines and onboarding
+/CONTRIBUTING.md               @abossard
+/COPILOT_GUIDE.md             @abossard
+/README.md                     @abossard
+
+# =============================================================================
+# SOURCE CODE BY LAYER
+# =============================================================================
+
+# Domain layer (pure business logic) - requires domain expertise review
+/src/domain/                   @abossard
+
+# Application layer (use cases) - requires both domain and integration knowledge
+/src/application/              @abossard
+
+# Infrastructure layer (I/O operations) - requires infrastructure expertise
+/src/infrastructure/           @abossard
+
+# Adapters layer (UI/API) - requires frontend/API expertise
+/src/adapters/                 @abossard
+
+# =============================================================================
+# EXISTING CODEBASE (to be refactored)
+# =============================================================================
+
+# Current business logic
+/lib/                          @abossard
+
+# React components
+/components/                   @abossard
+
+# API endpoints
+/api/                          @abossard
+
+# Database code
+/database/                     @abossard
+
+# Server configuration
+/server/                       @abossard
+
+# =============================================================================
+# TESTING
+# =============================================================================
+
+# Test infrastructure and configuration
+/tests/                        @abossard
+
+# BDD feature files require product owner review
+/features/                     @abossard
+
+# =============================================================================
+# BUILD & CI/CD
+# =============================================================================
+
+# GitHub Actions workflows
+/.github/workflows/            @abossard
+
+# Build configuration
+/vite.config.ts               @abossard
+/tsconfig.json                @abossard
+/eslint.config.ts             @abossard
+/package.json                 @abossard
+
+# Environment and deployment
+/.env*                         @abossard
+/Dockerfile                    @abossard
+/docker-compose.yml           @abossard
+
+# =============================================================================
+# SECURITY-SENSITIVE
+# =============================================================================
+
+# Any file dealing with authentication, authorization, or sensitive data
+# Uncomment and add paths as security-sensitive code is identified
+# /src/**/auth*.ts             @abossard @security-team
+# /src/**/permission*.ts       @abossard @security-team
+
+# =============================================================================
+# CRITICAL PATHS
+# =============================================================================
+
+# Critical files that require extra careful review
+# Database migrations
+/database/sqlite/schema/       @abossard
+
+# Production deployment configs
+/PRODUCTION_*.md              @abossard
+
+# =============================================================================
+# SPECIAL RULES
+# =============================================================================
+
+# ADR (Architectural Decision Records) require architecture team approval
+/docs/decisions/ADR-*.md      @abossard
+
+# GitHub templates affect workflow, need maintainer review
+/.github/ISSUE_TEMPLATE/      @abossard
+/.github/PULL_REQUEST_TEMPLATE.md @abossard
+/.github/CODEOWNERS           @abossard

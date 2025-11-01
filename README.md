@@ -256,13 +256,57 @@ const newComment = togglePhaseInComment(comment, 'peak');
 const updatedFile = await togglePhaseForFile(filePath, 'starter');
 ```
 
+## 📖 Development Guidelines
+
+### For Contributors
+
+Musicky follows rigorous design principles to maintain code quality and reduce complexity:
+
+- **[Contributing Guide](CONTRIBUTING.md)**: Complete development practices, design principles, and contribution workflow
+- **[Copilot Usage Guide](COPILOT_GUIDE.md)**: Effective prompting strategies for test-first development and maintaining architecture
+- **[Architecture Documentation](docs/design/architecture.md)**: Four-layer architecture (Domain, Application, Infrastructure, Adapters)
+- **[Invariants Documentation](docs/design/invariants.md)**: System-wide and module-specific invariants
+- **[ADR-0001: Module Boundaries](docs/decisions/ADR-0001-module-boundaries.md)**: Architectural decisions and layer separation strategy
+
+### Key Principles
+
+1. **Deep Modules**: Hide complexity behind simple, intuitive interfaces
+2. **Actions vs Calculations**: Separate pure functions (domain) from side effects (infrastructure)
+3. **Stratified Design**: Clear layering with unidirectional dependencies
+4. **Invariants**: Document and maintain conditions that must always be true
+5. **Test-First Development**: Write tests before implementation (TDD)
+
+### Test Strategy
+
+- **Unit Tests** (`tests/unit/`): Pure business logic, 100% coverage goal
+- **Integration Tests** (`tests/integration/`): Module interactions with real dependencies
+- **E2E Tests** (`tests/e2e/`): Complete user workflows
+- **BDD Scenarios** (`features/`): Gherkin-style acceptance criteria
+
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Follow the architecture guidelines
-4. Ensure tests pass (`npm run test`)
-5. Submit a pull request
+1. **Read the Guidelines**: Start with [CONTRIBUTING.md](CONTRIBUTING.md) for detailed practices
+2. **Fork the Repository**: Create your own fork of the project
+3. **Create a Feature Branch**: `git checkout -b feat/your-feature-name`
+4. **Follow Architecture**: Respect the four-layer architecture (see [docs/design/architecture.md](docs/design/architecture.md))
+5. **Write Tests First**: TDD approach - tests before implementation
+6. **Run Quality Checks**:
+   ```bash
+   npm run lint          # Code style and quality
+   npm run test          # All tests
+   npm run build         # Production build
+   ```
+7. **Submit a Pull Request**: Use the PR template (see [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md))
+
+### Commit Message Convention
+
+Use conventional commit prefixes:
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `refactor:` - Code restructuring
+- `test:` - Test additions/updates
+- `docs:` - Documentation changes
+- `chore:` - Maintenance tasks
 
 ## 📄 License
 
