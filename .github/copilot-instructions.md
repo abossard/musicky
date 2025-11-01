@@ -88,11 +88,11 @@ npm run preview          # Preview production build
 
 ### Quality Checks
 ```bash
-npm run lint             # Run ESLint (Note: currently has a configuration issue requiring jiti package)
+npm run lint             # Run ESLint (Note: requires jiti package to load TypeScript config)
 npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 ```
 
-**Important**: The linting command currently has a dependency issue. Focus on TypeScript type checking as the primary quality gate.
+**Important**: The linting command requires the `jiti` package to load `eslint.config.ts`. Focus on TypeScript type checking as the primary quality gate until this is resolved.
 
 ### Testing
 - Tests are located in `/tests` directory
@@ -102,7 +102,7 @@ npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 ### CI/CD Pipeline
 - **Continuous Integration**: GitHub Actions workflow in `.github/workflows/ci.yml`
 - **Automated Checks**: TypeScript type checking (`npx tsc -p tsconfig.json`)
-- **Trigger**: Runs on pushes and PRs to `main` and `master` branches
+- **Trigger**: Runs on pushes and PRs to `main` and `master` branches (as configured in ci.yml)
 - **Pre-commit Requirements**: Ensure TypeScript compilation passes before committing
 
 ## Coding Conventions
