@@ -88,9 +88,11 @@ npm run preview          # Preview production build
 
 ### Quality Checks
 ```bash
-npm run lint             # Run ESLint (Note: currently requires jiti package)
+npm run lint             # Run ESLint (Note: currently has a configuration issue requiring jiti package)
 npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 ```
+
+**Important**: The linting command currently has a dependency issue. Focus on TypeScript type checking as the primary quality gate.
 
 ### Testing
 - Tests are located in `/tests` directory
