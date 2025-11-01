@@ -92,7 +92,7 @@ npm run lint             # Run ESLint (Note: currently non-functional - requires
 npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 ```
 
-**Important**: The linting command currently fails due to missing `jiti` dependency (required for loading TypeScript config files in ESLint 9.x). Use TypeScript type checking as the primary quality gate. To fix: add `jiti` to devDependencies.
+**Important**: The linting command currently fails due to missing `jiti` dependency (required for ESLint 9.x to load TypeScript config files on Node.js < 22.10.0). Use TypeScript type checking as the primary quality gate. To fix: `npm install --save-dev jiti`
 
 ### Testing
 - Tests are located in `/tests` directory
