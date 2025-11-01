@@ -1,5 +1,7 @@
 # GitHub Copilot Instructions for Musicky
 
+> **About this file**: These instructions help GitHub Copilot understand the Musicky project structure, conventions, and best practices. They guide Copilot in making appropriate code changes that align with the project's architecture and standards.
+
 ## Project Overview
 
 Musicky is a modern, production-ready music library management application for local music collections. It helps users organize, browse, and play local MP3 files with advanced features like phase tagging, metadata editing, and a responsive audio player.
@@ -86,7 +88,7 @@ npm run preview          # Preview production build
 
 ### Quality Checks
 ```bash
-npm run lint             # Run ESLint
+npm run lint             # Run ESLint (Note: currently requires jiti package)
 npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 ```
 
@@ -94,6 +96,12 @@ npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 - Tests are located in `/tests` directory
 - Currently using Playwright for E2E testing
 - Run tests with: `npx playwright test` (if configured)
+
+### CI/CD Pipeline
+- **Continuous Integration**: GitHub Actions workflow in `.github/workflows/ci.yml`
+- **Automated Checks**: TypeScript type checking (`npx tsc -p tsconfig.json`)
+- **Trigger**: Runs on pushes and PRs to `main` and `master` branches
+- **Pre-commit Requirements**: Ensure TypeScript compilation passes before committing
 
 ## Coding Conventions
 
@@ -183,7 +191,8 @@ npx tsc -p tsconfig.json # TypeScript type checking (also runs in CI)
 - Write tests for business logic functions
 - Test component behavior, not implementation details
 - Use Playwright for E2E tests of critical user flows
-- Ensure tests pass before committing: `npm run lint && npx tsc`
+- Ensure tests pass before committing: `npx tsc -p tsconfig.json`
+- **Note**: There may be pre-existing TypeScript errors in the codebase that are unrelated to your changes. Focus only on ensuring your new code doesn't introduce additional errors.
 
 ## Performance Optimization
 
@@ -216,6 +225,8 @@ When making significant changes:
 4. **Don't mix concerns** - Keep UI, business logic, and data access separate
 5. **Don't forget error handling** - Use the error management system in `/lib/error-manager.ts`
 6. **Don't add unnecessary dependencies** - Use existing libraries when possible
+7. **Don't fix unrelated issues** - Focus only on the task at hand; ignore pre-existing errors
+8. **Don't remove or modify working code** - Make surgical, minimal changes only
 
 ## Useful Resources
 
