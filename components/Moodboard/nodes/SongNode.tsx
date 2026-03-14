@@ -71,6 +71,26 @@ function SongNode({ data, selected }: NodeProps) {
           draggable={false}
         />
 
+        {/* Song title + artist label at bottom */}
+        <Box
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '16px 6px 4px',
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+            pointerEvents: 'none',
+          }}
+        >
+          <Text size="xs" fw={700} c="white" lineClamp={1} style={{ lineHeight: 1.2 }}>
+            {songData.title || 'Unknown'}
+          </Text>
+          <Text size="10px" c="rgba(255,255,255,0.6)" lineClamp={1} style={{ lineHeight: 1.2 }}>
+            {songData.artist || ''}
+          </Text>
+        </Box>
+
         {/* Play button overlay on hover */}
         {hovered && (
           <Box
