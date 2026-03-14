@@ -347,3 +347,13 @@
 .current-track:hover {
   background-color: rgba(124, 58, 237, 0.15) !important;
 }
+
+/* DJ Set selection highlighting */
+.selected-for-dj-set {
+  background-color: rgba(34, 139, 230, 0.1) !important;
+  border-left: 3px solid #228be6;
+}
+
+.selected-for-dj-set:hover {
+  background-color: rgba(34, 139, 230, 0.15) !important;
+}

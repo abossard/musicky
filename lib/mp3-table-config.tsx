@@ -31,6 +31,10 @@ export interface TableConfigOptions {
   onPhaseToggle: (filePath: string, phase: string, checked: boolean) => void;
   onApplyEdit: (editId: number) => void;
   onRejectEdit: (editId: number) => void;
+  // DJ Set integration
+  isDJSetMode?: boolean;
+  selectedFiles?: string[];
+  onFileSelect?: (filePath: string) => void;
 }
 
 export const createTableColumns = (options: TableConfigOptions): ColumnConfig[] => {
@@ -42,10 +46,31 @@ export const createTableColumns = (options: TableConfigOptions): ColumnConfig[] 
     audioQueue,
     onPhaseToggle,
     onApplyEdit,
-    onRejectEdit
+    onRejectEdit,
+    isDJSetMode = false,
+    selectedFiles = [],
+    onFileSelect
   } = options;
 
-  return [
+  const columns: ColumnConfig[] = [];
+
+  // DJ Set selection column (only when in DJ Set mode)
+  if (isDJSetMode) {
+    columns.push({
+      accessor: 'djSetSelect',
+      title: 'Select',
+      width: 80,
+      render: (file: MP3Metadata) => (
+        <Checkbox
+          checked={selectedFiles.includes(file.filePath)}
+          onChange={() => onFileSelect?.(file.filePath)}
+        />
+      )
+    });
+  }
+
+  // Add remaining columns
+  columns.push(
     {
       accessor: 'play',
       title: 'Play',
@@ -169,6 +194,8 @@ export const createTableColumns = (options: TableConfigOptions): ColumnConfig[] 
           </Group>
         );
       },
-    },
-  ];
+    }
+  );
+
+  return columns;
 };

@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
+import { parseFile } from "music-metadata";
 import { vikeHandler } from "./server/vike-handler";
 import { telefuncHandler } from "./server/telefunc-handler";
 import Fastify from "fastify";
@@ -90,6 +91,36 @@ async function startServer() {
     } catch (error) {
       console.error('Error serving audio file:', error);
       return reply.code(404).send({ error: 'File not found' });
+    }
+  });
+
+  // Artwork serving — extracts embedded album art from MP3 files
+  app.get<{ Params: { '*': string } }>('/artwork/*', async (request, reply) => {
+    try {
+      const filePath = request.params['*'];
+      if (!filePath) return reply.code(400).send({ error: 'File path required' });
+
+      const metadata = await parseFile(filePath);
+      const picture = metadata.common.picture?.[0];
+      if (picture) {
+        reply.header('Content-Type', picture.format);
+        reply.header('Cache-Control', 'public, max-age=86400');
+        return reply.send(Buffer.from(picture.data));
+      }
+
+      // No artwork — return a simple SVG placeholder
+      reply.header('Content-Type', 'image/svg+xml');
+      reply.header('Cache-Control', 'public, max-age=3600');
+      return reply.send(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+        <rect width="120" height="120" fill="#2C2E33"/>
+        <text x="60" y="65" text-anchor="middle" fill="#7048e8" font-size="40">♪</text>
+      </svg>`);
+    } catch (error) {
+      reply.header('Content-Type', 'image/svg+xml');
+      return reply.send(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+        <rect width="120" height="120" fill="#2C2E33"/>
+        <text x="60" y="65" text-anchor="middle" fill="#7048e8" font-size="40">♪</text>
+      </svg>`);
     }
   });
 

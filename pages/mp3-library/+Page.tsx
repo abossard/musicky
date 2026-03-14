@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { FileBrowser } from '../../components/FileBrowser';
 import { MP3MetadataViewer } from '../../components/MP3MetadataViewer';
-import { MP3Library } from '../../components/MP3Library';
+import { MP3LibraryWithDJSets } from '../../components/MP3LibraryWithDJSets';
+import { DJSetProvider } from '../../contexts/DJSetContext';
 import {
   onGetBaseFolder,
   onSetBaseFolder,
@@ -81,7 +82,9 @@ export default function MP3LibraryPage() {
             </Tabs.List>
 
             <Tabs.Panel value="library" pt="md">
-              <MP3Library />
+              <DJSetProvider>
+                <MP3LibraryWithDJSets />
+              </DJSetProvider>
             </Tabs.Panel>
 
             <Tabs.Panel value="history" pt="md">
