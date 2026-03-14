@@ -1,8 +1,0 @@
-{
-  "methodDisplay": "method",
-  "methodDisplayOptions": "all",
-  "maxParallelThreads": 1,
-  "parallelizeTestCollections": false,
-  "diagnosticMessages": true,
-  "preEnumerateTheories": true
-}
