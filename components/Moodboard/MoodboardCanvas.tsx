@@ -2,17 +2,20 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ReactFlow, MiniMap, Controls, Background, BackgroundVariant,
   type Node, type Edge, type Connection, type NodeTypes, type EdgeTypes,
-  type OnNodesChange, type OnEdgesChange, type Viewport, useReactFlow,
+  type OnNodesChange, type OnEdgesChange, type Viewport,
   Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Box, ActionIcon, Group, Tooltip, Text, Slider, CloseButton, Stack, Popover, Badge, TextInput, Button, ScrollArea } from '@mantine/core';
-import { IconTrash, IconPlus, IconSearch, IconLayoutDistributeHorizontal, IconGridDots } from '@tabler/icons-react';
+import { Box, ActionIcon, Group, Tooltip, Text, Slider, CloseButton, Stack, Popover, Badge, TextInput, Button, ScrollArea, SegmentedControl } from '@mantine/core';
+import { IconTrash, IconPlus, IconSearch, IconLayoutDistributeHorizontal, IconGridDots, IconBoxMultiple } from '@tabler/icons-react';
 import SongNode, { type SongNodeData } from './nodes/SongNode';
 import TagNode from './nodes/TagNode';
+import ContainerNode, { type ContainerNodeData } from './nodes/ContainerNode';
 import WeightedEdge, { type EdgeType, type MoodboardEdgeData } from './edges/WeightedEdge';
 import type { TagCategory } from './nodes/TagNode';
 import { applyClusterLayout, applyGridLayout } from './hooks/useMoodboardLayout';
+
+export type ViewMode = 'free' | 'genre' | 'phase' | 'mood';
 
 const TAG_PRESETS: { emoji: string; title: string; category: TagCategory; color: string; tags: string[] }[] = [
   { emoji: '🎭', title: 'Mood', category: 'mood', color: 'pink', tags: ['dark', 'energetic', 'dreamy', 'jungle', 'chill', 'uplifting', 'melancholic', 'hypnotic', 'aggressive', 'euphoric'] },
@@ -23,6 +26,7 @@ const TAG_PRESETS: { emoji: string; title: string; category: TagCategory; color:
 const nodeTypes: NodeTypes = {
   song: SongNode as any,
   tag: TagNode as any,
+  container: ContainerNode as any,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -64,6 +68,7 @@ export function MoodboardCanvas({
   const [tagPaletteOpen, setTagPaletteOpen] = useState(false);
   const [customTagText, setCustomTagText] = useState('');
   const [activeFilterTags, setActiveFilterTags] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>('free');
 
   const toggleFilter = useCallback((tagNodeId: string) => {
     setActiveFilterTags(prev => {
@@ -154,6 +159,130 @@ export function MoodboardCanvas({
     return { filteredNodes: fn, filteredEdges: fe };
   }, [nodes, edges, activeFilterTags, onPlaySong, toggleFilter]);
 
+  // Container view: transform flat nodes into grouped nodes when viewMode !== 'free'
+  const { viewNodes, viewEdges } = useMemo(() => {
+    if (viewMode === 'free') {
+      return { viewNodes: filteredNodes, viewEdges: filteredEdges };
+    }
+
+    const category = viewMode as TagCategory;
+    const tagNodesOfCategory = nodes.filter(n => n.type === 'tag' && (n.data as any)?.category === category);
+    const songNodes = nodes.filter(n => n.type === 'song');
+    const otherTags = nodes.filter(n => n.type === 'tag' && (n.data as any)?.category !== category);
+
+    // Build song→tag adjacency for this category
+    const songToContainerTag = new Map<string, string>();
+    for (const edge of edges) {
+      const songId = songNodes.find(n => n.id === edge.source)?.id || songNodes.find(n => n.id === edge.target)?.id;
+      const tagId = tagNodesOfCategory.find(n => n.id === edge.source)?.id || tagNodesOfCategory.find(n => n.id === edge.target)?.id;
+      if (songId && tagId && !songToContainerTag.has(songId)) {
+        songToContainerTag.set(songId, tagId);
+      }
+    }
+
+    // Create container nodes with auto-layout positioning
+    const containerNodes: Node[] = [];
+    const childrenByContainer = new Map<string, Node[]>();
+    const SONG_TILE = 140;
+    const PADDING = 30;
+    const HEADER = 52;
+    const COLS = 4;
+    const CONTAINER_GAP = 80;
+
+    // Collect containers with their children
+    const containerDefs: { id: string; tag: Node; children: Node[] }[] = [];
+    for (const tag of tagNodesOfCategory) {
+      const containerId = `container-${tag.id}`;
+      const children = songNodes.filter(s => songToContainerTag.get(s.id) === tag.id);
+      containerDefs.push({ id: containerId, tag, children });
+    }
+
+    // Add uncategorized
+    const uncategorized = songNodes.filter(s => !songToContainerTag.has(s.id));
+    if (uncategorized.length > 0) {
+      containerDefs.push({
+        id: 'container-uncategorized',
+        tag: { id: 'uncategorized', data: { label: 'Uncategorized', category: 'custom', color: 'gray' } } as any,
+        children: uncategorized,
+      });
+    }
+
+    // Auto-layout containers in a grid (2 columns of containers)
+    const CONTAINER_COLS = 2;
+    let containerX = 0;
+    let containerY = 0;
+    let maxHeightInRow = 0;
+
+    containerDefs.forEach((def, idx) => {
+      const cols = Math.min(COLS, Math.max(1, def.children.length));
+      const rows = Math.max(1, Math.ceil(def.children.length / COLS));
+      const w = cols * SONG_TILE + PADDING * 2;
+      const h = HEADER + rows * SONG_TILE + PADDING;
+
+      childrenByContainer.set(def.id, def.children);
+
+      containerNodes.push({
+        id: def.id,
+        type: 'container',
+        position: { x: containerX, y: containerY },
+        data: {
+          label: (def.tag.data as any)?.label || 'Tag',
+          category: (def.tag.data as any)?.category || category,
+          color: (def.tag.data as any)?.color || 'gray',
+          childCount: def.children.length,
+        } satisfies ContainerNodeData as any,
+        style: {
+          width: w,
+          height: h,
+          borderRadius: 20,
+          border: `3px solid ${def.tag.data?.color === 'violet' ? '#7048e8' : def.tag.data?.color === 'cyan' ? '#22b8cf' : def.tag.data?.color === 'pink' ? '#e64980' : '#555'}`,
+          backgroundColor: `${def.tag.data?.color === 'violet' ? 'rgba(55,30,120,0.7)' : def.tag.data?.color === 'cyan' ? 'rgba(15,80,100,0.7)' : def.tag.data?.color === 'pink' ? 'rgba(100,30,55,0.7)' : 'rgba(50,50,55,0.7)'}`,
+          padding: 0,
+        },
+      });
+
+      maxHeightInRow = Math.max(maxHeightInRow, h);
+      if ((idx + 1) % CONTAINER_COLS === 0) {
+        containerX = 0;
+        containerY += maxHeightInRow + CONTAINER_GAP;
+        maxHeightInRow = 0;
+      } else {
+        containerX += w + CONTAINER_GAP;
+      }
+    });
+
+    // Position song nodes inside containers
+    const allChildNodes: Node[] = [];
+    for (const [containerId, children] of childrenByContainer) {
+      children.forEach((song, i) => {
+        const col = i % COLS;
+        const row = Math.floor(i / COLS);
+        allChildNodes.push({
+          ...injectCallbacks([song], onPlaySong)[0],
+          parentId: containerId,
+          extent: 'parent' as const,
+          position: { x: PADDING + col * SONG_TILE, y: HEADER + PADDING + row * SONG_TILE },
+          data: { ...song.data, onPlay: onPlaySong, filterState: 'normal' },
+        });
+      });
+    }
+
+    // Keep non-category tag nodes visible
+    const otherTagNodes = otherTags.map(n => ({
+      ...n,
+      data: { ...n.data, onFilterToggle: toggleFilter, isFilterActive: false, filterState: 'normal' },
+    }));
+
+    // Order: containers first, then children, then other tags
+    const vn = [...containerNodes, ...allChildNodes, ...otherTagNodes];
+
+    // Only keep edges that don't connect to container-category tags (they're now containers)
+    const tagIdsInContainers = new Set(tagNodesOfCategory.map(t => t.id));
+    const ve = filteredEdges.filter(e => !tagIdsInContainers.has(e.source) && !tagIdsInContainers.has(e.target));
+
+    return { viewNodes: vn, viewEdges: ve };
+  }, [viewMode, filteredNodes, filteredEdges, nodes, edges, onPlaySong, toggleFilter]);
+
   const handleConnect = useCallback((connection: Connection) => {
     const targetNode = nodes.find(n => n.id === connection.target);
     let edgeType: EdgeType = 'custom';
@@ -187,8 +316,8 @@ export function MoodboardCanvas({
   return (
     <Box style={{ width: '100%', height: '100%', position: 'relative' }}>
       <ReactFlow
-        nodes={filteredNodes}
-        edges={filteredEdges}
+        nodes={viewNodes}
+        edges={viewEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
@@ -238,6 +367,19 @@ export function MoodboardCanvas({
                 <IconGridDots size={18} />
               </ActionIcon>
             </Tooltip>
+            <Box style={{ width: 1, height: 20, background: '#555', margin: '0 2px' }} />
+            <SegmentedControl
+              size="xs"
+              value={viewMode}
+              onChange={(v) => setViewMode(v as ViewMode)}
+              data={[
+                { label: 'Free', value: 'free' },
+                { label: 'Phase', value: 'phase' },
+                { label: 'Genre', value: 'genre' },
+                { label: 'Mood', value: 'mood' },
+              ]}
+              style={{ background: 'rgba(0,0,0,0.3)' }}
+            />
             <Popover opened={tagPaletteOpen} onChange={setTagPaletteOpen} position="bottom-start" shadow="md" width={320}>
               <Popover.Target>
                 <Tooltip label="Add tag">
