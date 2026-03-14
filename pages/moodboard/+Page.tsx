@@ -46,10 +46,17 @@ export default function MoodboardPage() {
   }, [moodboard.nodes, audioQueue]);
 
   const handleAddSong = useCallback(async (songPath: string) => {
-    // Smart placement: center of current viewport + slight random offset
-    const cx = -moodboard.viewport.x / moodboard.viewport.zoom + 400 + Math.random() * 200 - 100;
-    const cy = -moodboard.viewport.y / moodboard.viewport.zoom + 300 + Math.random() * 200 - 100;
-    return moodboard.addSong(songPath, cx, cy);
+    // Smart placement: grid-like spread based on how many nodes exist
+    const existingCount = moodboard.nodes.length;
+    const cols = 5;
+    const spacing = 180;
+    const col = existingCount % cols;
+    const row = Math.floor(existingCount / cols);
+    const jitterX = Math.random() * 30 - 15;
+    const jitterY = Math.random() * 30 - 15;
+    const posX = col * spacing + jitterX;
+    const posY = row * spacing + jitterY;
+    return moodboard.addSong(songPath, posX, posY);
   }, [moodboard]);
 
   const handleConnect = useCallback((connection: Connection, edgeType: EdgeType, weight: number) => {
@@ -57,9 +64,10 @@ export default function MoodboardPage() {
   }, [moodboard]);
 
   const handleAddTag = useCallback((label: string, category: TagCategory, color: string, _x: number, _y: number) => {
-    const cx = -moodboard.viewport.x / moodboard.viewport.zoom + 300;
-    const cy = -moodboard.viewport.y / moodboard.viewport.zoom + 200;
-    moodboard.addTag(label, category, color, cx, cy);
+    const tagCount = moodboard.nodes.filter(n => n.type === 'tag').length;
+    const posX = -200 + tagCount * 50;
+    const posY = tagCount * 80;
+    moodboard.addTag(label, category, color, posX, posY);
   }, [moodboard]);
 
   return (

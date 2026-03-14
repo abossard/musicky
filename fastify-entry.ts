@@ -96,10 +96,27 @@ async function startServer() {
 
   // Artwork serving — extracts embedded album art from MP3 files
   app.get<{ Params: { '*': string } }>('/artwork/*', async (request, reply) => {
-    try {
-      const filePath = request.params['*'];
-      if (!filePath) return reply.code(400).send({ error: 'File path required' });
+    const filePath = request.params['*'];
+    if (!filePath) return reply.code(400).send({ error: 'File path required' });
 
+    // Generate a colorful placeholder from the filename
+    const makePlaceholder = (name: string) => {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+      const hue = Math.abs(hash) % 360;
+      const initials = name.replace(/\.[^.]+$/, '').split(/[-_\s]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+        <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:hsl(${hue},60%,25%)"/>
+          <stop offset="100%" style="stop-color:hsl(${(hue + 60) % 360},50%,35%)"/>
+        </linearGradient></defs>
+        <rect width="120" height="120" fill="url(#g)"/>
+        <text x="60" y="52" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-family="system-ui" font-size="28" font-weight="bold">${initials}</text>
+        <text x="60" y="78" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="28">♪</text>
+      </svg>`;
+    };
+
+    try {
       const metadata = await parseFile(filePath);
       const picture = metadata.common.picture?.[0];
       if (picture) {
@@ -107,21 +124,12 @@ async function startServer() {
         reply.header('Cache-Control', 'public, max-age=86400');
         return reply.send(Buffer.from(picture.data));
       }
+    } catch { /* fall through to placeholder */ }
 
-      // No artwork — return a simple SVG placeholder
-      reply.header('Content-Type', 'image/svg+xml');
-      reply.header('Cache-Control', 'public, max-age=3600');
-      return reply.send(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-        <rect width="120" height="120" fill="#2C2E33"/>
-        <text x="60" y="65" text-anchor="middle" fill="#7048e8" font-size="40">♪</text>
-      </svg>`);
-    } catch (error) {
-      reply.header('Content-Type', 'image/svg+xml');
-      return reply.send(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-        <rect width="120" height="120" fill="#2C2E33"/>
-        <text x="60" y="65" text-anchor="middle" fill="#7048e8" font-size="40">♪</text>
-      </svg>`);
-    }
+    const filename = filePath.split('/').pop() || filePath;
+    reply.header('Content-Type', 'image/svg+xml');
+    reply.header('Cache-Control', 'public, max-age=3600');
+    return reply.send(makePlaceholder(filename));
   });
 
   app.post<{ Body: string }>("/_telefunc", createHandler(telefuncHandler)());

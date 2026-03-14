@@ -101,14 +101,16 @@ export function MoodboardCanvas({
         onNodeContextMenu={handleNodeContextMenu}
         defaultViewport={viewport}
         onMoveEnd={(_event, vp) => onViewportChange(vp)}
-        fitView={nodes.length > 0}
-        minZoom={0.1}
+        fitView
+        fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+        minZoom={0.05}
         maxZoom={4}
         snapToGrid
         snapGrid={[15, 15]}
         deleteKeyCode="Delete"
         multiSelectionKeyCode="Shift"
         panOnScroll
+        zoomOnScroll
         zoomOnPinch
         style={{ background: '#1A1B1E' }}
       >
