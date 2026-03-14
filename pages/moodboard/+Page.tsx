@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Stack, Group, Title, Select, Button, Text, Paper, Box } from '@mantine/core';
+import { Group, Select, Button, Text, Box, ActionIcon } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconLayoutBoard, IconPlus } from '@tabler/icons-react';
+import { IconPlus, IconMusic } from '@tabler/icons-react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { MoodboardCanvas } from '../../components/Moodboard/MoodboardCanvas';
 import { MoodboardSearch } from '../../components/Moodboard/MoodboardSearch';
 import { useMoodboardState } from '../../components/Moodboard/hooks/useMoodboardState';
 import { onGetMoodboards, onCreateMoodboard } from '../../components/Moodboard/Moodboard.telefunc';
-import { GlobalAudioPlayer } from '../../components/GlobalAudioPlayer';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
 import type { MP3Metadata } from '../../lib/mp3-metadata';
 import type { TagCategory } from '../../components/Moodboard/nodes/TagNode';
@@ -30,71 +29,83 @@ export default function MoodboardPage() {
   }, []);
 
   const handleCreateBoard = async () => {
-    const name = `Moodboard ${new Date().toLocaleDateString()}`;
+    const name = `Board ${new Date().toLocaleDateString()}`;
     const board = await onCreateMoodboard(name);
     setBoards(prev => [{ id: board.id, name: board.name }, ...prev]);
     setSelectedBoardId(board.id);
   };
 
   const handlePlaySong = useCallback((filePath: string) => {
+    const node = moodboard.nodes.find(n => (n.data as any).filePath === filePath);
     const meta: MP3Metadata = {
       filePath,
-      title: moodboard.nodes.find(n => (n.data as any).filePath === filePath)?.data?.title as string || 'Unknown',
-      artist: moodboard.nodes.find(n => (n.data as any).filePath === filePath)?.data?.artist as string || 'Unknown',
+      title: (node?.data as any)?.title || 'Unknown',
+      artist: (node?.data as any)?.artist || 'Unknown',
     };
     audioQueue.playTrack(meta);
   }, [moodboard.nodes, audioQueue]);
 
   const handleAddSong = useCallback(async (songPath: string) => {
-    // Smart placement: grid-like spread based on how many nodes exist
     const existingCount = moodboard.nodes.length;
     const cols = 5;
     const spacing = 180;
     const col = existingCount % cols;
     const row = Math.floor(existingCount / cols);
-    const jitterX = Math.random() * 30 - 15;
-    const jitterY = Math.random() * 30 - 15;
-    const posX = col * spacing + jitterX;
-    const posY = row * spacing + jitterY;
-    return moodboard.addSong(songPath, posX, posY);
+    return moodboard.addSong(songPath, col * spacing + Math.random() * 30, row * spacing + Math.random() * 30);
   }, [moodboard]);
 
   const handleConnect = useCallback((connection: Connection, edgeType: EdgeType, weight: number) => {
     moodboard.connectNodes(connection, edgeType, weight);
   }, [moodboard]);
 
-  const handleAddTag = useCallback((label: string, category: TagCategory, color: string, _x: number, _y: number) => {
+  const handleAddTag = useCallback((label: string, category: TagCategory, color: string) => {
     const tagCount = moodboard.nodes.filter(n => n.type === 'tag').length;
-    const posX = -200 + tagCount * 50;
-    const posY = tagCount * 80;
-    moodboard.addTag(label, category, color, posX, posY);
+    moodboard.addTag(label, category, color, -200 + tagCount * 50, tagCount * 80);
   }, [moodboard]);
 
+  const isPlaying = audioQueue.currentTrack != null;
+
   return (
-    <Stack gap={0} style={{ height: 'calc(100vh - 60px)' }}>
-      {/* Header */}
-      <Group justify="space-between" px="md" py="xs" style={{ borderBottom: '1px solid var(--mantine-color-dark-4)' }}>
-        <Group gap="sm">
-          <IconLayoutBoard size={20} />
-          <Title order={4}>Moodboard</Title>
-        </Group>
-        <Group gap="sm">
+    <Box style={{ height: 'calc(100vh - 90px)', display: 'flex', flexDirection: 'column' }}>
+      {/* Compact header bar */}
+      <Group
+        justify="space-between"
+        px="xs"
+        py={4}
+        style={{ borderBottom: '1px solid var(--mantine-color-dark-5)', flexShrink: 0, minHeight: 36 }}
+      >
+        <Group gap={6}>
           <Select
             data={boards.map(b => ({ value: b.id.toString(), label: b.name }))}
             value={selectedBoardId?.toString() || null}
             onChange={(v) => setSelectedBoardId(v ? parseInt(v) : null)}
-            placeholder="Select board"
-            size="sm"
-            style={{ width: 200 }}
+            placeholder="Board"
+            size="xs"
+            style={{ width: 160 }}
           />
-          <Button size="sm" variant="light" leftSection={<IconPlus size={14} />} onClick={handleCreateBoard}>
-            New Board
-          </Button>
+          <ActionIcon size="sm" variant="subtle" onClick={handleCreateBoard} title="New board">
+            <IconPlus size={14} />
+          </ActionIcon>
         </Group>
+        {/* Mini now-playing indicator */}
+        {isPlaying && (
+          <Group gap={6}>
+            <IconMusic size={12} color="var(--mantine-color-green-5)" />
+            <Text size="xs" c="dimmed" lineClamp={1} style={{ maxWidth: 200 }}>
+              {audioQueue.currentTrack?.title}
+            </Text>
+            <audio
+              src={`/audio/${encodeURIComponent(audioQueue.currentTrack!.filePath)}`}
+              autoPlay
+              onEnded={() => audioQueue.setIsPlaying(false)}
+              style={{ display: 'none' }}
+            />
+          </Group>
+        )}
       </Group>
 
-      {/* Canvas */}
-      <Box style={{ flex: 1, position: 'relative' }}>
+      {/* Canvas — fills all remaining space */}
+      <Box style={{ flex: 1, position: 'relative', minHeight: 0 }}>
         {selectedBoardId ? (
           <ReactFlowProvider>
             <MoodboardCanvas
@@ -116,30 +127,16 @@ export default function MoodboardPage() {
           </ReactFlowProvider>
         ) : (
           <Box style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
-            <Stack align="center" gap="md">
-              <IconLayoutBoard size={64} color="var(--mantine-color-violet-4)" />
-              <Text size="lg" c="dimmed">Create a moodboard to start organizing your music</Text>
-              <Button leftSection={<IconPlus size={16} />} onClick={handleCreateBoard}>
-                Create Moodboard
+            <Group gap="sm">
+              <Text c="dimmed">No board selected</Text>
+              <Button size="xs" variant="light" leftSection={<IconPlus size={14} />} onClick={handleCreateBoard}>
+                Create
               </Button>
-            </Stack>
+            </Group>
           </Box>
         )}
       </Box>
 
-      {/* Docked audio player */}
-      <Box px="md" py="xs" style={{ borderTop: '1px solid var(--mantine-color-dark-4)' }}>
-        <GlobalAudioPlayer
-          currentTrack={audioQueue.currentTrack}
-          isPlaying={audioQueue.isPlaying}
-          volume={audioQueue.volume}
-          onPlayPauseChange={audioQueue.setIsPlaying}
-          onVolumeChange={audioQueue.setVolume}
-          onEnded={() => audioQueue.setIsPlaying(false)}
-        />
-      </Box>
-
-      {/* Song search modal */}
       <MoodboardSearch
         opened={searchOpened}
         onClose={searchHandlers.close}
@@ -147,6 +144,6 @@ export default function MoodboardPage() {
         checkOnBoard={moodboard.checkSongOnBoard}
         searchSongs={moodboard.searchSongs}
       />
-    </Stack>
+    </Box>
   );
 }

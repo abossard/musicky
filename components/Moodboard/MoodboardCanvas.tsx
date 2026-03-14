@@ -144,7 +144,7 @@ export function MoodboardCanvas({
 
         {/* Toolbar panel */}
         <Panel position="top-left">
-          <Group gap="xs" style={{ background: '#25262b', padding: '8px 12px', borderRadius: 8, border: '1px solid #373A40' }}>
+          <Group gap={4} style={{ background: 'rgba(37,38,43,0.9)', padding: '4px 8px', borderRadius: 6, border: '1px solid #373A40', backdropFilter: 'blur(8px)' }}>
             <Tooltip label="Add song (Ctrl+K)">
               <ActionIcon variant="light" color="violet" onClick={onSearchOpen} aria-label="Search songs">
                 <IconSearch size={18} />
@@ -236,15 +236,19 @@ export function MoodboardCanvas({
       {/* Edge weight editor */}
       {selectedEdge && (
         <Box style={{
-          position: 'absolute', bottom: 80, right: 16,
-          background: '#25262b', border: '1px solid #373A40', borderRadius: 8,
-          padding: 12, zIndex: 100, width: 220,
+          position: 'absolute', bottom: 12, right: 12,
+          background: 'rgba(37,38,43,0.9)', border: '1px solid #373A40', borderRadius: 6,
+          padding: '8px 10px', zIndex: 100, width: 180, backdropFilter: 'blur(8px)',
         }}>
-          <Group justify="space-between" mb="xs">
-            <Text size="sm" fw={600}>Connection</Text>
-            <CloseButton size="xs" onClick={() => setSelectedEdge(null)} />
+          <Group justify="space-between" mb={4}>
+            <Text size="xs" fw={600}>{Math.round(((selectedEdge.data as any)?.weight ?? 1) * 100)}% <Text span size="xs" c="dimmed" tt="capitalize">{(selectedEdge.data as any)?.edgeType || ''}</Text></Text>
+            <Group gap={4}>
+              <ActionIcon variant="subtle" color="red" size="xs" onClick={() => { onEdgeDelete(selectedEdge.id); setSelectedEdge(null); }}>
+                <IconTrash size={12} />
+              </ActionIcon>
+              <CloseButton size="xs" onClick={() => setSelectedEdge(null)} />
+            </Group>
           </Group>
-          <Text size="xs" c="dimmed" mb={4}>Weight: {Math.round(((selectedEdge.data as any)?.weight ?? 1) * 100)}%</Text>
           <Slider
             min={0} max={1} step={0.05}
             value={(selectedEdge.data as any)?.weight ?? 1}
@@ -253,17 +257,8 @@ export function MoodboardCanvas({
               setSelectedEdge(prev => prev ? { ...prev, data: { ...prev.data, weight: val } } : null);
             }}
             color="violet"
-            mb="xs"
+            size="xs"
           />
-          <Group gap="xs">
-            <ActionIcon variant="light" color="red" size="sm" onClick={() => {
-              onEdgeDelete(selectedEdge.id);
-              setSelectedEdge(null);
-            }}>
-              <IconTrash size={14} />
-            </ActionIcon>
-            <Text size="xs" c="dimmed" tt="capitalize">{(selectedEdge.data as any)?.edgeType || 'custom'}</Text>
-          </Group>
         </Box>
       )}
     </Box>

@@ -22,7 +22,7 @@ export function applyClusterLayout(
   // 1. Arrange tags in a circle
   const centerX = 0;
   const centerY = 0;
-  const tagRadius = Math.max(300, tagNodes.length * 80);
+  const tagRadius = Math.max(400, tagNodes.length * 100);
 
   tagNodes.forEach((tag, i) => {
     const angle = (2 * Math.PI * i) / Math.max(tagNodes.length, 1) - Math.PI / 2;
@@ -74,13 +74,13 @@ export function applyClusterLayout(
     midY /= tagIds.length;
 
     // Spread songs around the midpoint
-    const spread = Math.max(SONG_SIZE, songs.length * 30);
+    const spread = Math.max(SONG_SIZE + 20, songs.length * 40);
     songs.forEach((song, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(songs.length, 1);
+      const angle = (2 * Math.PI * i) / Math.max(songs.length, 1) - Math.PI / 4;
       const r = songs.length === 1 ? 0 : spread;
       positions.set(song.id, {
-        x: midX + r * Math.cos(angle) - SONG_SIZE / 2,
-        y: midY + r * Math.sin(angle) - SONG_SIZE / 2,
+        x: midX + r * Math.cos(angle),
+        y: midY + r * Math.sin(angle),
       });
     });
   }
