@@ -111,6 +111,7 @@ export default function MoodboardPage() {
               onSearchOpen={searchHandlers.open}
               onAddTag={handleAddTag}
               onPlaySong={handlePlaySong}
+              onNodesUpdate={(newNodes) => moodboard.setNodes(newNodes)}
             />
           </ReactFlowProvider>
         ) : (
