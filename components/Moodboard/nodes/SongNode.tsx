@@ -3,6 +3,8 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Box, Tooltip, Text, ActionIcon } from '@mantine/core';
 import { IconPlayerPlay, IconPlayerPause } from '@tabler/icons-react';
 
+export type FilterState = 'normal' | 'primary' | 'secondary' | 'hidden';
+
 export interface SongNodeData {
   type: 'song';
   filePath: string;
@@ -12,6 +14,7 @@ export interface SongNodeData {
   duration?: number;
   artworkUrl: string;
   isPlaying?: boolean;
+  filterState?: FilterState;
   onPlay?: (filePath: string) => void;
 }
 
@@ -20,6 +23,9 @@ const NODE_SIZE = 120;
 function SongNode({ data, selected }: NodeProps) {
   const [hovered, setHovered] = useState(false);
   const songData = data as unknown as SongNodeData;
+  const filterState = songData.filterState ?? 'normal';
+  const isHidden = filterState === 'hidden';
+  const isSecondary = filterState === 'secondary';
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,7 +65,10 @@ function SongNode({ data, selected }: NodeProps) {
               : '0 2px 8px rgba(0,0,0,0.3)',
           position: 'relative',
           cursor: 'grab',
-          transition: 'border-color 0.2s, box-shadow 0.2s',
+          transition: 'all 0.3s ease',
+          opacity: isHidden ? 0.08 : isSecondary ? 0.5 : 1,
+          filter: isSecondary ? 'grayscale(0.8) brightness(0.7)' : isHidden ? 'grayscale(1) brightness(0.3)' : 'none',
+          transform: isHidden ? 'scale(0.8)' : 'none',
         }}
       >
         <img

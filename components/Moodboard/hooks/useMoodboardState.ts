@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   useNodesState, useEdgesState, type Node, type Edge, type Viewport,
   type OnNodesChange, type OnEdgesChange, type Connection, addEdge,
+  MarkerType,
 } from '@xyflow/react';
 import {
   onLoadBoard, onSaveBoard, onAddSongNode, onAddTagNode,
@@ -82,16 +83,24 @@ export function useMoodboardState(boardId: number | null, currentPlayingPath?: s
         };
       }));
 
-      const loadedEdges: Edge[] = state.edges.map(row => ({
-        id: row.id,
-        source: row.source_node_id,
-        target: row.target_node_id,
-        type: 'weighted',
-        data: {
-          edgeType: row.edge_type as EdgeType,
-          weight: row.weight,
-        } satisfies MoodboardEdgeData as any,
-      }));
+      const loadedEdges: Edge[] = state.edges.map(row => {
+        // Check if both source and target are song nodes
+        const sourceIsSong = state.nodes.find(n => n.id === row.source_node_id)?.node_type === 'song';
+        const targetIsSong = state.nodes.find(n => n.id === row.target_node_id)?.node_type === 'song';
+        const directed = sourceIsSong && targetIsSong;
+        return {
+          id: row.id,
+          source: row.source_node_id,
+          target: row.target_node_id,
+          type: 'weighted',
+          data: {
+            edgeType: row.edge_type as EdgeType,
+            weight: row.weight,
+            directed,
+          } satisfies MoodboardEdgeData as any,
+          ...(directed ? { markerEnd: { type: MarkerType.ArrowClosed, color: '#40c057' } } : {}),
+        };
+      });
 
       setNodes(loadedNodes);
       setEdges(loadedEdges);
@@ -180,12 +189,19 @@ export function useMoodboardState(boardId: number | null, currentPlayingPath?: s
   const connectNodes = async (connection: Connection, edgeType: EdgeType = 'custom', weight: number = 0.7) => {
     if (!boardIdRef.current || !connection.source || !connection.target) return;
     const edgeId = await onAddEdge(boardIdRef.current, connection.source, connection.target, edgeType, weight);
+
+    // Song→song edges are directed (flow direction)
+    const sourceNode = nodes.find(n => n.id === connection.source);
+    const targetNode = nodes.find(n => n.id === connection.target);
+    const directed = sourceNode?.type === 'song' && targetNode?.type === 'song';
+
     const newEdge: Edge = {
       id: edgeId,
       source: connection.source,
       target: connection.target,
       type: 'weighted',
-      data: { edgeType, weight } satisfies MoodboardEdgeData as any,
+      data: { edgeType, weight, directed } satisfies MoodboardEdgeData as any,
+      ...(directed ? { markerEnd: { type: MarkerType.ArrowClosed, color: '#40c057' } } : {}),
     };
     setEdges(eds => addEdge(newEdge, eds));
   };

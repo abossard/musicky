@@ -11,6 +11,9 @@ export interface TagNodeData {
   category: TagCategory;
   color: string;
   songCount?: number;
+  isFilterActive?: boolean;
+  filterState?: 'normal' | 'primary' | 'secondary' | 'hidden';
+  onFilterToggle?: (nodeId: string) => void;
 }
 
 const categoryIcons: Record<TagCategory, React.ReactNode> = {
@@ -21,21 +24,37 @@ const categoryIcons: Record<TagCategory, React.ReactNode> = {
   custom: <IconStar size={14} />,
 };
 
-function TagNode({ data, selected }: NodeProps) {
+function TagNode({ data, selected, id }: NodeProps) {
   const tagData = data as unknown as TagNodeData;
+  const filterState = tagData.filterState ?? 'normal';
+  const isActive = tagData.isFilterActive;
+  const isHidden = filterState === 'hidden';
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    tagData.onFilterToggle?.(id);
+  };
 
   return (
     <Card
-      shadow={selected ? 'lg' : 'sm'}
+      shadow={selected ? 'lg' : isActive ? 'lg' : 'sm'}
       radius="xl"
       px="md"
       py="xs"
+      onDoubleClick={handleDoubleClick}
       style={{
-        border: selected
-          ? `2px solid var(--mantine-color-${tagData.color}-6)`
-          : `1px solid var(--mantine-color-${tagData.color}-8)`,
-        background: `var(--mantine-color-${tagData.color}-light)`,
-        cursor: 'grab',
+        border: isActive
+          ? `3px solid var(--mantine-color-${tagData.color}-5)`
+          : selected
+            ? `2px solid var(--mantine-color-${tagData.color}-6)`
+            : `1px solid var(--mantine-color-${tagData.color}-8)`,
+        background: isActive
+          ? `var(--mantine-color-${tagData.color}-filled)`
+          : `var(--mantine-color-${tagData.color}-light)`,
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
+        opacity: isHidden ? 0.15 : 1,
+        boxShadow: isActive ? `0 0 16px var(--mantine-color-${tagData.color}-5)` : undefined,
       }}
     >
       <Group gap="xs" wrap="nowrap">

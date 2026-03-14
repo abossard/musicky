@@ -63,6 +63,16 @@ export function MoodboardCanvas({
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [tagPaletteOpen, setTagPaletteOpen] = useState(false);
   const [customTagText, setCustomTagText] = useState('');
+  const [activeFilterTags, setActiveFilterTags] = useState<Set<string>>(new Set());
+
+  const toggleFilter = useCallback((tagNodeId: string) => {
+    setActiveFilterTags(prev => {
+      const next = new Set(prev);
+      if (next.has(tagNodeId)) next.delete(tagNodeId);
+      else next.add(tagNodeId);
+      return next;
+    });
+  }, []);
 
   const handleClusterLayout = useCallback(() => {
     const laid = applyClusterLayout(nodes, edges);
@@ -74,7 +84,75 @@ export function MoodboardCanvas({
     onNodesUpdate(laid);
   }, [nodes, onNodesUpdate]);
 
-  const processedNodes = useMemo(() => injectCallbacks(nodes, onPlaySong), [nodes, onPlaySong]);
+  // Compute filter states for all nodes and edges
+  const { filteredNodes, filteredEdges } = useMemo(() => {
+    if (activeFilterTags.size === 0) {
+      // No filter — everything normal
+      const fn = injectCallbacks(nodes, onPlaySong).map(n => {
+        if (n.type === 'tag') return { ...n, data: { ...n.data, onFilterToggle: toggleFilter, isFilterActive: false, filterState: 'normal' } };
+        return { ...n, data: { ...n.data, filterState: 'normal' } };
+      });
+      return { filteredNodes: fn, filteredEdges: edges };
+    }
+
+    // Find songs connected to ALL active filter tags
+    const songToTags = new Map<string, Set<string>>();
+    for (const edge of edges) {
+      const songId = nodes.find(n => n.id === edge.source && n.type === 'song')?.id
+        || nodes.find(n => n.id === edge.target && n.type === 'song')?.id;
+      const tagId = nodes.find(n => n.id === edge.source && n.type === 'tag')?.id
+        || nodes.find(n => n.id === edge.target && n.type === 'tag')?.id;
+      if (songId && tagId) {
+        const set = songToTags.get(songId) || new Set();
+        set.add(tagId);
+        songToTags.set(songId, set);
+      }
+    }
+
+    // Primary = connected to ALL active tags
+    const primarySongIds = new Set<string>();
+    for (const [songId, connectedTags] of songToTags) {
+      if ([...activeFilterTags].every(t => connectedTags.has(t))) {
+        primarySongIds.add(songId);
+      }
+    }
+
+    // Secondary = songs connected to primary songs via song→song edges
+    const secondarySongIds = new Set<string>();
+    for (const edge of edges) {
+      const srcSong = nodes.find(n => n.id === edge.source && n.type === 'song');
+      const tgtSong = nodes.find(n => n.id === edge.target && n.type === 'song');
+      if (srcSong && tgtSong) {
+        if (primarySongIds.has(srcSong.id) && !primarySongIds.has(tgtSong.id)) secondarySongIds.add(tgtSong.id);
+        if (primarySongIds.has(tgtSong.id) && !primarySongIds.has(srcSong.id)) secondarySongIds.add(srcSong.id);
+      }
+    }
+
+    const fn = injectCallbacks(nodes, onPlaySong).map(n => {
+      if (n.type === 'tag') {
+        const isActive = activeFilterTags.has(n.id);
+        return { ...n, data: { ...n.data, onFilterToggle: toggleFilter, isFilterActive: isActive, filterState: isActive ? 'primary' : 'normal' } };
+      }
+      const fs = primarySongIds.has(n.id) ? 'primary'
+        : secondarySongIds.has(n.id) ? 'secondary'
+        : 'hidden';
+      return { ...n, data: { ...n.data, filterState: fs } };
+    });
+
+    // Set edge filter states too
+    const fe = edges.map(e => {
+      const srcPrimary = primarySongIds.has(e.source) || activeFilterTags.has(e.source);
+      const tgtPrimary = primarySongIds.has(e.target) || activeFilterTags.has(e.target);
+      const srcSecondary = secondarySongIds.has(e.source);
+      const tgtSecondary = secondarySongIds.has(e.target);
+      const fs = (srcPrimary && tgtPrimary) ? 'primary'
+        : (srcPrimary && tgtSecondary) || (srcSecondary && tgtPrimary) ? 'secondary'
+        : 'hidden';
+      return { ...e, data: { ...e.data, filterState: fs } };
+    });
+
+    return { filteredNodes: fn, filteredEdges: fe };
+  }, [nodes, edges, activeFilterTags, onPlaySong, toggleFilter]);
 
   const handleConnect = useCallback((connection: Connection) => {
     const targetNode = nodes.find(n => n.id === connection.target);
@@ -109,8 +187,8 @@ export function MoodboardCanvas({
   return (
     <Box style={{ width: '100%', height: '100%', position: 'relative' }}>
       <ReactFlow
-        nodes={processedNodes}
-        edges={edges}
+        nodes={filteredNodes}
+        edges={filteredEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
@@ -231,6 +309,40 @@ export function MoodboardCanvas({
             </Popover>
           </Group>
         </Panel>
+
+        {/* Filter bar — shows when filters are active */}
+        {activeFilterTags.size > 0 && (
+          <Panel position="bottom-center">
+            <Group gap={6} style={{ background: 'rgba(37,38,43,0.95)', padding: '6px 12px', borderRadius: 8, border: '1px solid #373A40', backdropFilter: 'blur(8px)' }}>
+              <Text size="xs" c="dimmed" fw={600}>Filter:</Text>
+              {nodes.filter(n => n.type === 'tag' && activeFilterTags.has(n.id)).map(n => {
+                const td = n.data as any;
+                return (
+                  <Badge key={n.id} size="sm" variant="filled" color={td.color || 'violet'}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => toggleFilter(n.id)}
+                    rightSection="×"
+                  >{td.label}</Badge>
+                );
+              })}
+              <Text size="xs" c="dimmed">
+                {filteredNodes.filter(n => n.type === 'song' && (n.data as any).filterState === 'primary').length} matches
+              </Text>
+              <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setActiveFilterTags(new Set())} title="Clear filters">
+                <IconTrash size={12} />
+              </ActionIcon>
+            </Group>
+          </Panel>
+        )}
+
+        {/* Hint for filtering */}
+        {activeFilterTags.size === 0 && nodes.some(n => n.type === 'tag') && (
+          <Panel position="bottom-center">
+            <Text size="xs" c="dimmed" style={{ background: 'rgba(37,38,43,0.7)', padding: '3px 10px', borderRadius: 4 }}>
+              Double-click a tag to filter
+            </Text>
+          </Panel>
+        )}
       </ReactFlow>
 
       {/* Edge weight editor */}

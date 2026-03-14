@@ -11,14 +11,16 @@ function setupBoardWithEdges() {
 
   const board = db.prepare('INSERT INTO moodboards (name) VALUES (?)').run('DJ Moodboard');
   const boardId = board.lastInsertRowid as number;
+  const songs = db.prepare('SELECT file_path, filename, artist, title FROM mp3_file_cache ORDER BY file_path').all() as any[];
 
-  const songs = db.prepare('SELECT file_path, filename, artist, title FROM mp3_file_cache').all() as any[];
-  const songNodes: { id: string; path: string }[] = [];
-  songs.slice(0, 13).forEach((song: any, i: number) => {
+  // Use 20 songs for a good mix
+  const selectedSongs = songs.slice(0, 20);
+  const songNodes: { id: string; path: string; name: string }[] = [];
+  selectedSongs.forEach((s: any, i: number) => {
     const id = `song-${i}`;
     db.prepare('INSERT INTO moodboard_nodes (id, board_id, node_type, song_path, position_x, position_y) VALUES (?,?,?,?,?,?)')
-      .run(id, boardId, 'song', song.file_path, (i % 5) * 180, Math.floor(i / 5) * 180);
-    songNodes.push({ id, path: song.file_path });
+      .run(id, boardId, 'song', s.file_path, (i % 5) * 180, Math.floor(i / 5) * 180);
+    songNodes.push({ id, path: s.file_path, name: (s.file_path as string).toLowerCase() });
   });
 
   const tags = [
@@ -28,6 +30,8 @@ function setupBoardWithEdges() {
     { label: 'techno', category: 'genre', color: 'cyan' },
     { label: 'house', category: 'genre', color: 'cyan' },
     { label: 'melodic', category: 'genre', color: 'cyan' },
+    { label: 'starter', category: 'phase', color: 'violet' },
+    { label: 'peak', category: 'phase', color: 'violet' },
   ];
   const tagIds: Record<string, string> = {};
   tags.forEach((t, i) => {
@@ -37,121 +41,131 @@ function setupBoardWithEdges() {
     tagIds[t.label] = id;
   });
 
-  const mapping: Record<string, string[]> = {
-    'artbat': ['dark', 'techno', 'melodic'],
-    'anyma': ['dreamy', 'melodic'],
-    'sofi tukker': ['energetic', 'house'],
-    'adriatique': ['dreamy', 'melodic'],
-    'dom dolla': ['energetic', 'house'],
-    'super flu': ['melodic', 'house'],
-    'odd mob': ['energetic', 'house'],
-    'keinemusik': ['house', 'melodic'],
-  };
+  // Map keywords in filename to tags
+  const rules: [string, string[]][] = [
+    ['artbat', ['dark', 'techno', 'melodic', 'peak']],
+    ['anyma', ['dreamy', 'melodic', 'peak']],
+    ['sofi tukker', ['energetic', 'house', 'starter']],
+    ['adriatique', ['dreamy', 'melodic', 'starter']],
+    ['dom dolla', ['energetic', 'house', 'peak']],
+    ['super flu', ['melodic', 'house', 'starter']],
+    ['odd mob', ['energetic', 'house']],
+    ['keinemusik', ['house', 'melodic']],
+    ['tiesto', ['energetic', 'techno']],
+    ['morten', ['techno', 'energetic', 'peak']],
+    ['kolya', ['energetic', 'house', 'starter']],
+    ['raffa', ['dark', 'techno']],
+    ['jonas blue', ['melodic', 'house', 'starter']],
+    ['asal', ['dark', 'melodic']],
+  ];
 
-  let edgeIdx = 0;
+  let ei = 0;
   for (const song of songNodes) {
-    const lc = song.path.toLowerCase();
-    for (const [kw, labels] of Object.entries(mapping)) {
-      if (lc.includes(kw.replace(/\s/g, '')) || lc.includes(kw)) {
+    for (const [kw, labels] of rules) {
+      if (song.name.includes(kw)) {
         for (const label of labels) {
-          if (tagIds[label]) {
+          if (tagIds[label])
             db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-              .run(`e-${edgeIdx++}`, boardId, song.id, tagIds[label], tags.find(t => t.label === label)!.category, 0.8);
-          }
+              .run(`e-${ei++}`, boardId, song.id, tagIds[label], tags.find(t => t.label === label)!.category, 0.8);
         }
-        break;
+        // Don't break — a song can match multiple rules
       }
     }
   }
 
-  // Similarity edges between ARTBAT songs
-  const artbat = songNodes.filter(s => s.path.toLowerCase().includes('artbat'));
-  for (let i = 0; i < artbat.length - 1; i++) {
+  // Song→song flow edges
+  const artbat = songNodes.filter(s => s.name.includes('artbat'));
+  for (let i = 0; i < artbat.length - 1; i++)
     db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-      .run(`e-${edgeIdx++}`, boardId, artbat[i].id, artbat[i + 1].id, 'similarity', 0.9);
-  }
+      .run(`e-${ei++}`, boardId, artbat[i].id, artbat[i + 1].id, 'similarity', 0.9);
 
-  console.log(`[setup] Board ${boardId}: ${songNodes.length} songs, ${tags.length} tags, ${edgeIdx} edges`);
+  console.log(`[setup] Board ${boardId}: ${songNodes.length} songs, ${tags.length} tags, ${ei} edges`);
   db.close();
 }
 
 test.describe('Moodboard', () => {
   test.setTimeout(120000);
 
-  test('songs with edges and cluster layout', async ({ page }) => {
+  test('edges, layout, and filter workflow', async ({ page }) => {
     setupBoardWithEdges();
 
-    // Navigate — the page auto-selects the first board
     await page.goto('/moodboard');
     await expect(page.locator('text=/\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)/i')).toBeVisible({ timeout: 15000 });
     await page.waitForTimeout(3000);
 
-    // The page should auto-select the first (only) board
-    // If not, click "New Board" won't help — we need to select ours
-    // Check if canvas loaded (react-flow controls visible)
-    let canvasReady = await page.locator('.react-flow__controls-fitview').isVisible().catch(() => false);
-
-    if (!canvasReady) {
-      // Try to select the board from dropdown
+    // Select board
+    if (!(await page.locator('.react-flow__controls-fitview').isVisible().catch(() => false))) {
       await page.locator('.mantine-Select-input').click();
       await page.waitForTimeout(500);
-      const option = page.getByRole('option', { name: 'DJ Moodboard' });
-      if (await option.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await option.click();
-        await page.waitForTimeout(2000);
-      }
+      const opt = page.getByRole('option', { name: 'DJ Moodboard' });
+      if (await opt.isVisible({ timeout: 3000 }).catch(() => false)) await opt.click();
+      await page.waitForTimeout(2000);
     }
-
-    // Wait for canvas
     const fitBtn = page.locator('.react-flow__controls-fitview');
     await expect(fitBtn).toBeVisible({ timeout: 15000 });
 
-    // 1. Initial state
+    // 1. Cluster layout with edges
+    await page.getByRole('button', { name: 'Cluster layout' }).click();
+    await page.waitForTimeout(1000);
     await fitBtn.click();
     await page.waitForTimeout(500);
     const edgeCount = await page.locator('.react-flow__edge').count();
-    const nodeCount = await page.locator('.react-flow__node').count();
-    console.log(`Loaded: ${nodeCount} nodes, ${edgeCount} edges`);
-    await page.screenshot({ path: 'test-results/moodboard-01-with-edges.png', fullPage: true });
+    console.log(`Edges: ${edgeCount}`);
+    await page.screenshot({ path: 'test-results/moodboard-01-cluster.png', fullPage: true });
 
-    // 2. Cluster layout
-    const clusterBtn = page.getByRole('button', { name: 'Cluster layout' });
-    await clusterBtn.click();
+    // 2. Filter: dark
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'dark' }).dblclick();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-02-filter-dark.png', fullPage: true });
+    const darkMatches = await page.getByText(/\d+ matches/).textContent().catch(() => '');
+    console.log(`Dark filter: ${darkMatches}`);
+
+    // 3. Filter: dark + techno
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'techno' }).dblclick();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-03-filter-dark-techno.png', fullPage: true });
+
+    // 4. Clear, then filter: starter
+    // Clear by double-clicking active tags
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'dark' }).dblclick();
+    await page.waitForTimeout(200);
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'techno' }).dblclick();
+    await page.waitForTimeout(200);
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'starter' }).dblclick();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-04-filter-starter.png', fullPage: true });
+
+    // 5. Filter: energetic + house
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'starter' }).dblclick();
+    await page.waitForTimeout(200);
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'energetic' }).dblclick();
+    await page.waitForTimeout(200);
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'house' }).dblclick();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-05-filter-energetic-house.png', fullPage: true });
+
+    // 6. Grid layout while filtered
+    await page.getByRole('button', { name: 'Grid layout' }).click();
     await page.waitForTimeout(1000);
     await fitBtn.click();
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-02-cluster-layout.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/moodboard-06-grid-filtered.png', fullPage: true });
 
-    // 3. Zoom in for edge detail
+    // 7. Clear all, zoom detail
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'energetic' }).dblclick();
+    await page.waitForTimeout(200);
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'house' }).dblclick();
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Cluster layout' }).click();
+    await page.waitForTimeout(1000);
+    await fitBtn.click();
+    await page.waitForTimeout(300);
     const zoomIn = page.locator('.react-flow__controls-zoomin');
-    for (let i = 0; i < 3; i++) { await zoomIn.click(); await page.waitForTimeout(200); }
-    await page.screenshot({ path: 'test-results/moodboard-03-cluster-zoomed.png', fullPage: true });
+    for (let i = 0; i < 2; i++) { await zoomIn.click(); await page.waitForTimeout(200); }
+    await page.screenshot({ path: 'test-results/moodboard-07-final-detail.png', fullPage: true });
 
-    // 4. Grid layout
-    await fitBtn.click(); await page.waitForTimeout(300);
-    const gridBtn = page.getByRole('button', { name: 'Grid layout' });
-    await gridBtn.click();
-    await page.waitForTimeout(1000);
-    await fitBtn.click();
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-04-grid-layout.png', fullPage: true });
-
-    // 5. Final cluster
-    await clusterBtn.click();
-    await page.waitForTimeout(1000);
-    await fitBtn.click();
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-05-final.png', fullPage: true });
-
-    // Summary
-    const songCount = await page.locator('.react-flow__node-song').count();
-    const tagCount = await page.locator('.react-flow__node-tag').count();
-    const imgs = page.locator('.react-flow__node-song img');
-    let loaded = 0;
-    for (let i = 0; i < await imgs.count(); i++) {
-      if (await imgs.nth(i).evaluate((el: HTMLImageElement) => el.naturalWidth) > 0) loaded++;
-    }
-    console.log(`Final: ${songCount} songs, ${tagCount} tags, ${edgeCount} edges, ${loaded}/${songCount} artwork`);
+    const nodeCount = await page.locator('.react-flow__node').count();
+    console.log(`Final: ${nodeCount} nodes, ${edgeCount} edges`);
     await expect(page.getByText('Moodboard').first()).toBeVisible();
   });
 });
