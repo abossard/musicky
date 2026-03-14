@@ -30,7 +30,10 @@ export class NavigationHelper {
 
   async goto(path: string) {
     await this.page.goto(path);
-    await this.page.waitForLoadState('networkidle');
+    // Wait for React hydration — the live clock only renders after JS runs
+    await expect(
+      this.page.locator('text=/\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)/i')
+    ).toBeVisible({ timeout: 15000 });
   }
 
   async goToDJSets() {
@@ -72,7 +75,7 @@ export class NavigationHelper {
       await this.burger.click();
     }
     await link.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
   }
 
   async expectNavLinksVisible() {

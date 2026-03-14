@@ -12,7 +12,8 @@ export class MP3LibraryPage {
   readonly checkboxes: Locator;
 
   constructor(private page: Page) {
-    this.djSetModeToggle = page.getByTestId('dj-set-mode-toggle');
+    // Mantine Switch renders the <input> as hidden — click the visible label instead
+    this.djSetModeToggle = page.getByText('DJ Set Mode', { exact: true });
     this.activeSetSelector = page.getByTestId('active-set-selector');
     this.addToSetButton = page.getByTestId('add-to-set-button');
     this.clearSelectionButton = page.getByTestId('clear-selection-button');
@@ -22,17 +23,15 @@ export class MP3LibraryPage {
 
   async goto() {
     await this.page.goto('/mp3-library');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
     await expect(this.page.getByText('MP3 Library').first()).toBeVisible();
   }
 
   async waitForLibraryLoaded() {
-    // The DJ set toggle only appears after the library finishes scanning
+    // Wait for file count — indicates scan is complete
     await expect(
-      this.page.getByText('Loading MP3 library')
-    ).not.toBeVisible({ timeout: 30000 }).catch(() => {
-      // If loading text was never there, that's fine
-    });
+      this.page.getByText(/Found \d+ MP3 file/)
+    ).toBeVisible({ timeout: 60000 });
   }
 
   async enableDJSetMode() {

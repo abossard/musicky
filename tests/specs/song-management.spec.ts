@@ -46,17 +46,17 @@ test.describe('Song Search & Management', () => {
 
   // Song add/remove/insert tests require MP3 files indexed in mp3_file_cache.
   // Run these after the library has been scanned: npx playwright test -g "Adding Songs"
-  test.describe.skip('Adding Songs @needs-library', () => {
+  test.describe('Adding Songs @needs-library', () => {
 
     test('can add a song via search', async ({ djSetsPage, page }) => {
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
       await djSetsPage.expectSongCount(1);
       await expect(page.getByText('#1')).toBeVisible();
     });
 
     test('can add multiple songs', async ({ djSetsPage, page }) => {
-      await djSetsPage.addSongViaSearch('test');
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
+      await djSetsPage.addSongViaSearch('Kevin');
       await djSetsPage.expectSongCount(2);
       await expect(page.getByText('#1')).toBeVisible();
       await expect(page.getByText('#2')).toBeVisible();
@@ -68,18 +68,18 @@ test.describe('Song Search & Management', () => {
     });
   });
 
-  test.describe.skip('Removing Songs @needs-library', () => {
+  test.describe('Removing Songs @needs-library', () => {
     test('can remove a song', async ({ djSetsPage }) => {
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
       await djSetsPage.expectSongCount(1);
       await djSetsPage.removeSong(0);
       await djSetsPage.expectEmptySet();
     });
 
     test('removing renumbers remaining songs', async ({ djSetsPage, page }) => {
-      await djSetsPage.addSongViaSearch('test');
-      await djSetsPage.addSongViaSearch('test');
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
+      await djSetsPage.addSongViaSearch('Kevin');
+      await djSetsPage.addSongViaSearch('Kevin');
       await djSetsPage.removeSong(1);
       await expect(page.getByText('#1')).toBeVisible();
       await expect(page.getByText('#2')).toBeVisible();
@@ -87,11 +87,11 @@ test.describe('Song Search & Management', () => {
     });
   });
 
-  test.describe.skip('Song Insertion @needs-library', () => {
+  test.describe('Song Insertion @needs-library', () => {
     test('can insert song at specific position', async ({ djSetsPage, page }) => {
-      await djSetsPage.addSongViaSearch('test');
-      await djSetsPage.addSongViaSearch('test');
-      await djSetsPage.insertSongAfter(0, 'test');
+      await djSetsPage.addSongViaSearch('Kevin');
+      await djSetsPage.addSongViaSearch('Kevin');
+      await djSetsPage.insertSongAfter(0, 'Kevin');
       await djSetsPage.expectSongCount(3);
       await expect(page.getByText('#1')).toBeVisible();
       await expect(page.getByText('#2')).toBeVisible();
@@ -99,8 +99,8 @@ test.describe('Song Search & Management', () => {
     });
 
     test('add-after button appears on each song', async ({ djSetsPage }) => {
-      await djSetsPage.addSongViaSearch('test');
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
+      await djSetsPage.addSongViaSearch('Kevin');
       await expect(djSetsPage.addAfterButtons).toHaveCount(2);
     });
   });

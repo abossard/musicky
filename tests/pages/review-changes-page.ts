@@ -24,7 +24,7 @@ export class ReviewChangesPage {
 
   async goto() {
     await this.page.goto('/review-changes');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
     await expect(this.page.getByText('Review Changes').first()).toBeVisible();
   }
 

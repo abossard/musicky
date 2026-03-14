@@ -3,7 +3,7 @@ import { test, expect, uniqueName } from '../fixtures/app-fixture';
 test.describe('End-to-End Workflows', () => {
   // Tests that add songs via search require MP3 files indexed in the database.
   // Run after library scan: npx playwright test -g "@needs-library"
-  test.describe.skip('Song workflows @needs-library', () => {
+  test.describe('Song workflows @needs-library', () => {
     test('complete DJ set creation workflow', async ({ djSetsPage, page }) => {
       await djSetsPage.goto();
       const name = uniqueName('E2E Set');
@@ -12,8 +12,8 @@ test.describe('End-to-End Workflows', () => {
       await djSetsPage.createSet(name, desc);
       await expect(page.getByText(desc)).toBeVisible();
 
-      await djSetsPage.addSongViaSearch('test');
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
+      await djSetsPage.addSongViaSearch('Kevin');
       await djSetsPage.expectSongCount(2);
 
       await djSetsPage.removeSong(0);
@@ -30,12 +30,12 @@ test.describe('End-to-End Workflows', () => {
       const set2 = uniqueName('Multi B');
 
       await djSetsPage.createSet(set1);
-      await djSetsPage.addSongViaSearch('test');
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
+      await djSetsPage.addSongViaSearch('Kevin');
       await djSetsPage.expectSongCount(2);
 
       await djSetsPage.createSet(set2);
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
       await djSetsPage.expectSongCount(1);
 
       await djSetsPage.selectSet(set1);
@@ -47,7 +47,7 @@ test.describe('End-to-End Workflows', () => {
       const name = uniqueName('Lifecycle');
 
       await djSetsPage.createSet(name);
-      await djSetsPage.addSongViaSearch('test');
+      await djSetsPage.addSongViaSearch('Kevin');
       await djSetsPage.expectSongCount(1);
 
       await djSetsPage.deleteSet();
@@ -75,7 +75,7 @@ test.describe('End-to-End Workflows', () => {
     await djSetsPage.createSet(name, 'Persistence test');
 
     await page.reload();
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('text=/\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)/i')).toBeVisible({ timeout: 15000 });
 
     await djSetsPage.selectSet(name);
     await expect(page.getByText('Songs in Set')).toBeVisible();

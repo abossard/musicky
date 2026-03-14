@@ -51,7 +51,7 @@ test.describe('Navigation & Layout', () => {
 
     for (const route of routes) {
       await page.goto(route.path);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       const [type, text] = route.locator.split(':');
       const timeout = route.timeout ?? 15000;
       if (type === 'heading') {

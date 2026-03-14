@@ -64,7 +64,10 @@ export class DJSetsPage {
 
   async goto() {
     await this.page.goto('/dj-sets');
-    await this.page.waitForLoadState('networkidle');
+    // Wait for React hydration — the live clock only renders after JS runs
+    await expect(
+      this.page.locator('text=/\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)/i')
+    ).toBeVisible({ timeout: 15000 });
     await expect(this.createSetButton).toBeVisible();
   }
 
@@ -87,8 +90,6 @@ export class DJSetsPage {
   async selectSet(name: string) {
     await this.setSelector.click();
     await this.page.getByRole('option', { name }).click();
-    // Wait for the set details to load
-    await this.page.waitForLoadState('networkidle');
   }
 
   async editSet(newName: string, newDescription?: string) {
@@ -121,12 +122,12 @@ export class DJSetsPage {
 
   async searchForSong(query: string) {
     await this.searchInput.fill(query);
-    // Wait for debounce + results or no-results message
-    await this.page.waitForTimeout(500); // debounce delay
+    // Wait for debounce (300ms) + search to complete
+    await this.page.waitForTimeout(800);
+    // Wait specifically for result items or "No songs found" — NOT "Type at least"
     await expect(
       this.searchResultItems.first()
         .or(this.page.getByText('No songs found'))
-        .or(this.page.getByText('Type at least'))
     ).toBeVisible({ timeout: 10000 });
   }
 
@@ -139,6 +140,8 @@ export class DJSetsPage {
     await this.openSearchPopup();
     await this.searchForSong(query);
     await this.selectSearchResult(resultIndex);
+    // Wait for the song list to refresh after adding
+    await this.page.waitForTimeout(1000);
   }
 
   async removeSong(index: number) {

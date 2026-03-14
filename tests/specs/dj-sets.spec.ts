@@ -139,7 +139,8 @@ test.describe('DJ Set Management', () => {
       const name = uniqueName('Persistent');
       await djSetsPage.createSet(name);
       await page.reload();
-      await page.waitForLoadState('networkidle');
+      // Wait for hydration after reload
+      await expect(page.locator('text=/\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)/i')).toBeVisible({ timeout: 15000 });
       // After reload, the set should be available in the dropdown
       await djSetsPage.selectSet(name);
       await expect(page.getByText('Songs in Set')).toBeVisible();

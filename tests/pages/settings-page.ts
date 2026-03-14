@@ -16,7 +16,7 @@ export class SettingsPage {
 
   async goto() {
     await this.page.goto('/settings');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
     // Wait for settings to finish loading
     await expect(this.keepPlayHeadCheckbox).toBeVisible({ timeout: 15000 });
   }
