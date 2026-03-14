@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { parseFile } from "music-metadata";
+import { fetchInternetCoverArt } from './lib/cover-art-fetcher';
 import { vikeHandler } from "./server/vike-handler";
 import { telefuncHandler } from "./server/telefunc-handler";
 import Fastify from "fastify";
@@ -94,12 +95,11 @@ async function startServer() {
     }
   });
 
-  // Artwork serving — extracts embedded album art from MP3 files
+  // Artwork serving — embedded MP3 art → MusicBrainz/CAA → placeholder
   app.get<{ Params: { '*': string } }>('/artwork/*', async (request, reply) => {
     const filePath = request.params['*'];
     if (!filePath) return reply.code(400).send({ error: 'File path required' });
 
-    // Generate a colorful placeholder from the filename
     const makePlaceholder = (name: string) => {
       let hash = 0;
       for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
@@ -116,6 +116,7 @@ async function startServer() {
       </svg>`;
     };
 
+    // 1. Try embedded MP3 artwork
     try {
       const metadata = await parseFile(filePath);
       const picture = metadata.common.picture?.[0];
@@ -124,8 +125,20 @@ async function startServer() {
         reply.header('Cache-Control', 'public, max-age=86400');
         return reply.send(Buffer.from(picture.data));
       }
+
+      // 2. Try MusicBrainz Cover Art Archive (with disk caching)
+      const internetArt = await fetchInternetCoverArt(
+        metadata.common.artist,
+        metadata.common.album
+      );
+      if (internetArt) {
+        reply.header('Content-Type', internetArt.mime);
+        reply.header('Cache-Control', 'public, max-age=86400');
+        return reply.send(internetArt.buffer);
+      }
     } catch { /* fall through to placeholder */ }
 
+    // 3. SVG placeholder fallback
     const filename = filePath.split('/').pop() || filePath;
     reply.header('Content-Type', 'image/svg+xml');
     reply.header('Cache-Control', 'public, max-age=3600');

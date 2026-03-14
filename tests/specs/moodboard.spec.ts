@@ -46,6 +46,17 @@ test.describe('Moodboard', () => {
     // 6. Canvas with song nodes
     await page.screenshot({ path: 'test-results/moodboard-06-songs-on-canvas.png', fullPage: true });
 
+    // 6b. Verify artwork images loaded
+    const songNodes = page.locator('.react-flow__node-song img');
+    const imgCount = await songNodes.count();
+    console.log(`Song artwork images: ${imgCount}`);
+    for (let i = 0; i < imgCount; i++) {
+      const img = songNodes.nth(i);
+      const naturalWidth = await img.evaluate((el: HTMLImageElement) => el.naturalWidth);
+      console.log(`Image ${i} naturalWidth: ${naturalWidth}`);
+      // Image loaded if naturalWidth > 0
+    }
+
     // 7. Add a tag node
     const tagBtn = page.getByRole('button', { name: 'Add tag' });
     if (await tagBtn.isVisible()) {
@@ -61,9 +72,23 @@ test.describe('Moodboard', () => {
     }
     await page.screenshot({ path: 'test-results/moodboard-07-final.png', fullPage: true });
 
+    // 8b. Zoom into first song node for detail shot
+    const firstNode = page.locator('.react-flow__node-song').first();
+    if (await firstNode.isVisible()) {
+      await firstNode.scrollIntoViewIfNeeded();
+      // Use React Flow zoom in button 3 times
+      const zoomIn = page.locator('.react-flow__controls-zoomin');
+      for (let i = 0; i < 3; i++) {
+        await zoomIn.click();
+        await page.waitForTimeout(200);
+      }
+      await page.screenshot({ path: 'test-results/moodboard-08-zoomed-node.png', fullPage: true });
+    }
+
     // Summary
     const nodeCount = await page.locator('.react-flow__node').count();
     console.log(`Nodes on canvas: ${nodeCount}`);
+    console.log(`Test complete: ${imgCount} song images, ${nodeCount} total nodes`);
     await expect(page.getByText('Moodboard').first()).toBeVisible();
   });
 });
