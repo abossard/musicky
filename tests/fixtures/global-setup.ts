@@ -27,32 +27,56 @@ async function globalSetup() {
     db.prepare('INSERT INTO library_settings (base_folder) VALUES (?)').run(testMusicFolder);
   }
 
-  // Pre-populate the MP3 cache with test music files
+  // Pre-populate the MP3 cache by scanning test-music recursively
   db.prepare('DELETE FROM mp3_file_cache').run();
 
   const insertStmt = db.prepare(
     'INSERT OR REPLACE INTO mp3_file_cache (file_path, filename, artist, title, album, duration, file_size) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
 
-  const testFiles = [
-    { file: 'Kevin_MacLeod_-_Carefree.mp3', artist: 'Kevin MacLeod', title: 'Carefree', album: 'Royalty Free', duration: 163 },
-    { file: 'Kevin_MacLeod_-_Monkeys_Spinning_Monkeys.mp3', artist: 'Kevin MacLeod', title: 'Monkeys Spinning Monkeys', album: 'Royalty Free', duration: 121 },
-    { file: 'Kevin_MacLeod_-_Wallpaper.mp3', artist: 'Kevin MacLeod', title: 'Wallpaper', album: 'Royalty Free', duration: 222 },
-    { file: 'Chill_Electronic_-_Lakey_Inspired.mp3', artist: 'Lakey Inspired', title: 'Chill Electronic', album: null, duration: 60 },
-    { file: 'Jazz_Standards_-_Blue_Dot_Sessions.mp3', artist: 'Blue Dot Sessions', title: 'Jazz Standards', album: null, duration: 60 },
-  ];
+  // Recursively find all MP3 files
+  function findMp3s(dir: string): string[] {
+    const results: string[] = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...findMp3s(full));
+      } else if (entry.name.toLowerCase().endsWith('.mp3')) {
+        results.push(full);
+      }
+    }
+    return results;
+  }
+
+  const mp3Files = findMp3s(testMusicFolder);
+
+  // Parse title/artist from filename as fallback (e.g. "Artist - Title (Mix).mp3")
+  function parseFilename(filename: string): { artist: string; title: string } {
+    const name = filename.replace(/\.mp3$/i, '');
+    const parts = name.split(' - ');
+    if (parts.length >= 2) {
+      return { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() };
+    }
+    return { artist: '', title: name };
+  }
 
   const insertAll = db.transaction(() => {
-    for (const t of testFiles) {
-      const filePath = path.join(testMusicFolder, t.file);
-      const fileSize = fs.existsSync(filePath) ? fs.statSync(filePath).size : 0;
-      insertStmt.run(filePath, t.file, t.artist, t.title, t.album, t.duration, fileSize);
+    for (const filePath of mp3Files) {
+      const filename = path.basename(filePath);
+      const fileSize = fs.statSync(filePath).size;
+      const parsed = parseFilename(filename);
+      insertStmt.run(filePath, filename, parsed.artist || null, parsed.title || null, null, null, fileSize);
     }
   });
   insertAll();
 
+  // Also clear stale moodboard data so tests start fresh
+  db.prepare('DELETE FROM moodboard_edges').run();
+  db.prepare('DELETE FROM moodboard_nodes').run();
+  db.prepare('DELETE FROM moodboards').run();
+
   db.close();
-  console.log(`[test-setup] Done — cached ${testFiles.length} test MP3 files`);
+  console.log(`[test-setup] Done — cached ${mp3Files.length} MP3 files from ${testMusicFolder}`);
 }
 
 export default globalSetup;
