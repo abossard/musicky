@@ -13,13 +13,14 @@ import { EdgeWeightEditor } from './EdgeWeightEditor';
 import SongNode from './nodes/SongNode';
 import TagNode from './nodes/TagNode';
 import ContainerNode from './nodes/ContainerNode';
-import WeightedEdge, { type EdgeType } from './edges/WeightedEdge';
+import WeightedEdge, { type EdgeType, type EdgeStyle } from './edges/WeightedEdge';
 import type { TagCategory } from './nodes/TagNode';
 import { applyClusterLayout, applyGridLayout } from './hooks/useMoodboardLayout';
 import { computeFilterStates } from './hooks/useMoodboardFilter';
 import { transformToContainerView } from './hooks/useContainerView';
 import { TagPalette } from './TagPalette';
 import type { ViewMode } from './moodboard-constants';
+import { EDGE_STYLE_OPTIONS } from './moodboard-constants';
 
 const nodeTypes: NodeTypes = {
   song: SongNode as any,
@@ -65,6 +66,7 @@ export function MoodboardCanvas({
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [activeFilterTags, setActiveFilterTags] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('free');
+  const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('bezier');
 
   const toggleFilter = useCallback((tagNodeId: string) => {
     setActiveFilterTags(prev => {
@@ -102,10 +104,10 @@ export function MoodboardCanvas({
     });
     const fe = edges.map(e => {
       const fs = edgeStates.get(e.id) ?? 'normal';
-      return { ...e, data: { ...e.data, filterState: fs } };
+      return { ...e, data: { ...e.data, filterState: fs, edgeStyle } };
     });
     return { filteredNodes: fn, filteredEdges: fe };
-  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, toggleFilter]);
+  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, toggleFilter, edgeStyle]);
 
   // Container view: transform flat nodes into grouped nodes when viewMode !== 'free'
   const { viewNodes, viewEdges } = useMemo(() => {
@@ -227,6 +229,16 @@ export function MoodboardCanvas({
               style={{ background: 'rgba(0,0,0,0.3)' }}
             />
             <TagPalette onAddTag={(label, cat, color) => onAddTag(label, cat, color, 0, 0)} />
+            <Box style={{ width: 1, height: 20, background: '#555', margin: '0 2px' }} />
+            <Tooltip label="Edge drawing style">
+              <SegmentedControl
+                size="xs"
+                value={edgeStyle}
+                onChange={(v) => setEdgeStyle(v as EdgeStyle)}
+                data={EDGE_STYLE_OPTIONS.map(o => ({ label: o.label, value: o.value }))}
+                style={{ background: 'rgba(0,0,0,0.3)' }}
+              />
+            </Tooltip>
           </Group>
         </Panel>
 

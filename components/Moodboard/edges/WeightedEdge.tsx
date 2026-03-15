@@ -1,16 +1,25 @@
 import React from 'react';
-import { BaseEdge, getBezierPath, useInternalNode, type EdgeProps } from '@xyflow/react';
+import {
+  BaseEdge, getBezierPath, getStraightPath, getSmoothStepPath,
+  useInternalNode, useNodes,
+  type EdgeProps,
+} from '@xyflow/react';
+import { getSmartEdge, svgDrawSmoothLinePath } from '@tisoap/react-flow-smart-edge';
 import { getFloatingEdgeParams } from './floating-edge-utils';
 import { EDGE_COLORS } from '../moodboard-constants';
 
 export type EdgeType = 'genre' | 'phase' | 'mood' | 'similarity' | 'topic' | 'custom';
 
+/** Available edge drawing styles */
+export type EdgeStyle = 'bezier' | 'straight' | 'step' | 'smoothstep' | 'smart';
+
 export interface MoodboardEdgeData {
   edgeType: EdgeType;
   weight: number;
   label?: string;
-  directed?: boolean; // true for song→song (flow direction)
+  directed?: boolean;
   filterState?: 'normal' | 'primary' | 'secondary' | 'hidden';
+  edgeStyle?: EdgeStyle;
 }
 
 function WeightedEdge({
@@ -19,6 +28,7 @@ function WeightedEdge({
 }: EdgeProps) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
+  const nodes = useNodes();
 
   // Floating edges: calculate nearest border intersection
   let sx = sourceX, sy = sourceY, tx = targetX, ty = targetY;
@@ -29,17 +39,63 @@ function WeightedEdge({
     sPos = p.sourcePos; tPos = p.targetPos;
   }
 
-  const [edgePath] = getBezierPath({
-    sourceX: sx, sourceY: sy, targetX: tx, targetY: ty,
-    sourcePosition: sPos, targetPosition: tPos,
-  });
-
   const edgeData = data as unknown as MoodboardEdgeData | undefined;
   const weight = edgeData?.weight ?? 1.0;
   const edgeType = edgeData?.edgeType ?? 'custom';
   const filterState = edgeData?.filterState ?? 'normal';
+  const edgeStyle = edgeData?.edgeStyle ?? 'bezier';
   const strokeWidth = 1.5 + weight * 3.5;
   const color = EDGE_COLORS[edgeType] || EDGE_COLORS.custom;
+
+  // Compute edge path based on selected style
+  let edgePath: string;
+
+  if (edgeStyle === 'smart' && sourceNode && targetNode) {
+    // Smart edge routing — A* pathfinding that avoids nodes
+    const smartResult = getSmartEdge({
+      sourcePosition: sPos,
+      targetPosition: tPos,
+      sourceX: sx,
+      sourceY: sy,
+      targetX: tx,
+      targetY: ty,
+      nodes,
+      options: {
+        nodePadding: 15,
+        gridRatio: 10,
+        drawEdge: svgDrawSmoothLinePath,
+      },
+    });
+    // getSmartEdge returns GetSmartEdgeReturn | Error
+    if (smartResult && !(smartResult instanceof Error)) {
+      edgePath = smartResult.svgPathString;
+    } else {
+      [edgePath] = getBezierPath({
+        sourceX: sx, sourceY: sy, targetX: tx, targetY: ty,
+        sourcePosition: sPos, targetPosition: tPos,
+      });
+    }
+  } else if (edgeStyle === 'straight') {
+    [edgePath] = getStraightPath({ sourceX: sx, sourceY: sy, targetX: tx, targetY: ty });
+  } else if (edgeStyle === 'step') {
+    [edgePath] = getSmoothStepPath({
+      sourceX: sx, sourceY: sy, targetX: tx, targetY: ty,
+      sourcePosition: sPos, targetPosition: tPos,
+      borderRadius: 0,
+    });
+  } else if (edgeStyle === 'smoothstep') {
+    [edgePath] = getSmoothStepPath({
+      sourceX: sx, sourceY: sy, targetX: tx, targetY: ty,
+      sourcePosition: sPos, targetPosition: tPos,
+      borderRadius: 8,
+    });
+  } else {
+    // Default: bezier
+    [edgePath] = getBezierPath({
+      sourceX: sx, sourceY: sy, targetX: tx, targetY: ty,
+      sourcePosition: sPos, targetPosition: tPos,
+    });
+  }
 
   // Filter state affects opacity
   const opacity = filterState === 'hidden' ? 0.05

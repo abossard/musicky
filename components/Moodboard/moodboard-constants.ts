@@ -35,3 +35,12 @@ export const TAG_PRESETS: { emoji: string; title: string; category: TagCategory;
   { emoji: '🎵', title: 'Genre', category: 'genre', color: 'cyan', tags: ['techno', 'house', 'trance', 'melodic', 'progressive', 'minimal', 'deep', 'afro', 'disco', 'drum & bass'] },
   { emoji: '🎚️', title: 'Phase', category: 'phase', color: 'violet', tags: ['opener', 'buildup', 'peak', 'drop', 'breakdown', 'closer'] },
 ];
+
+/** Edge drawing style labels for the UI selector */
+export const EDGE_STYLE_OPTIONS = [
+  { label: 'Curve', value: 'bezier' },
+  { label: 'Straight', value: 'straight' },
+  { label: 'Step', value: 'step' },
+  { label: 'Smooth', value: 'smoothstep' },
+  { label: 'Smart', value: 'smart' },
+] as const;
