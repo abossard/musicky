@@ -9,48 +9,58 @@ export interface ContainerNodeData {
   category: TagCategory;
   color: string;
   childCount: number;
+  width: number;
+  height: number;
 }
 
 const categoryIcons: Record<string, React.ReactNode> = {
-  genre: <IconVinyl size={14} />,
-  phase: <IconWaveSine size={14} />,
-  mood: <IconHeart size={14} />,
-  topic: <IconTag size={14} />,
+  genre: <IconVinyl size={16} />,
+  phase: <IconWaveSine size={16} />,
+  mood: <IconHeart size={16} />,
+  topic: <IconTag size={16} />,
+  custom: <IconTag size={16} />,
 };
 
-const colorMap: Record<string, { border: string; headerBg: string; text: string }> = {
-  violet: { border: '#9775fa', headerBg: '#3b2f63', text: '#d0bfff' },
-  cyan: { border: '#3bc9db', headerBg: '#1a3c42', text: '#99e9f2' },
-  pink: { border: '#f06595', headerBg: '#4a2035', text: '#fcc2d7' },
-  gray: { border: '#adb5bd', headerBg: '#2c2e33', text: '#dee2e6' },
+const borderColors: Record<string, string> = {
+  violet: '#9775fa',
+  cyan: '#3bc9db',
+  pink: '#f06595',
+  gray: '#868e96',
+};
+
+const headerColors: Record<string, string> = {
+  violet: '#2b2042',
+  cyan: '#1a3a42',
+  pink: '#3a1a28',
+  gray: '#2c2e33',
 };
 
 function ContainerNode({ data }: NodeProps) {
   const d = data as unknown as ContainerNodeData;
-  const colors = colorMap[d.color] || colorMap.gray;
+  const borderColor = borderColors[d.color] || borderColors.gray;
+  const headerBg = headerColors[d.color] || headerColors.gray;
 
   return (
     <div style={{
-      width: '100%',
-      height: '100%',
+      width: d.width || 600,
+      height: d.height || 400,
       borderRadius: 20,
-      padding: 0,
+      border: `4px solid ${borderColor}`,
+      backgroundColor: '#25262b',
+      boxShadow: `0 0 24px ${borderColor}66`,
       overflow: 'hidden',
     }}>
-      {/* Header bar */}
       <Group
         gap={8}
         px="md"
-        py={10}
+        py={8}
         style={{
-          borderBottom: `2px solid ${colors.border}`,
-          borderRadius: '18px 18px 0 0',
-          background: colors.headerBg,
-          cursor: 'grab',
+          borderBottom: `2px solid ${borderColor}`,
+          background: headerBg,
         }}
       >
         {categoryIcons[d.category]}
-        <Text size="sm" fw={700} c={colors.text} tt="uppercase" style={{ letterSpacing: 1.5 }}>
+        <Text size="sm" fw={700} c={borderColor} tt="uppercase" style={{ letterSpacing: 1.5 }}>
           {d.label}
         </Text>
         {d.childCount > 0 && (

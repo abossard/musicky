@@ -6,6 +6,7 @@ import {
   Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import './Moodboard.css';
 import { Box, ActionIcon, Group, Tooltip, Text, Slider, CloseButton, Stack, Popover, Badge, TextInput, Button, ScrollArea, SegmentedControl } from '@mantine/core';
 import { IconTrash, IconPlus, IconSearch, IconLayoutDistributeHorizontal, IconGridDots, IconBoxMultiple } from '@tabler/icons-react';
 import SongNode, { type SongNodeData } from './nodes/SongNode';
@@ -221,38 +222,19 @@ export function MoodboardCanvas({
 
       childrenByContainer.set(def.id, def.children);
 
+      const borderColor = def.tag.data?.color === 'violet' ? '#9775fa' : def.tag.data?.color === 'cyan' ? '#3bc9db' : def.tag.data?.color === 'pink' ? '#f06595' : '#868e96';
       containerNodes.push({
         id: def.id,
-        type: 'container',
+        type: 'group',
         position: { x: containerX, y: containerY },
-        data: {
-          label: (def.tag.data as any)?.label || 'Tag',
-          category: (def.tag.data as any)?.category || category,
-          color: (def.tag.data as any)?.color || 'gray',
-          childCount: def.children.length,
-        } satisfies ContainerNodeData as any,
+        data: { label: (def.tag.data as any)?.label || 'Tag' },
         style: {
           width: w,
           height: h,
           borderRadius: 20,
-          border: `4px solid ${
-            def.tag.data?.color === 'violet' ? '#9775fa' :
-            def.tag.data?.color === 'cyan' ? '#3bc9db' :
-            def.tag.data?.color === 'pink' ? '#f06595' :
-            '#adb5bd'
-          }`,
-          backgroundColor: '#2e2e36',
-          boxShadow: `0 0 30px ${
-            def.tag.data?.color === 'violet' ? 'rgba(151,117,250,0.4)' :
-            def.tag.data?.color === 'cyan' ? 'rgba(59,201,219,0.4)' :
-            def.tag.data?.color === 'pink' ? 'rgba(240,101,149,0.4)' :
-            'rgba(100,100,100,0.3)'
-          }, inset 0 0 60px ${
-            def.tag.data?.color === 'violet' ? 'rgba(151,117,250,0.08)' :
-            def.tag.data?.color === 'cyan' ? 'rgba(59,201,219,0.08)' :
-            def.tag.data?.color === 'pink' ? 'rgba(240,101,149,0.08)' :
-            'rgba(100,100,100,0.05)'
-          }`,
+          border: `5px solid ${borderColor}`,
+          backgroundColor: '#464a52',
+          boxShadow: `0 0 50px ${borderColor}cc`,
           padding: 0,
         },
       });
