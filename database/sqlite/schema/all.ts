@@ -4,3 +4,4 @@ import './library-settings';
 import './mp3-history';
 import './dj-sets';
 import './moodboard';
+import './mp3-tag-edits';

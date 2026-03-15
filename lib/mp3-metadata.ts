@@ -25,6 +25,31 @@ export interface AlbumArtwork {
   imageBuffer: Buffer;
 }
 
+/** Musicky-managed tag data stored in TXXX frames with µ: prefix */
+export interface MusickTagData {
+  genres?: string[];
+  phases?: string[];
+  moods?: string[];
+  topics?: string[];
+  tags?: string[];
+  related?: MusickRelatedSong[];
+  version?: number;
+}
+
+export interface MusickRelatedSong {
+  title: string;
+  artist: string;
+  type: string;   // edge type: 'similarity' | 'genre' | 'phase' | 'mood' | 'topic' | 'custom'
+  weight: number;  // 0.0 – 1.0
+}
+
+/** Prefix for all Musicky TXXX frame descriptions */
+export const MUSICK_TAG_PREFIX = 'µ:';
+
+/** Known Musicky TXXX field names (without prefix) */
+export const MUSICK_TAG_FIELDS = ['genres', 'phases', 'moods', 'topics', 'tags', 'related', 'version'] as const;
+export type MusickTagField = typeof MUSICK_TAG_FIELDS[number];
+
 export interface MP3Metadata {
   filePath: string;
   title?: string;
@@ -45,6 +70,7 @@ export interface MP3Metadata {
   fileSize?: number;
   artwork?: AlbumArtwork;
   artworkDataUrl?: string; // Base64 data URL for frontend display
+  muspiTag?: MusickTagData; // Musicky-managed TXXX tag data
 }
 
 export interface PendingEdit {
@@ -71,6 +97,9 @@ export class MP3MetadataManager {
       // Read metadata using music-metadata
       const metadata = await mm.parseFile(filePath);
       
+      // Extract Musicky TXXX tags from native ID3v2 frames
+      const muspiTag = this.extractMusickTags(metadata);
+
       const result: MP3Metadata = {
         filePath,
         title: metadata.common.title,
@@ -85,7 +114,8 @@ export class MP3MetadataManager {
         bitrate: metadata.format.bitrate,
         sampleRate: metadata.format.sampleRate,
         format: metadata.format.container,
-        fileSize: stats.size
+        fileSize: stats.size,
+        muspiTag: muspiTag || undefined,
       };
       
       // Try to get artwork from cache first
@@ -200,6 +230,123 @@ export class MP3MetadataManager {
     }
     
     return undefined;
+  }
+
+  /**
+   * Extract Musicky µ: TXXX tags from music-metadata native frames
+   */
+  private extractMusickTags(metadata: mm.IAudioMetadata): MusickTagData | null {
+    const nativeFrames = metadata.native['ID3v2.4'] || metadata.native['ID3v2.3'] || metadata.native['ID3v2.2'];
+    if (!nativeFrames) return null;
+
+    const txxxFrames = nativeFrames.filter(
+      (f: { id: string; value: any }) => f.id === 'TXXX' && typeof f.value === 'object' && f.value.description?.startsWith(MUSICK_TAG_PREFIX)
+    );
+
+    if (txxxFrames.length === 0) return null;
+
+    const tagData: MusickTagData = {};
+    for (const frame of txxxFrames) {
+      const frameVal = frame.value as { description: string; text?: string; value?: string };
+      const key = frameVal.description.slice(MUSICK_TAG_PREFIX.length) as MusickTagField;
+      const val: string = frameVal.text ?? frameVal.value ?? '';
+
+      switch (key) {
+        case 'genres':
+        case 'phases':
+        case 'moods':
+        case 'topics':
+        case 'tags':
+          tagData[key] = val.split(',').map((s: string) => s.trim()).filter(Boolean);
+          break;
+        case 'related':
+          try { tagData.related = JSON.parse(val); } catch { /* ignore malformed */ }
+          break;
+        case 'version':
+          tagData.version = parseInt(val, 10) || 1;
+          break;
+      }
+    }
+
+    return Object.keys(tagData).length > 0 ? tagData : null;
+  }
+
+  /**
+   * Write Musicky TXXX tags to an MP3 file.
+   * Preserves existing non-Musicky TXXX frames and other ID3 data.
+   */
+  async writeTags(filePath: string, tags: Partial<MusickTagData>): Promise<void> {
+    try {
+      await fs.access(filePath);
+      const NodeID3 = await getNodeID3();
+
+      // Read existing tags to preserve non-Musicky TXXX frames
+      const existingTags = NodeID3.read(filePath, { noRaw: true }) || {};
+      const existingTxxx: { description: string; value: string }[] = [];
+      if (existingTags.userDefinedText) {
+        const arr = Array.isArray(existingTags.userDefinedText)
+          ? existingTags.userDefinedText
+          : [existingTags.userDefinedText];
+        for (const t of arr) {
+          if (!t.description?.startsWith(MUSICK_TAG_PREFIX)) {
+            existingTxxx.push(t);
+          }
+        }
+      }
+
+      // Build Musicky TXXX frames
+      const musickTxxx: { description: string; value: string }[] = [];
+
+      const addList = (field: string, values?: string[]) => {
+        if (values && values.length > 0) {
+          musickTxxx.push({ description: `${MUSICK_TAG_PREFIX}${field}`, value: values.join(', ') });
+        }
+      };
+
+      addList('genres', tags.genres);
+      addList('phases', tags.phases);
+      addList('moods', tags.moods);
+      addList('topics', tags.topics);
+      addList('tags', tags.tags);
+
+      if (tags.related && tags.related.length > 0) {
+        musickTxxx.push({ description: `${MUSICK_TAG_PREFIX}related`, value: JSON.stringify(tags.related) });
+      }
+
+      // Always write version
+      musickTxxx.push({ description: `${MUSICK_TAG_PREFIX}version`, value: '1' });
+
+      const allTxxx = [...existingTxxx, ...musickTxxx];
+
+      // Build the update payload
+      const updatePayload: any = {
+        userDefinedText: allTxxx,
+      };
+
+      // Also write standard genre frame for compatibility with other players
+      if (tags.genres && tags.genres.length > 0) {
+        updatePayload.genre = tags.genres.join(', ');
+      }
+
+      const success = NodeID3.update(updatePayload, filePath);
+      if (!success) {
+        throw new Error('NodeID3.update returned false — failed to write tags');
+      }
+
+      console.log(`[MP3Manager] Successfully wrote Musicky tags to: ${filePath}`);
+    } catch (error) {
+      const errorMsg = `Failed to write Musicky tags: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`[MP3Manager] Error in writeTags:`, error);
+      throw new Error(errorMsg);
+    }
+  }
+
+  /**
+   * Read only the Musicky TXXX tags from an MP3 file (lightweight, no artwork)
+   */
+  async readMusickTags(filePath: string): Promise<MusickTagData | null> {
+    const metadata = await mm.parseFile(filePath);
+    return this.extractMusickTags(metadata);
   }
 
   /**
