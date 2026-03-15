@@ -146,3 +146,5 @@ test-mp3-manager.js
 sqlite*.db
 .artwork-cache/*
 test-results/*
+src/Musicky.Tests/bin/
+*.vdjstems
