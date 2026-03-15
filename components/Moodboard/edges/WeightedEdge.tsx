@@ -4,7 +4,7 @@ import {
   useInternalNode, useNodes,
   type EdgeProps,
 } from '@xyflow/react';
-import { getSmartEdge, svgDrawSmoothLinePath } from '@tisoap/react-flow-smart-edge';
+import { getSmartEdge, svgDrawSmoothLinePath, pathfindingAStarDiagonal } from '@tisoap/react-flow-smart-edge';
 import { getFloatingEdgeParams } from './floating-edge-utils';
 import { EDGE_COLORS } from '../moodboard-constants';
 
@@ -20,6 +20,8 @@ export interface MoodboardEdgeData {
   directed?: boolean;
   filterState?: 'normal' | 'primary' | 'secondary' | 'hidden';
   edgeStyle?: EdgeStyle;
+  smartNodePadding?: number;
+  smartGridRatio?: number;
 }
 
 function WeightedEdge({
@@ -43,7 +45,9 @@ function WeightedEdge({
   const weight = edgeData?.weight ?? 1.0;
   const edgeType = edgeData?.edgeType ?? 'custom';
   const filterState = edgeData?.filterState ?? 'normal';
-  const edgeStyle = edgeData?.edgeStyle ?? 'bezier';
+  const edgeStyle = edgeData?.edgeStyle ?? 'smart';
+  const smartPadding = edgeData?.smartNodePadding ?? 15;
+  const smartGrid = edgeData?.smartGridRatio ?? 10;
   const strokeWidth = 1.5 + weight * 3.5;
   const color = EDGE_COLORS[edgeType] || EDGE_COLORS.custom;
 
@@ -61,8 +65,8 @@ function WeightedEdge({
       targetY: ty,
       nodes,
       options: {
-        nodePadding: 15,
-        gridRatio: 10,
+        nodePadding: smartPadding,
+        gridRatio: smartGrid,
         drawEdge: svgDrawSmoothLinePath,
       },
     });

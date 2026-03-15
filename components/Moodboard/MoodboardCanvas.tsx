@@ -7,7 +7,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './Moodboard.css';
-import { Box, ActionIcon, Group, Tooltip, Text, Badge, SegmentedControl } from '@mantine/core';
+import { Box, ActionIcon, Group, Tooltip, Text, Badge, SegmentedControl, Slider } from '@mantine/core';
 import { IconTrash, IconSearch, IconLayoutDistributeHorizontal, IconGridDots } from '@tabler/icons-react';
 import { EdgeWeightEditor } from './EdgeWeightEditor';
 import SongNode from './nodes/SongNode';
@@ -66,7 +66,9 @@ export function MoodboardCanvas({
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [activeFilterTags, setActiveFilterTags] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('free');
-  const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('bezier');
+  const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('smart');
+  const [smartNodePadding, setSmartNodePadding] = useState(15);
+  const [smartGridRatio, setSmartGridRatio] = useState(10);
 
   const toggleFilter = useCallback((tagNodeId: string) => {
     setActiveFilterTags(prev => {
@@ -104,10 +106,10 @@ export function MoodboardCanvas({
     });
     const fe = edges.map(e => {
       const fs = edgeStates.get(e.id) ?? 'normal';
-      return { ...e, data: { ...e.data, filterState: fs, edgeStyle } };
+      return { ...e, data: { ...e.data, filterState: fs, edgeStyle, smartNodePadding, smartGridRatio } };
     });
     return { filteredNodes: fn, filteredEdges: fe };
-  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, toggleFilter, edgeStyle]);
+  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, toggleFilter, edgeStyle, smartNodePadding, smartGridRatio]);
 
   // Container view: transform flat nodes into grouped nodes when viewMode !== 'free'
   const { viewNodes, viewEdges } = useMemo(() => {
@@ -241,6 +243,21 @@ export function MoodboardCanvas({
             </Tooltip>
           </Group>
         </Panel>
+
+        {/* Smart edge config — top-right when Smart mode is active */}
+        {edgeStyle === 'smart' && (
+          <Panel position="top-right">
+            <Box style={{ background: 'rgba(37,38,43,0.95)', padding: '8px 12px', borderRadius: 6, border: '1px solid #373A40', backdropFilter: 'blur(8px)', minWidth: 180 }}>
+              <Text size="xs" fw={600} c="dimmed" mb={4}>Smart Edge Settings</Text>
+              <Text size="xs" c="dimmed">Node Padding: {smartNodePadding}px</Text>
+              <Slider size="xs" min={2} max={50} value={smartNodePadding} onChange={setSmartNodePadding}
+                color="teal" style={{ marginBottom: 6 }} />
+              <Text size="xs" c="dimmed">Grid Resolution: {smartGridRatio}</Text>
+              <Slider size="xs" min={2} max={25} value={smartGridRatio} onChange={setSmartGridRatio}
+                color="teal" />
+            </Box>
+          </Panel>
+        )}
 
         {/* Filter bar — shows when filters are active */}
         {activeFilterTags.size > 0 && (
