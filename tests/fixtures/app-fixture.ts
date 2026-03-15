@@ -6,6 +6,7 @@ import { SettingsPage } from '../pages/settings-page';
 import { ReviewChangesPage } from '../pages/review-changes-page';
 import { FileBrowserPage } from '../pages/file-browser-page';
 import { AudioPlayerPage } from '../pages/audio-player-page';
+import { TagSyncPage } from '../pages/tag-sync-page';
 
 type AppFixtures = {
   nav: NavigationHelper;
@@ -15,6 +16,7 @@ type AppFixtures = {
   reviewChangesPage: ReviewChangesPage;
   fileBrowserPage: FileBrowserPage;
   audioPlayerPage: AudioPlayerPage;
+  tagSyncPage: TagSyncPage;
 };
 
 export const test = base.extend<AppFixtures>({
@@ -44,6 +46,10 @@ export const test = base.extend<AppFixtures>({
 
   audioPlayerPage: async ({ page }, use) => {
     await use(new AudioPlayerPage(page));
+  },
+
+  tagSyncPage: async ({ page }, use) => {
+    await use(new TagSyncPage(page));
   },
 });
 

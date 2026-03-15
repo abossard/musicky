@@ -260,3 +260,21 @@ async function getLibraryFilePaths(): Promise<string[]> {
   const scan = await library.scan(base);
   return scan.files.map(f => f.filePath);
 }
+
+/**
+ * Debug: check what the server sees in the moodboard tables.
+ */
+export async function onDebugMoodboardState(): Promise<{
+  nodeCount: number;
+  edgeCount: number;
+  songNodes: { id: string; songPath: string }[];
+  tagNodes: { id: string; label: string; category: string }[];
+  baseFolder: string | null;
+}> {
+  const { db } = await import('../database/sqlite/db');
+  const nodeCount = (db().prepare('SELECT COUNT(*) as c FROM moodboard_nodes').get() as any).c;
+  const edgeCount = (db().prepare('SELECT COUNT(*) as c FROM moodboard_edges').get() as any).c;
+  const songNodes = db().prepare("SELECT id, song_path as songPath FROM moodboard_nodes WHERE node_type = 'song'").all() as any[];
+  const tagNodes = db().prepare("SELECT id, tag_label as label, tag_category as category FROM moodboard_nodes WHERE node_type = 'tag'").all() as any[];
+  return { nodeCount, edgeCount, songNodes, tagNodes, baseFolder: readBaseFolder() };
+}

@@ -75,6 +75,12 @@ async function globalSetup() {
   db.prepare('DELETE FROM moodboard_nodes').run();
   db.prepare('DELETE FROM moodboards').run();
 
+  // Clear tag sync tables (use IF EXISTS since they may not exist on first run)
+  db.exec('CREATE TABLE IF NOT EXISTS mp3_pending_tag_edits (id INTEGER PRIMARY KEY AUTOINCREMENT, file_path TEXT NOT NULL, field_name TEXT NOT NULL, original_value TEXT, new_value TEXT NOT NULL, direction TEXT NOT NULL DEFAULT \'export\', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT \'pending\')');
+  db.exec('CREATE TABLE IF NOT EXISTS mp3_tag_edit_history (id INTEGER PRIMARY KEY AUTOINCREMENT, file_path TEXT NOT NULL, field_name TEXT NOT NULL, old_value TEXT, new_value TEXT NOT NULL, direction TEXT NOT NULL DEFAULT \'export\', applied_at DATETIME DEFAULT CURRENT_TIMESTAMP, reverted INTEGER DEFAULT 0)');
+  db.exec('DELETE FROM mp3_pending_tag_edits');
+  db.exec('DELETE FROM mp3_tag_edit_history');
+
   db.close();
   console.log(`[test-setup] Done — cached ${mp3Files.length} MP3 files from ${testMusicFolder}`);
 }

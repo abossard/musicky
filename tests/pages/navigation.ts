@@ -11,6 +11,7 @@ export class NavigationHelper {
     mp3Library: Locator;
     reviews: Locator;
     settings: Locator;
+    tagSync: Locator;
   };
   readonly statusBadge: Locator;
   readonly appTitle: Locator;
@@ -23,6 +24,7 @@ export class NavigationHelper {
       mp3Library: page.getByRole('link', { name: 'MP3 Library' }),
       reviews: page.getByRole('link', { name: 'Reviews' }),
       settings: page.getByRole('link', { name: 'Settings' }),
+      tagSync: page.getByRole('link', { name: 'Tag Sync' }),
     };
     this.statusBadge = page.locator('.mantine-Badge-root');
     this.appTitle = page.getByText('Musicky');
@@ -58,6 +60,10 @@ export class NavigationHelper {
 
   async goToAudioPlayer() {
     await this.goto('/audio-player');
+  }
+
+  async goToTagSync() {
+    await this.goto('/tag-sync');
   }
 
   async goHome() {

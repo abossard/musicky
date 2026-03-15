@@ -256,7 +256,7 @@ export function TagSync() {
         </Alert>
       )}
 
-      <Tabs value={activeTab} onChange={(v) => setActiveTab(v as 'export' | 'import')}>
+      <Tabs defaultValue="export">
         <Tabs.List>
           <Tabs.Tab value="export" leftSection={<IconUpload size={14} />}>
             Export to Files
