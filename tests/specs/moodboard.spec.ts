@@ -2,159 +2,248 @@ import { test, expect } from '../fixtures/app-fixture';
 import path from 'path';
 import sqlite from 'better-sqlite3';
 
-function setupBoard() {
-  const dbPath = path.resolve('sqlite.db');
-  const db = sqlite(dbPath);
+function setupRichBoard() {
+  const db = sqlite(path.resolve('sqlite.db'));
   db.prepare('DELETE FROM moodboard_edges').run();
   db.prepare('DELETE FROM moodboard_nodes').run();
   db.prepare('DELETE FROM moodboards').run();
 
-  const board = db.prepare('INSERT INTO moodboards (name) VALUES (?)').run('DJ Moodboard');
+  const board = db.prepare('INSERT INTO moodboards (name) VALUES (?)').run('Rich Moodboard');
   const boardId = board.lastInsertRowid as number;
-  const songs = db.prepare('SELECT file_path, filename FROM mp3_file_cache ORDER BY file_path').all() as any[];
 
-  const songNodes: { id: string; path: string }[] = [];
-  songs.slice(0, 20).forEach((s: any, i: number) => {
+  // Add ALL 44 songs
+  const songs = db.prepare('SELECT file_path, filename, artist, title FROM mp3_file_cache ORDER BY file_path').all() as any[];
+  const songNodes: { id: string; path: string; name: string }[] = [];
+  songs.forEach((s: any, i: number) => {
     const id = `song-${i}`;
     db.prepare('INSERT INTO moodboard_nodes (id, board_id, node_type, song_path, position_x, position_y) VALUES (?,?,?,?,?,?)')
-      .run(id, boardId, 'song', s.file_path, (i % 5) * 180, Math.floor(i / 5) * 180);
-    songNodes.push({ id, path: s.file_path });
+      .run(id, boardId, 'song', s.file_path, (i % 7) * 160, Math.floor(i / 7) * 160);
+    songNodes.push({ id, path: s.file_path, name: (s.file_path as string).toLowerCase() });
   });
 
+  // Rich set of tags — 4 moods, 4 genres, 4 phases
   const tags = [
-    { label: 'dark', category: 'mood', color: 'pink' },
-    { label: 'energetic', category: 'mood', color: 'pink' },
-    { label: 'dreamy', category: 'mood', color: 'pink' },
-    { label: 'techno', category: 'genre', color: 'cyan' },
-    { label: 'house', category: 'genre', color: 'cyan' },
-    { label: 'melodic', category: 'genre', color: 'cyan' },
-    { label: 'starter', category: 'phase', color: 'violet' },
-    { label: 'peak', category: 'phase', color: 'violet' },
-    { label: 'closer', category: 'phase', color: 'violet' },
+    // Moods
+    { label: 'dark', cat: 'mood', color: 'pink' },
+    { label: 'energetic', cat: 'mood', color: 'pink' },
+    { label: 'dreamy', cat: 'mood', color: 'pink' },
+    { label: 'hypnotic', cat: 'mood', color: 'pink' },
+    // Genres
+    { label: 'techno', cat: 'genre', color: 'cyan' },
+    { label: 'house', cat: 'genre', color: 'cyan' },
+    { label: 'melodic', cat: 'genre', color: 'cyan' },
+    { label: 'progressive', cat: 'genre', color: 'cyan' },
+    // Phases
+    { label: 'opener', cat: 'phase', color: 'violet' },
+    { label: 'buildup', cat: 'phase', color: 'violet' },
+    { label: 'peak', cat: 'phase', color: 'violet' },
+    { label: 'closer', cat: 'phase', color: 'violet' },
   ];
   const tagIds: Record<string, string> = {};
   tags.forEach((t, i) => {
     const id = `tag-${t.label}`;
     db.prepare('INSERT INTO moodboard_nodes (id, board_id, node_type, tag_label, tag_category, tag_color, position_x, position_y) VALUES (?,?,?,?,?,?,?,?)')
-      .run(id, boardId, 'tag', t.label, t.category, t.color, -200 + i * 50, -100 + i * 80);
+      .run(id, boardId, 'tag', t.label, t.cat, t.color, -300 + i * 60, -200 + i * 60);
     tagIds[t.label] = id;
   });
 
+  // Complex song→tag connections (each song connected to 2-4 tags)
   const rules: [string, string[]][] = [
     ['artbat', ['dark', 'techno', 'melodic', 'peak']],
-    ['anyma', ['dreamy', 'melodic', 'peak']],
-    ['sofi tukker', ['energetic', 'house', 'starter']],
-    ['adriatique', ['dreamy', 'melodic', 'starter']],
+    ['anyma', ['dreamy', 'progressive', 'melodic', 'peak']],
+    ['sofi tukker', ['energetic', 'house', 'opener']],
     ['dom dolla', ['energetic', 'house', 'peak']],
-    ['super flu', ['melodic', 'house', 'starter']],
-    ['odd mob', ['energetic', 'house']],
-    ['keinemusik', ['house', 'melodic', 'closer']],
-    ['kolya', ['energetic', 'house', 'starter']],
-    ['raffa', ['dark', 'techno', 'peak']],
-    ['jonas blue', ['melodic', 'house', 'starter']],
-    ['asal', ['dark', 'melodic', 'closer']],
-    ['tiesto', ['energetic', 'techno', 'peak']],
+    ['adriatique', ['dreamy', 'melodic', 'progressive', 'buildup']],
+    ['super flu', ['melodic', 'house', 'opener']],
+    ['odd mob', ['energetic', 'house', 'techno', 'peak']],
+    ['keinemusik', ['house', 'melodic', 'hypnotic', 'closer']],
+    ['tiesto', ['energetic', 'techno', 'progressive', 'peak']],
+    ['morten', ['techno', 'energetic', 'dark', 'peak']],
+    ['kolya', ['energetic', 'house', 'opener']],
+    ['raffa', ['dark', 'techno', 'hypnotic', 'buildup']],
+    ['jonas blue', ['melodic', 'house', 'opener']],
+    ['asal', ['dark', 'melodic', 'hypnotic', 'closer']],
+    ['salif', ['house', 'melodic', 'dreamy', 'buildup']],
+    ['hi-lo', ['techno', 'dark', 'energetic', 'peak']],
+    ['benny benassi', ['techno', 'energetic', 'hypnotic', 'peak']],
+    ['elderbrook', ['dreamy', 'melodic', 'progressive', 'buildup']],
+    ['empire of the sun', ['dreamy', 'progressive', 'melodic', 'closer']],
+    ['enai', ['melodic', 'progressive', 'dreamy', 'buildup']],
+    ['jack orley', ['house', 'melodic', 'opener']],
+    ['jamie jones', ['house', 'techno', 'hypnotic', 'peak']],
+    ['jazzy', ['house', 'energetic', 'opener']],
+    ['john summit', ['techno', 'house', 'energetic', 'peak']],
+    ['moby', ['dreamy', 'melodic', 'progressive', 'closer']],
+    ['pete tong', ['techno', 'melodic', 'peak']],
+    ['rivo', ['melodic', 'progressive', 'dreamy', 'buildup']],
+    ['roland clark', ['house', 'energetic', 'peak']],
+    ['rufus', ['dreamy', 'progressive', 'melodic', 'closer']],
+    ['sailor', ['dark', 'melodic', 'hypnotic', 'buildup']],
+    ['sean paul', ['house', 'energetic', 'peak']],
+    ['shakedown', ['dark', 'progressive', 'hypnotic', 'peak']],
+    ['sonique', ['house', 'energetic', 'opener']],
+    ['sonny fodera', ['house', 'energetic', 'opener']],
+    ['temper trap', ['dreamy', 'melodic', 'progressive', 'closer']],
+    ['womack', ['house', 'melodic', 'dreamy', 'closer']],
+    ['zac', ['dark', 'progressive', 'hypnotic', 'buildup']],
+    ['zhu', ['dark', 'techno', 'hypnotic', 'peak']],
+    ['kevin mckay', ['house', 'energetic', 'opener']],
   ];
 
   let ei = 0;
   for (const song of songNodes) {
-    const lc = song.path.toLowerCase();
     for (const [kw, labels] of rules) {
-      if (lc.includes(kw)) {
-        for (const label of labels)
+      if (song.name.includes(kw)) {
+        for (const label of labels) {
           if (tagIds[label])
             db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-              .run(`e-${ei++}`, boardId, song.id, tagIds[label], tags.find(t => t.label === label)!.category, 0.8);
+              .run(`e-${ei++}`, boardId, song.id, tagIds[label], tags.find(t => t.label === label)!.cat, 0.6 + Math.random() * 0.4);
+        }
       }
     }
   }
+
+  // Song→song directed edges (flow chains)
+  const artbat = songNodes.filter(s => s.name.includes('artbat'));
+  for (let i = 0; i < artbat.length - 1; i++)
+    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
+      .run(`flow-${ei++}`, boardId, artbat[i].id, artbat[i + 1].id, 'similarity', 0.9);
+
+  // Cross-artist flows
+  const anyma = songNodes.filter(s => s.name.includes('anyma'));
+  const adriatique = songNodes.filter(s => s.name.includes('adriatique'));
+  if (anyma.length && adriatique.length)
+    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
+      .run(`flow-${ei++}`, boardId, anyma[0].id, adriatique[0].id, 'similarity', 0.85);
+
+  const elderbrook = songNodes.filter(s => s.name.includes('elderbrook'));
+  const rufus = songNodes.filter(s => s.name.includes('rufus'));
+  if (elderbrook.length && rufus.length)
+    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
+      .run(`flow-${ei++}`, boardId, elderbrook[0].id, rufus[0].id, 'similarity', 0.8);
+
+  const domDolla = songNodes.filter(s => s.name.includes('dom dolla'));
+  const oddMob = songNodes.filter(s => s.name.includes('odd mob'));
+  if (domDolla.length && oddMob.length)
+    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
+      .run(`flow-${ei++}`, boardId, domDolla[0].id, oddMob[0].id, 'similarity', 0.75);
 
   console.log(`[setup] ${songNodes.length} songs, ${tags.length} tags, ${ei} edges`);
   db.close();
 }
 
-test.describe('Moodboard', () => {
-  test.setTimeout(120000);
+test.describe('Moodboard Visual Tests', () => {
+  test.setTimeout(90000);
 
-  test('container view modes', async ({ page }) => {
-    setupBoard();
-
+  test('rich board: 44 songs, 12 tags, complex edges', async ({ page }) => {
+    setupRichBoard();
     await page.goto('/moodboard');
-    await expect(page.locator('text=/\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)/i')).toBeVisible({ timeout: 15000 });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000);
 
     // Select board
-    if (!(await page.locator('.react-flow__controls-fitview').isVisible().catch(() => false))) {
-      await page.locator('.mantine-Select-input').click();
-      await page.waitForTimeout(500);
-      const opt = page.getByRole('option', { name: 'DJ Moodboard' });
-      if (await opt.isVisible({ timeout: 3000 }).catch(() => false)) await opt.click();
-      await page.waitForTimeout(2000);
-    }
     const fitBtn = page.locator('.react-flow__controls-fitview');
+    if (!(await fitBtn.isVisible({ timeout: 8000 }).catch(() => false))) {
+      await page.getByPlaceholder("Board").click().catch(() => {});
+      await page.waitForTimeout(500);
+      const opt = page.getByRole('option').first();
+      if (await opt.isVisible().catch(() => false)) await opt.click();
+      await page.waitForTimeout(3000);
+    }
+    await expect(fitBtn).toBeVisible({ timeout: 10000 });
+
+    // 1. Grid layout — all 44 songs visible
+    const gridBtn = page.getByRole('button', { name: 'Grid layout' });
+    await gridBtn.click();
+    await page.waitForTimeout(1000);
+    await fitBtn.click();
+    await page.waitForTimeout(500);
+    const nodeCount = await page.locator('.react-flow__node').count();
+    const edgeCount = await page.locator('.react-flow__edge').count();
+    console.log(`Grid: ${nodeCount} nodes, ${edgeCount} edges`);
+    await page.screenshot({ path: 'test-results/moodboard-01-grid-44songs.png', fullPage: true });
+
+    // 2. Cluster layout — songs grouped by tag connections
+    const clusterBtn = page.getByRole('button', { name: 'Cluster layout' });
+    await clusterBtn.click();
+    await page.waitForTimeout(1000);
+    await fitBtn.click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-02-cluster-overview.png', fullPage: true });
+
+    // 3. Cluster zoomed — edges and artwork detail
     const zoomIn = page.locator('.react-flow__controls-zoomin');
-    await expect(fitBtn).toBeVisible({ timeout: 15000 });
+    for (let i = 0; i < 4; i++) { await zoomIn.click(); await page.waitForTimeout(150); }
+    await page.screenshot({ path: 'test-results/moodboard-03-cluster-zoomed.png', fullPage: true });
 
-    // 1. Free view — cluster layout
-    await page.getByRole('button', { name: 'Cluster layout' }).click();
+    // 4. Phase container view
+    await page.locator('.mantine-SegmentedControl-root').getByText('Phase').click();
     await page.waitForTimeout(1000);
     await fitBtn.click();
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-01-free-cluster.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/moodboard-04-phase-containers.png', fullPage: true });
 
-    // 2. Switch to Phase container view
-    await page.locator(".mantine-SegmentedControl-root").getByText("Phase").click();
-    await page.waitForTimeout(1000);
-    await fitBtn.click();
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-02-phase-overview.png', fullPage: true });
+    // 5. Phase zoomed — see songs inside containers
+    for (let i = 0; i < 3; i++) { await zoomIn.click(); await page.waitForTimeout(150); }
+    await page.screenshot({ path: 'test-results/moodboard-05-phase-zoomed.png', fullPage: true });
 
-    // Zoom into first container to show it clearly
-    for (let i = 0; i < 5; i++) { await zoomIn.click(); await page.waitForTimeout(150); }
-    await page.screenshot({ path: 'test-results/moodboard-02b-phase-zoomed.png', fullPage: true });
-
-    const containers = await page.locator('.react-flow__node-container').count();
-    const groups = await page.locator('.react-flow__node-group').count();
-    console.log(`Phase containers: ${containers}, groups: ${groups}`);
-    // Dump all node types
-    const nodeInfo = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('[class*="react-flow__node"]')).map(n => {
-        const el = n as HTMLElement;
-        return `CLASS="${el.className}" STYLE="${el.getAttribute('style')?.substring(0,100)}"`;
-      });
-    });
-    nodeInfo.filter(n => n.includes('container')).forEach(n => console.log('  ', n));
-    // Also check if CSS file loaded
-    const sheets = await page.evaluate(() => Array.from(document.styleSheets).map(s => s.href || 'inline'));
-    console.log('Stylesheets:', sheets.length);
-
-    // 3. Switch to Genre container view
+    // 6. Genre container view
     await page.locator('.mantine-SegmentedControl-root').getByText('Genre').click();
     await page.waitForTimeout(1000);
     await fitBtn.click();
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-03-genre-containers.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/moodboard-06-genre-containers.png', fullPage: true });
 
-    // 4. Switch to Mood container view
+    // 7. Mood container view
     await page.locator('.mantine-SegmentedControl-root').getByText('Mood').click();
     await page.waitForTimeout(1000);
     await fitBtn.click();
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-04-mood-containers.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/moodboard-07-mood-containers.png', fullPage: true });
 
-    // 5. Zoom into a container
-    for (let i = 0; i < 3; i++) { await zoomIn.click(); await page.waitForTimeout(200); }
-    await page.screenshot({ path: 'test-results/moodboard-05-container-zoomed.png', fullPage: true });
-
-    // 6. Back to free
+    // 8. Back to free — filter by "dark"
     await page.locator('.mantine-SegmentedControl-root').getByText('Free').click();
+    await page.waitForTimeout(500);
+    await clusterBtn.click();
     await page.waitForTimeout(1000);
     await fitBtn.click();
+    await page.waitForTimeout(300);
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'dark' }).dblclick();
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-06-back-to-free.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/moodboard-08-filter-dark.png', fullPage: true });
+    const darkMatches = await page.getByText(/\d+ matches/).textContent().catch(() => '?');
+    console.log(`Dark filter: ${darkMatches}`);
 
-    const totalNodes = await page.locator('.react-flow__node').count();
-    console.log(`Total nodes in free view: ${totalNodes}`);
+    // 9. Filter: dark + techno
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'techno' }).dblclick();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-09-filter-dark-techno.png', fullPage: true });
+
+    // 10. Filter: dreamy + progressive
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'dark' }).dblclick();
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'techno' }).dblclick();
+    await page.waitForTimeout(200);
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'dreamy' }).dblclick();
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'progressive' }).dblclick();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-10-filter-dreamy-progressive.png', fullPage: true });
+
+    // 11. Final overview — clear filters, cluster, fit
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'dreamy' }).dblclick();
+    await page.locator('.react-flow__node-tag').filter({ hasText: 'progressive' }).dblclick();
+    await page.waitForTimeout(200);
+    await fitBtn.click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-11-final-overview.png', fullPage: true });
+
+    // Summary
+    console.log(`Final: ${nodeCount} nodes, ${edgeCount} edges`);
+    const imgs = page.locator('.react-flow__node-song img');
+    let loaded = 0;
+    const imgCount = await imgs.count();
+    for (let i = 0; i < imgCount; i++)
+      if (await imgs.nth(i).evaluate((el: HTMLImageElement) => el.naturalWidth) > 0) loaded++;
+    console.log(`Artwork: ${loaded}/${imgCount} loaded`);
+
     await expect(page.getByText('Moodboard').first()).toBeVisible();
   });
 });
