@@ -99,10 +99,21 @@ async function cleanMusickTagsFromFiles(filePaths: string[]) {
       const tags = mod.read(fp, { noRaw: true }) as any;
       if (!tags?.userDefinedText) continue;
       const existing = Array.isArray(tags.userDefinedText) ? tags.userDefinedText : [tags.userDefinedText];
+      const hasMusick = existing.some((t: any) => t.description?.startsWith('µ:'));
+      if (!hasMusick) continue;
+
+      // Remove ALL tags then re-write without µ: ones
       const nonMusick = existing.filter((t: any) => !t.description?.startsWith('µ:'));
-      if (nonMusick.length !== existing.length) {
-        mod.update({ userDefinedText: nonMusick.length > 0 ? nonMusick : [] }, fp);
+      // First remove all TXXX, then write back only non-musicky ones
+      mod.removeTags(fp);
+      // Re-read remaining non-TXXX tags
+      const cleanTags = { ...tags };
+      delete cleanTags.userDefinedText;
+      delete cleanTags.raw;
+      if (nonMusick.length > 0) {
+        cleanTags.userDefinedText = nonMusick;
       }
+      mod.write(cleanTags, fp);
     }
     console.log(`[cleanup] Cleaned µ: tags from ${filePaths.length} files`);
   } catch (err) {
@@ -444,5 +455,127 @@ test.describe('Tag Sync — Screenshot Tour', () => {
     await cleanMusickTagsFromFiles(paths);
 
     console.log('[tour] Complete — 8 screenshots captured');
+  });
+});
+
+// ─── Roundtrip Test: Export → Wipe DB → Rebuild from Tags ─────────────────
+
+test.describe('Tag Sync — Roundtrip: Export → Rebuild', () => {
+  test.setTimeout(180000);
+
+  test('export tags to files, wipe moodboard, rebuild from tags', async ({ page }) => {
+    // 1. Setup moodboard and ensure tags are exported
+    const paths = setupMoodboardWithTags();
+
+    await gotoTagSync(page);
+    await page.getByRole('tab', { name: /Export to Files/i }).click();
+
+    // Debug: verify server sees data
+    const debugState = await page.evaluate(async () => {
+      const { onDebugMoodboardState } = await import('/components/TagSync.telefunc');
+      return await onDebugMoodboardState();
+    }).catch(() => null) as any;
+    console.log(`[roundtrip] Server sees: ${debugState?.nodeCount} nodes, ${debugState?.edgeCount} edges`);
+
+    // Scan export
+    await page.getByRole('button', { name: /Scan Library/i }).click();
+    await page.waitForTimeout(1000);
+    try { await expect(page.locator('.mantine-Loader-root')).toBeHidden({ timeout: 90000 }); } catch {}
+    await page.waitForTimeout(1000);
+
+    const exportCards = await page.locator('.diff-card').count();
+    console.log(`[roundtrip] Export scan: ${exportCards} files with diffs`);
+
+    // Apply if there are diffs (may be 0 if tags already exist from prior test)
+    if (exportCards > 0) {
+      const applyBtn = page.getByRole('button', { name: /Apply \d+ Edit/i });
+      await applyBtn.click();
+      await page.waitForTimeout(5000);
+      console.log('[roundtrip] Applied export edits');
+    } else {
+      console.log('[roundtrip] Tags already in files from prior test');
+    }
+    await page.screenshot({ path: 'test-results/tag-sync-roundtrip-01-exported.png', fullPage: true });
+
+    // 2. Record original board stats
+    const db = sqlite(DB_PATH);
+    const originalSongs = (db.prepare("SELECT COUNT(*) as c FROM moodboard_nodes WHERE node_type = 'song'").get() as any).c;
+    const originalTags = (db.prepare("SELECT COUNT(*) as c FROM moodboard_nodes WHERE node_type = 'tag'").get() as any).c;
+    const originalEdges = (db.prepare('SELECT COUNT(*) as c FROM moodboard_edges').get() as any).c;
+    console.log(`[roundtrip] Before wipe: ${originalSongs} songs, ${originalTags} tags, ${originalEdges} edges`);
+
+    // 3. Wipe the moodboard completely
+    db.exec('DELETE FROM moodboard_edges');
+    db.exec('DELETE FROM moodboard_nodes');
+    db.exec('DELETE FROM moodboards');
+    db.exec('DELETE FROM mp3_pending_tag_edits');
+    db.close();
+    console.log('[roundtrip] Moodboard wiped!');
+
+    await page.goto('/moodboard');
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: 'test-results/tag-sync-roundtrip-02-wiped.png', fullPage: true });
+
+    // 4. Navigate to Tag Sync and use Rebuild Moodboard button
+    await gotoTagSync(page);
+    await page.screenshot({ path: 'test-results/tag-sync-roundtrip-03-ready-to-rebuild.png', fullPage: true });
+
+    // 5. Click "Rebuild Moodboard" and capture result via telefunc
+    const rebuildBtn = page.getByRole('button', { name: /Rebuild Moodboard/i });
+    await expect(rebuildBtn).toBeVisible({ timeout: 10000 });
+
+    // Call the rebuild directly via telefunc for better error visibility
+    const rebuildResult = await page.evaluate(async () => {
+      try {
+        const { onRebuildFromTags } = await import('/components/TagSync.telefunc');
+        return await onRebuildFromTags();
+      } catch (err: any) {
+        return { error: err.message || String(err) };
+      }
+    });
+    console.log(`[roundtrip] Rebuild result:`, JSON.stringify(rebuildResult));
+    await page.screenshot({ path: 'test-results/tag-sync-roundtrip-04-rebuilt.png', fullPage: true });
+
+    // 6. Verify the rebuilt moodboard from the telefunc result
+    const result = rebuildResult as any;
+    expect(result.error).toBeUndefined();
+    expect(result.songCount).toBe(originalSongs);
+    expect(result.tagCount).toBe(originalTags);
+    expect(result.edgeCount).toBeGreaterThan(0);
+    console.log(`[roundtrip] Rebuilt: ${result.songCount} songs, ${result.tagCount} tags, ${result.edgeCount} tag edges, ${result.relatedEdgeCount} related edges`);
+
+    // 8. Visit the rebuilt moodboard to see it visually
+    await page.goto('/moodboard');
+    await page.waitForTimeout(3000);
+    const boardSelect = page.getByPlaceholder('Board');
+    if (await boardSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await boardSelect.click();
+      await page.waitForTimeout(500);
+      const opt = page.getByRole('option').first();
+      if (await opt.isVisible({ timeout: 2000 }).catch(() => false)) await opt.click();
+      await page.waitForTimeout(3000);
+    }
+    const fitBtn = page.locator('.react-flow__controls-fitview');
+    if (await fitBtn.isVisible({ timeout: 8000 }).catch(() => false)) {
+      await fitBtn.click();
+      await page.waitForTimeout(500);
+    }
+    await page.screenshot({ path: 'test-results/tag-sync-roundtrip-05-moodboard-rebuilt.png', fullPage: true });
+
+    // 9. Try grid layout for better visibility
+    const gridBtn = page.getByRole('button', { name: 'Grid layout' });
+    if (await gridBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await gridBtn.click();
+      await page.waitForTimeout(1000);
+      if (await fitBtn.isVisible().catch(() => false)) {
+        await fitBtn.click();
+        await page.waitForTimeout(500);
+      }
+    }
+    await page.screenshot({ path: 'test-results/tag-sync-roundtrip-06-grid-layout.png', fullPage: true });
+
+    // Cleanup
+    await cleanMusickTagsFromFiles(paths);
+    console.log(`[roundtrip] Done! ${originalSongs} songs → wiped → rebuilt ${result.songCount} songs, ${result.tagCount} tags, ${result.edgeCount} edges`);
   });
 });

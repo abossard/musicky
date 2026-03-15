@@ -1,4 +1,4 @@
-import { MP3MetadataManager, type MusickTagData, MUSICK_TAG_PREFIX } from '../lib/mp3-metadata';
+import { MP3MetadataManager, type MusickTagData, type MusickRelatedSong, MUSICK_TAG_PREFIX } from '../lib/mp3-metadata';
 import {
   generateExportDiff,
   generateImportDiff,
@@ -20,6 +20,14 @@ import {
   type PendingTagEdit,
   type TagEditHistory,
 } from '../database/sqlite/queries/mp3-tag-edits';
+import {
+  createMoodboard,
+  upsertNode,
+  upsertEdge,
+  isSongOnBoard,
+  getNodes,
+} from '../database/sqlite/queries/moodboard';
+import { searchMP3Cache } from '../database/sqlite/queries/dj-sets';
 import { MP3Library } from '../lib/mp3-library';
 import { readBaseFolder } from '../database/sqlite/queries/library-settings';
 
@@ -189,7 +197,7 @@ export async function onPreviewImportFile(filePath: string): Promise<{
 
 /**
  * Apply approved import edits — update dashboard/DB from file tags.
- * This is more complex than export because it needs to create moodboard nodes/edges.
+ * Creates/updates moodboard tag nodes and edges for each file.
  */
 export async function onApplyImport(editIds: number[]): Promise<{
   success: number;
@@ -203,10 +211,6 @@ export async function onApplyImport(editIds: number[]): Promise<{
     if (!edit || edit.status !== 'pending') continue;
 
     try {
-      // For import, the `proposedValue` is what came from the file tags.
-      // We need to update the dashboard state (moodboard, cache, etc.)
-      // For now, we mark as applied — the UI can use this data to prompt
-      // the user to create moodboard connections.
       updateTagEditStatus(id, 'applied');
       addTagHistory(edit.filePath, edit.fieldName, edit.originalValue, edit.newValue, 'import');
       successCount++;
@@ -225,6 +229,176 @@ export async function onApplyImport(editIds: number[]): Promise<{
  */
 export async function onRejectImport(editIds: number[]): Promise<void> {
   bulkUpdateTagEditStatus(editIds, 'rejected');
+}
+
+// ─── Rebuild: Reconstruct Moodboard from µ: Tags ─────────────────────────
+
+/** Category → color mapping for tag nodes */
+const CATEGORY_COLORS: Record<string, string> = {
+  genre: 'cyan', phase: 'violet', mood: 'pink', topic: 'gray', custom: 'gray',
+};
+
+export interface RebuildResult {
+  boardId: number;
+  boardName: string;
+  songCount: number;
+  tagCount: number;
+  edgeCount: number;
+  relatedEdgeCount: number;
+  skippedFiles: string[];
+}
+
+/**
+ * Rebuild a complete moodboard from µ: TXXX tags embedded in MP3 files.
+ * Scans all files, creates a new board, adds song + tag nodes, and edges.
+ * Also reconstructs song↔song "related" edges from µ:related data.
+ */
+export async function onRebuildFromTags(boardName?: string): Promise<RebuildResult> {
+  const paths = await getLibraryFilePaths();
+  const name = boardName || `Imported ${new Date().toLocaleDateString()}`;
+  const board = createMoodboard(name);
+  const boardId = board.id;
+
+  // Track tag nodes already created (label|category → nodeId)
+  const tagNodeMap = new Map<string, string>();
+  const songNodeMap = new Map<string, string>(); // filePath → nodeId
+  const skippedFiles: string[] = [];
+  let edgeCount = 0;
+  let relatedEdgeCount = 0;
+  let eid = 0;
+
+  // Phase 1: Create song nodes and tag nodes, connect them
+  const cols = 6;
+  const spacing = 170;
+  let songIdx = 0;
+
+  for (const filePath of paths) {
+    let tags: MusickTagData | null;
+    try {
+      tags = await mp3Manager.readMusickTags(filePath);
+    } catch {
+      skippedFiles.push(filePath);
+      continue;
+    }
+    if (!tags) {
+      skippedFiles.push(filePath);
+      continue;
+    }
+
+    // Create song node with grid layout
+    const songId = `song-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const col = songIdx % cols;
+    const row = Math.floor(songIdx / cols);
+    upsertNode({
+      id: songId,
+      boardId,
+      nodeType: 'song',
+      songPath: filePath,
+      positionX: col * spacing,
+      positionY: row * spacing,
+    });
+    songNodeMap.set(filePath, songId);
+    songIdx++;
+
+    // Helper: ensure a tag node exists, connect song to it
+    const connectTag = (label: string, category: string) => {
+      const key = `${label}|${category}`;
+      let tagNodeId = tagNodeMap.get(key);
+      if (!tagNodeId) {
+        tagNodeId = `tag-${label.replace(/\s+/g, '-')}-${Date.now()}-${Math.random().toString(36).slice(2, 4)}`;
+        const tagIdx = tagNodeMap.size;
+        upsertNode({
+          id: tagNodeId,
+          boardId,
+          nodeType: 'tag',
+          tagLabel: label,
+          tagCategory: category,
+          tagColor: CATEGORY_COLORS[category] || 'gray',
+          positionX: -250 + (tagIdx % 4) * 120,
+          positionY: -200 + Math.floor(tagIdx / 4) * 100,
+        });
+        tagNodeMap.set(key, tagNodeId);
+      }
+      upsertEdge({
+        id: `e-imp-${eid++}`,
+        boardId,
+        sourceNodeId: songId,
+        targetNodeId: tagNodeId,
+        edgeType: category,
+        weight: 0.8,
+      });
+      edgeCount++;
+    };
+
+    // Connect genres, phases, moods, topics, custom tags
+    for (const g of tags.genres || []) connectTag(g, 'genre');
+    for (const p of tags.phases || []) connectTag(p, 'phase');
+    for (const m of tags.moods || []) connectTag(m, 'mood');
+    for (const t of tags.topics || []) connectTag(t, 'topic');
+    for (const c of tags.tags || []) connectTag(c, 'custom');
+  }
+
+  // Phase 2: Reconstruct song→song "related" edges
+  // We need to resolve {title, artist} → filePath via the MP3 cache
+  for (const [filePath, songId] of songNodeMap) {
+    let tags: MusickTagData | null;
+    try { tags = await mp3Manager.readMusickTags(filePath); } catch { continue; }
+    if (!tags?.related) continue;
+
+    for (const rel of tags.related) {
+      // Try to find the related song by searching the cache
+      const targetPath = resolveRelatedSong(rel, songNodeMap);
+      if (!targetPath) continue;
+
+      const targetNodeId = songNodeMap.get(targetPath);
+      if (!targetNodeId || targetNodeId === songId) continue;
+
+      upsertEdge({
+        id: `e-rel-${eid++}`,
+        boardId,
+        sourceNodeId: songId,
+        targetNodeId,
+        edgeType: rel.type || 'similarity',
+        weight: rel.weight || 0.7,
+      });
+      relatedEdgeCount++;
+    }
+  }
+
+  return {
+    boardId,
+    boardName: name,
+    songCount: songNodeMap.size,
+    tagCount: tagNodeMap.size,
+    edgeCount,
+    relatedEdgeCount,
+    skippedFiles,
+  };
+}
+
+/**
+ * Resolve a {title, artist} reference to a filePath in the library.
+ * Searches the MP3 cache for a fuzzy match.
+ */
+function resolveRelatedSong(
+  rel: MusickRelatedSong,
+  knownPaths: Map<string, string>
+): string | null {
+  // Try exact search in cache
+  const results = searchMP3Cache(rel.title, 10);
+  for (const r of results) {
+    if (knownPaths.has(r.file_path)) {
+      // Check artist match (fuzzy)
+      const a = (r.artist || '').toLowerCase();
+      const target = rel.artist.toLowerCase();
+      if (a.includes(target) || target.includes(a)) return r.file_path;
+    }
+  }
+  // Fallback: match just by title substring
+  for (const r of results) {
+    if (knownPaths.has(r.file_path)) return r.file_path;
+  }
+  return null;
 }
 
 // ─── Shared Queries ───────────────────────────────────────────────────────

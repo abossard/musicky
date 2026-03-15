@@ -15,6 +15,8 @@ import {
   onRejectExport,
   onRejectImport,
   onGetPendingTagEdits,
+  onRebuildFromTags,
+  type RebuildResult,
 } from './TagSync.telefunc';
 import type { PendingTagEdit } from '../database/sqlite/queries/mp3-tag-edits';
 import type { FileDiffSummary, TagDiff } from '../lib/tag-sync-engine';
@@ -104,6 +106,10 @@ export function TagSync() {
 
   // Export progress
   const [applyProgress, setApplyProgress] = useState<{ done: number; total: number } | null>(null);
+
+  // Rebuild state
+  const [rebuildResult, setRebuildResult] = useState<RebuildResult | null>(null);
+  const [rebuilding, setRebuilding] = useState(false);
 
   const handleScanExport = useCallback(async () => {
     setLoading(true);
@@ -239,6 +245,20 @@ export function TagSync() {
       }
       return next;
     });
+  }, []);
+
+  const handleRebuildFromTags = useCallback(async () => {
+    setRebuilding(true);
+    setError(null);
+    setRebuildResult(null);
+    try {
+      const result = await onRebuildFromTags();
+      setRebuildResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Rebuild failed');
+    } finally {
+      setRebuilding(false);
+    }
   }, []);
 
   return (
@@ -419,6 +439,47 @@ export function TagSync() {
           </Stack>
         </Tabs.Panel>
       </Tabs>
+
+      {/* Rebuild Moodboard — always visible below tabs */}
+      <Card withBorder p="sm" style={{ borderColor: 'var(--mantine-color-cyan-7)' }}>
+        <Stack gap="xs">
+          <Group justify="space-between">
+            <Box>
+              <Text fw={600} size="sm">Rebuild Moodboard from µ: Tags</Text>
+              <Text size="xs" c="dimmed">
+                Creates a new moodboard by reading µ: tags from all MP3 files —
+                song nodes, tag nodes (genres, phases, moods), and edges.
+                Also reconstructs song↔song links from µ:related data.
+              </Text>
+            </Box>
+            <Button
+              size="xs"
+              color="cyan"
+              variant="filled"
+              leftSection={<IconDownload size={14} />}
+              onClick={handleRebuildFromTags}
+              loading={rebuilding}
+            >
+              Rebuild Moodboard
+            </Button>
+          </Group>
+
+          {rebuildResult && (
+            <Alert color="green" icon={<IconCheck size={16} />}>
+              <Text size="sm" fw={500}>
+                Board "{rebuildResult.boardName}" created
+              </Text>
+              <Text size="xs" mt={4}>
+                {rebuildResult.songCount} songs · {rebuildResult.tagCount} tags ·{' '}
+                {rebuildResult.edgeCount} tag edges · {rebuildResult.relatedEdgeCount} related edges
+                {rebuildResult.skippedFiles.length > 0 && (
+                  <> · {rebuildResult.skippedFiles.length} files skipped (no µ: tags)</>
+                )}
+              </Text>
+            </Alert>
+          )}
+        </Stack>
+      </Card>
     </Stack>
   );
 }

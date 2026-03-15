@@ -233,23 +233,35 @@ export class MP3MetadataManager {
   }
 
   /**
-   * Extract Musicky µ: TXXX tags from music-metadata native frames
+   * Extract Musicky µ: TXXX tags from music-metadata native frames.
+   * music-metadata encodes TXXX as id="TXXX:description" with value="text".
    */
   private extractMusickTags(metadata: mm.IAudioMetadata): MusickTagData | null {
     const nativeFrames = metadata.native['ID3v2.4'] || metadata.native['ID3v2.3'] || metadata.native['ID3v2.2'];
     if (!nativeFrames) return null;
 
+    // music-metadata uses "TXXX:description" as the frame id with a string value
+    const txxxPrefix = `TXXX:${MUSICK_TAG_PREFIX}`;
     const txxxFrames = nativeFrames.filter(
-      (f: { id: string; value: any }) => f.id === 'TXXX' && typeof f.value === 'object' && f.value.description?.startsWith(MUSICK_TAG_PREFIX)
+      (f: { id: string; value: any }) => f.id.startsWith(txxxPrefix)
     );
 
     if (txxxFrames.length === 0) return null;
 
     const tagData: MusickTagData = {};
     for (const frame of txxxFrames) {
-      const frameVal = frame.value as { description: string; text?: string; value?: string };
-      const key = frameVal.description.slice(MUSICK_TAG_PREFIX.length) as MusickTagField;
-      const val: string = frameVal.text ?? frameVal.value ?? '';
+      // Extract the field name from "TXXX:µ:genres" → "genres"
+      const key = frame.id.slice(txxxPrefix.length) as MusickTagField;
+      // Value can be a string or an object with description+text
+      let val: string;
+      if (typeof frame.value === 'string') {
+        val = frame.value;
+      } else if (typeof frame.value === 'object' && frame.value) {
+        const obj = frame.value as Record<string, unknown>;
+        val = (obj.text as string) ?? (obj.value as string) ?? '';
+      } else {
+        continue;
+      }
 
       switch (key) {
         case 'genres':
