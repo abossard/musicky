@@ -1,9 +1,10 @@
 import React from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Card, Group, Text, Badge } from '@mantine/core';
-import { IconVinyl, IconWaveSine, IconHeart, IconTag, IconStar } from '@tabler/icons-react';
+import { CATEGORY_ICONS } from '../moodboard-constants';
+import type { TagCategory } from '../moodboard-constants';
 
-export type TagCategory = 'genre' | 'phase' | 'mood' | 'topic' | 'custom';
+export type { TagCategory };
 
 export interface TagNodeData {
   type: 'tag';
@@ -16,19 +17,13 @@ export interface TagNodeData {
   onFilterToggle?: (nodeId: string) => void;
 }
 
-const categoryIcons: Record<TagCategory, React.ReactNode> = {
-  genre: <IconVinyl size={14} />,
-  phase: <IconWaveSine size={14} />,
-  mood: <IconHeart size={14} />,
-  topic: <IconTag size={14} />,
-  custom: <IconStar size={14} />,
-};
-
 function TagNode({ data, selected, id }: NodeProps) {
   const tagData = data as unknown as TagNodeData;
   const filterState = tagData.filterState ?? 'normal';
   const isActive = tagData.isFilterActive;
   const isHidden = filterState === 'hidden';
+
+  const CategoryIcon = CATEGORY_ICONS[tagData.category] || CATEGORY_ICONS.custom;
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -58,7 +53,7 @@ function TagNode({ data, selected, id }: NodeProps) {
       }}
     >
       <Group gap="xs" wrap="nowrap">
-        {categoryIcons[tagData.category] || categoryIcons.custom}
+        <CategoryIcon size={14} />
         <Text size="sm" fw={600}>{tagData.label}</Text>
         {tagData.songCount != null && tagData.songCount > 0 && (
           <Badge size="xs" variant="filled" color={tagData.color}>{tagData.songCount}</Badge>

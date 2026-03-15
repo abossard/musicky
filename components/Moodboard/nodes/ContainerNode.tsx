@@ -1,8 +1,8 @@
 import React from 'react';
 import { type NodeProps } from '@xyflow/react';
 import { Text, Group, Badge } from '@mantine/core';
-import { IconVinyl, IconWaveSine, IconHeart, IconTag } from '@tabler/icons-react';
 import type { TagCategory } from './TagNode';
+import { CATEGORY_COLORS, CATEGORY_ICONS } from '../moodboard-constants';
 
 export interface ContainerNodeData {
   label: string;
@@ -13,32 +13,11 @@ export interface ContainerNodeData {
   height: number;
 }
 
-const categoryIcons: Record<string, React.ReactNode> = {
-  genre: <IconVinyl size={16} />,
-  phase: <IconWaveSine size={16} />,
-  mood: <IconHeart size={16} />,
-  topic: <IconTag size={16} />,
-  custom: <IconTag size={16} />,
-};
-
-const borderColors: Record<string, string> = {
-  violet: '#9775fa',
-  cyan: '#3bc9db',
-  pink: '#f06595',
-  gray: '#868e96',
-};
-
-const headerColors: Record<string, string> = {
-  violet: '#2b2042',
-  cyan: '#1a3a42',
-  pink: '#3a1a28',
-  gray: '#2c2e33',
-};
-
 function ContainerNode({ data }: NodeProps) {
   const d = data as unknown as ContainerNodeData;
-  const borderColor = borderColors[d.color] || borderColors.gray;
-  const headerBg = headerColors[d.color] || headerColors.gray;
+  const borderColor = CATEGORY_COLORS[d.color]?.border || CATEGORY_COLORS.gray.border;
+  const headerBg = CATEGORY_COLORS[d.color]?.header || CATEGORY_COLORS.gray.header;
+  const CategoryIcon = CATEGORY_ICONS[d.category] || CATEGORY_ICONS.custom;
 
   return (
     <div style={{
@@ -59,7 +38,7 @@ function ContainerNode({ data }: NodeProps) {
           background: headerBg,
         }}
       >
-        {categoryIcons[d.category]}
+        <CategoryIcon size={16} />
         <Text size="md" fw={800} c={borderColor} tt="uppercase" style={{ letterSpacing: 2 }}>
           {d.label}
         </Text>
