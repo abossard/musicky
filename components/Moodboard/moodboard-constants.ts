@@ -44,3 +44,18 @@ export const EDGE_STYLE_OPTIONS = [
   { label: 'Smooth', value: 'smoothstep' },
   { label: 'Smart', value: 'smart' },
 ] as const;
+
+/** Default configuration for hub-and-spoke edge bundling */
+export interface BundleConfig {
+  enabled: boolean;      // Toggle bundling on/off
+  threshold: number;     // Min edges on a tag before bundling kicks in
+  stubSpacing: number;   // Px between parallel stubs (ribbon-cable gap)
+  spineDistance: number;  // Px from tag node center to spine anchor point
+}
+
+export const DEFAULT_BUNDLE_CONFIG: BundleConfig = {
+  enabled: true,
+  threshold: 5,
+  stubSpacing: 4,
+  spineDistance: 80,
+};

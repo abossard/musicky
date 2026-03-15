@@ -7,6 +7,7 @@ import {
 import { getSmartEdge, svgDrawSmoothLinePath, pathfindingAStarDiagonal } from '@tisoap/react-flow-smart-edge';
 import { getFloatingEdgeParams } from './floating-edge-utils';
 import { EDGE_COLORS } from '../moodboard-constants';
+import type { BundleInfo } from '../../../lib/edge-bundling';
 
 export type EdgeType = 'genre' | 'phase' | 'mood' | 'similarity' | 'topic' | 'custom';
 
@@ -22,6 +23,7 @@ export interface MoodboardEdgeData {
   edgeStyle?: EdgeStyle;
   smartNodePadding?: number;
   smartGridRatio?: number;
+  bundleInfo?: BundleInfo;
 }
 
 function WeightedEdge({
@@ -48,13 +50,31 @@ function WeightedEdge({
   const edgeStyle = edgeData?.edgeStyle ?? 'smart';
   const smartPadding = edgeData?.smartNodePadding ?? 15;
   const smartGrid = edgeData?.smartGridRatio ?? 10;
+  const bundleInfo = edgeData?.bundleInfo;
   const strokeWidth = 1.5 + weight * 3.5;
   const color = EDGE_COLORS[edgeType] || EDGE_COLORS.custom;
 
   // Compute edge path based on selected style
   let edgePath: string;
 
-  if (edgeStyle === 'smart' && sourceNode && targetNode) {
+  if (bundleInfo) {
+    // Hub-and-spoke bundled path: stub → spine → tag entry
+    const perpX = -(bundleInfo.tagY - bundleInfo.spineY);
+    const perpY = bundleInfo.tagX - bundleInfo.spineX;
+    const perpLen = Math.sqrt(perpX * perpX + perpY * perpY) || 1;
+    const nPerpX = perpX / perpLen;
+    const nPerpY = perpY / perpLen;
+
+    // Offset spine point for this edge's position in the fan
+    const offSpineX = bundleInfo.spineX + nPerpX * bundleInfo.stubOffset;
+    const offSpineY = bundleInfo.spineY + nPerpY * bundleInfo.stubOffset;
+
+    // Midpoint for the quadratic curve into the tag
+    const midX = (offSpineX + bundleInfo.tagX) / 2;
+    const midY = (offSpineY + bundleInfo.tagY) / 2;
+
+    edgePath = `M ${sx},${sy} L ${offSpineX},${offSpineY} Q ${midX},${midY} ${bundleInfo.tagX},${bundleInfo.tagY}`;
+  } else if (edgeStyle === 'smart' && sourceNode && targetNode) {
     // Smart edge routing — A* pathfinding that avoids nodes
     const smartResult = getSmartEdge({
       sourcePosition: sPos,
@@ -102,10 +122,18 @@ function WeightedEdge({
   }
 
   // Filter state affects opacity
-  const opacity = filterState === 'hidden' ? 0.05
+  const baseOpacity = filterState === 'hidden' ? 0.05
     : filterState === 'secondary' ? 0.2
     : selected ? 1
     : 0.3 + weight * 0.7;
+
+  // Bundled edges: thinner stubs, slightly more transparent
+  const finalStrokeWidth = bundleInfo
+    ? (selected ? strokeWidth : Math.max(1.5, strokeWidth * 0.6))
+    : (selected ? strokeWidth + 2 : strokeWidth);
+  const finalOpacity = bundleInfo
+    ? Math.max(0.15, baseOpacity * 0.7)
+    : baseOpacity;
 
   return (
     <BaseEdge
@@ -114,8 +142,8 @@ function WeightedEdge({
       markerEnd={markerEnd}
       style={{
         stroke: filterState === 'secondary' ? '#555' : color,
-        strokeWidth: selected ? strokeWidth + 2 : strokeWidth,
-        opacity,
+        strokeWidth: finalStrokeWidth,
+        opacity: finalOpacity,
         filter: selected ? `drop-shadow(0 0 4px ${color})` : undefined,
       }}
     />

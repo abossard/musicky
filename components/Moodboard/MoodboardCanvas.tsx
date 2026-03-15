@@ -7,7 +7,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './Moodboard.css';
-import { Box, ActionIcon, Group, Tooltip, Text, Badge, SegmentedControl, Slider } from '@mantine/core';
+import { Box, ActionIcon, Group, Tooltip, Text, Badge, SegmentedControl, Slider, Switch } from '@mantine/core';
 import { IconTrash, IconSearch, IconLayoutDistributeHorizontal, IconGridDots } from '@tabler/icons-react';
 import { EdgeWeightEditor } from './EdgeWeightEditor';
 import SongNode from './nodes/SongNode';
@@ -20,7 +20,8 @@ import { computeFilterStates } from './hooks/useMoodboardFilter';
 import { transformToContainerView } from './hooks/useContainerView';
 import { TagPalette } from './TagPalette';
 import type { ViewMode } from './moodboard-constants';
-import { EDGE_STYLE_OPTIONS } from './moodboard-constants';
+import { EDGE_STYLE_OPTIONS, DEFAULT_BUNDLE_CONFIG, type BundleConfig } from './moodboard-constants';
+import { computeBundles } from '../../lib/edge-bundling';
 
 const nodeTypes: NodeTypes = {
   song: SongNode as any,
@@ -69,6 +70,7 @@ export function MoodboardCanvas({
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('smart');
   const [smartNodePadding, setSmartNodePadding] = useState(15);
   const [smartGridRatio, setSmartGridRatio] = useState(10);
+  const [bundleConfig, setBundleConfig] = useState<BundleConfig>(DEFAULT_BUNDLE_CONFIG);
 
   const toggleFilter = useCallback((tagNodeId: string) => {
     setActiveFilterTags(prev => {
@@ -104,12 +106,17 @@ export function MoodboardCanvas({
       }
       return { ...n, data: { ...n.data, filterState: fs } };
     });
+
+    // Compute bundles for high fan-out edges
+    const bundles = computeBundles(nodes, edges, bundleConfig);
+
     const fe = edges.map(e => {
       const fs = edgeStates.get(e.id) ?? 'normal';
-      return { ...e, data: { ...e.data, filterState: fs, edgeStyle, smartNodePadding, smartGridRatio } };
+      const bundleInfo = bundles.get(e.id);
+      return { ...e, data: { ...e.data, filterState: fs, edgeStyle, smartNodePadding, smartGridRatio, bundleInfo } };
     });
     return { filteredNodes: fn, filteredEdges: fe };
-  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, toggleFilter, edgeStyle, smartNodePadding, smartGridRatio]);
+  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, toggleFilter, edgeStyle, smartNodePadding, smartGridRatio, bundleConfig]);
 
   // Container view: transform flat nodes into grouped nodes when viewMode !== 'free'
   const { viewNodes, viewEdges } = useMemo(() => {
@@ -244,20 +251,41 @@ export function MoodboardCanvas({
           </Group>
         </Panel>
 
-        {/* Smart edge config — top-right when Smart mode is active */}
-        {edgeStyle === 'smart' && (
-          <Panel position="top-right">
-            <Box style={{ background: 'rgba(37,38,43,0.95)', padding: '8px 12px', borderRadius: 6, border: '1px solid #373A40', backdropFilter: 'blur(8px)', minWidth: 180 }}>
-              <Text size="xs" fw={600} c="dimmed" mb={4}>Smart Edge Settings</Text>
-              <Text size="xs" c="dimmed">Node Padding: {smartNodePadding}px</Text>
+        {/* Edge settings — top-right */}
+        <Panel position="top-right">
+          <Box style={{ background: 'rgba(37,38,43,0.95)', padding: '8px 12px', borderRadius: 6, border: '1px solid #373A40', backdropFilter: 'blur(8px)', minWidth: 190 }}>
+            {/* Smart edge settings */}
+            {edgeStyle === 'smart' && (<>
+              <Text size="xs" fw={600} c="dimmed" mb={4}>Smart Edge</Text>
+              <Text size="xs" c="dimmed">Padding: {smartNodePadding}px</Text>
               <Slider size="xs" min={2} max={50} value={smartNodePadding} onChange={setSmartNodePadding}
-                color="teal" style={{ marginBottom: 6 }} />
-              <Text size="xs" c="dimmed">Grid Resolution: {smartGridRatio}</Text>
+                color="teal" style={{ marginBottom: 4 }} />
+              <Text size="xs" c="dimmed">Grid: {smartGridRatio}</Text>
               <Slider size="xs" min={2} max={25} value={smartGridRatio} onChange={setSmartGridRatio}
-                color="teal" />
-            </Box>
-          </Panel>
-        )}
+                color="teal" style={{ marginBottom: 8 }} />
+            </>)}
+
+            {/* Bundle settings */}
+            <Text size="xs" fw={600} c="dimmed" mb={4}>Edge Bundling</Text>
+            <Switch size="xs" label="Bundle high fan-out" checked={bundleConfig.enabled}
+              onChange={(e) => setBundleConfig(prev => ({ ...prev, enabled: e.currentTarget.checked }))}
+              style={{ marginBottom: 4 }} />
+            {bundleConfig.enabled && (<>
+              <Text size="xs" c="dimmed">Threshold: ≥{bundleConfig.threshold} edges</Text>
+              <Slider size="xs" min={2} max={20} value={bundleConfig.threshold}
+                onChange={(v) => setBundleConfig(prev => ({ ...prev, threshold: v }))}
+                color="cyan" style={{ marginBottom: 4 }} />
+              <Text size="xs" c="dimmed">Stub spacing: {bundleConfig.stubSpacing}px</Text>
+              <Slider size="xs" min={1} max={12} value={bundleConfig.stubSpacing}
+                onChange={(v) => setBundleConfig(prev => ({ ...prev, stubSpacing: v }))}
+                color="cyan" style={{ marginBottom: 4 }} />
+              <Text size="xs" c="dimmed">Spine distance: {bundleConfig.spineDistance}px</Text>
+              <Slider size="xs" min={30} max={200} value={bundleConfig.spineDistance}
+                onChange={(v) => setBundleConfig(prev => ({ ...prev, spineDistance: v }))}
+                color="cyan" />
+            </>)}
+          </Box>
+        </Panel>
 
         {/* Filter bar — shows when filters are active */}
         {activeFilterTags.size > 0 && (
