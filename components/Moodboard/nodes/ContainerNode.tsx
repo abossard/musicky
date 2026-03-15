@@ -46,8 +46,8 @@ function ContainerNode({ data }: NodeProps) {
       height: d.height || 400,
       borderRadius: 16,
       border: `4px solid ${borderColor}`,
-      backgroundColor: '#1e1e24',
-      boxShadow: `0 0 40px ${borderColor}55, inset 0 0 80px ${borderColor}11`,
+      backgroundColor: '#1e1f25',
+      boxShadow: `0 0 30px ${borderColor}55`,
       overflow: 'hidden',
     }}>
       <Group

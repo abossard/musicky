@@ -236,7 +236,8 @@ export function MoodboardCanvas({
           width: w,
           height: h,
         } satisfies ContainerNodeData as any,
-        style: { width: w, height: h, zIndex: -1 },
+        style: { width: w, height: h },
+        zIndex: 0,
       });
 
       maxHeightInRow = Math.max(maxHeightInRow, h);
@@ -262,9 +263,9 @@ export function MoodboardCanvas({
         const row = Math.floor(i / COLS);
         allChildNodes.push({
           ...injectCallbacks([song], onPlaySong)[0],
-          // NO parentId — absolute positioning on top of container
           position: { x: cp.x + PADDING + col * SONG_TILE, y: cp.y + HEADER + PADDING + row * SONG_TILE },
           data: { ...song.data, onPlay: onPlaySong, filterState: 'normal' },
+          zIndex: 200,
         });
       });
     }

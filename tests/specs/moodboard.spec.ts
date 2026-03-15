@@ -119,13 +119,14 @@ test.describe('Moodboard', () => {
     // Dump all node types
     const nodeInfo = await page.evaluate(() => {
       return Array.from(document.querySelectorAll('[class*="react-flow__node"]')).map(n => {
-        const cl = n.className;
-        const type = cl.match(/react-flow__node-(\w+)/)?.[1] || 'unknown';
         const el = n as HTMLElement;
-        return `${type}:${el.offsetWidth}x${el.offsetHeight} bg=${getComputedStyle(el).backgroundColor} border=${getComputedStyle(el).borderColor}`;
+        return `CLASS="${el.className}" STYLE="${el.getAttribute('style')?.substring(0,100)}"`;
       });
     });
-    nodeInfo.forEach(n => console.log('  ', n));
+    nodeInfo.filter(n => n.includes('container')).forEach(n => console.log('  ', n));
+    // Also check if CSS file loaded
+    const sheets = await page.evaluate(() => Array.from(document.styleSheets).map(s => s.href || 'inline'));
+    console.log('Stylesheets:', sheets.length);
 
     // 3. Switch to Genre container view
     await page.locator('.mantine-SegmentedControl-root').getByText('Genre').click();

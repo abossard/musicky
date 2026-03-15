@@ -1,3 +1,7 @@
+.react-flow__node-container {
+  visibility: visible !important;
+}
+
 .moodboard-container {
   background-color: #2e2e36 !important;
   border-radius: 20px !important;
