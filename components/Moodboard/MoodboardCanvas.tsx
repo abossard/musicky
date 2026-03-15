@@ -235,8 +235,24 @@ export function MoodboardCanvas({
           width: w,
           height: h,
           borderRadius: 20,
-          border: `3px solid ${def.tag.data?.color === 'violet' ? '#7048e8' : def.tag.data?.color === 'cyan' ? '#22b8cf' : def.tag.data?.color === 'pink' ? '#e64980' : '#555'}`,
-          backgroundColor: `${def.tag.data?.color === 'violet' ? 'rgba(55,30,120,0.7)' : def.tag.data?.color === 'cyan' ? 'rgba(15,80,100,0.7)' : def.tag.data?.color === 'pink' ? 'rgba(100,30,55,0.7)' : 'rgba(50,50,55,0.7)'}`,
+          border: `4px solid ${
+            def.tag.data?.color === 'violet' ? '#9775fa' :
+            def.tag.data?.color === 'cyan' ? '#3bc9db' :
+            def.tag.data?.color === 'pink' ? '#f06595' :
+            '#adb5bd'
+          }`,
+          backgroundColor: '#2e2e36',
+          boxShadow: `0 0 30px ${
+            def.tag.data?.color === 'violet' ? 'rgba(151,117,250,0.4)' :
+            def.tag.data?.color === 'cyan' ? 'rgba(59,201,219,0.4)' :
+            def.tag.data?.color === 'pink' ? 'rgba(240,101,149,0.4)' :
+            'rgba(100,100,100,0.3)'
+          }, inset 0 0 60px ${
+            def.tag.data?.color === 'violet' ? 'rgba(151,117,250,0.08)' :
+            def.tag.data?.color === 'cyan' ? 'rgba(59,201,219,0.08)' :
+            def.tag.data?.color === 'pink' ? 'rgba(240,101,149,0.08)' :
+            'rgba(100,100,100,0.05)'
+          }`,
           padding: 0,
         },
       });

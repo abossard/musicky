@@ -18,17 +18,22 @@ const categoryIcons: Record<string, React.ReactNode> = {
   topic: <IconTag size={14} />,
 };
 
+const colorMap: Record<string, { border: string; headerBg: string; text: string }> = {
+  violet: { border: '#9775fa', headerBg: '#3b2f63', text: '#d0bfff' },
+  cyan: { border: '#3bc9db', headerBg: '#1a3c42', text: '#99e9f2' },
+  pink: { border: '#f06595', headerBg: '#4a2035', text: '#fcc2d7' },
+  gray: { border: '#adb5bd', headerBg: '#2c2e33', text: '#dee2e6' },
+};
+
 function ContainerNode({ data }: NodeProps) {
   const d = data as unknown as ContainerNodeData;
+  const colors = colorMap[d.color] || colorMap.gray;
 
   return (
     <div style={{
       width: '100%',
       height: '100%',
       borderRadius: 20,
-      border: `3px solid var(--mantine-color-${d.color}-5)`,
-      background: `color-mix(in srgb, var(--mantine-color-${d.color}-9) 25%, rgba(26,27,30,0.95))`,
-      boxShadow: `0 8px 32px color-mix(in srgb, var(--mantine-color-${d.color}-9) 40%, transparent), inset 0 1px 0 color-mix(in srgb, var(--mantine-color-${d.color}-7) 20%, transparent)`,
       padding: 0,
       overflow: 'hidden',
     }}>
@@ -38,14 +43,14 @@ function ContainerNode({ data }: NodeProps) {
         px="md"
         py={10}
         style={{
-          borderBottom: `1px solid var(--mantine-color-${d.color}-7)`,
-          borderRadius: '14px 14px 0 0',
-          background: `color-mix(in srgb, var(--mantine-color-${d.color}-8) 40%, var(--mantine-color-dark-6))`,
+          borderBottom: `2px solid ${colors.border}`,
+          borderRadius: '18px 18px 0 0',
+          background: colors.headerBg,
           cursor: 'grab',
         }}
       >
         {categoryIcons[d.category]}
-        <Text size="sm" fw={700} c={`var(--mantine-color-${d.color}-2)`} tt="uppercase" style={{ letterSpacing: 1.5 }}>
+        <Text size="sm" fw={700} c={colors.text} tt="uppercase" style={{ letterSpacing: 1.5 }}>
           {d.label}
         </Text>
         {d.childCount > 0 && (
