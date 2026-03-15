@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ReactFlow, MiniMap, Controls, Background, BackgroundVariant,
+  ReactFlow, MiniMap, Controls, Background, BackgroundVariant, ConnectionMode,
   type Node, type Edge, type Connection, type NodeTypes, type EdgeTypes,
   type OnNodesChange, type OnEdgesChange, type Viewport,
   Panel,
@@ -342,6 +342,7 @@ export function MoodboardCanvas({
         panOnScroll
         zoomOnScroll
         zoomOnPinch
+        connectionMode={ConnectionMode.Loose}
         style={{ background: '#1A1B1E' }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#2C2E33" />

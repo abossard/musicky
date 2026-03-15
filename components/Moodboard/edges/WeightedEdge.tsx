@@ -1,5 +1,6 @@
 import React from 'react';
-import { BaseEdge, getBezierPath, type EdgeProps, MarkerType } from '@xyflow/react';
+import { BaseEdge, getBezierPath, useInternalNode, type EdgeProps } from '@xyflow/react';
+import { getFloatingEdgeParams } from './floating-edge-utils';
 
 export type EdgeType = 'genre' | 'phase' | 'mood' | 'similarity' | 'topic' | 'custom';
 
@@ -21,12 +22,24 @@ const edgeColors: Record<EdgeType, string> = {
 };
 
 function WeightedEdge({
-  id, sourceX, sourceY, targetX, targetY,
+  id, source, target, sourceX, sourceY, targetX, targetY,
   sourcePosition, targetPosition, data, selected, markerEnd,
 }: EdgeProps) {
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+
+  // Floating edges: calculate nearest border intersection
+  let sx = sourceX, sy = sourceY, tx = targetX, ty = targetY;
+  let sPos = sourcePosition, tPos = targetPosition;
+  if (sourceNode?.measured?.width && targetNode?.measured?.width) {
+    const p = getFloatingEdgeParams(sourceNode, targetNode);
+    sx = p.sx; sy = p.sy; tx = p.tx; ty = p.ty;
+    sPos = p.sourcePos; tPos = p.targetPos;
+  }
+
   const [edgePath] = getBezierPath({
-    sourceX, sourceY, targetX, targetY,
-    sourcePosition, targetPosition,
+    sourceX: sx, sourceY: sy, targetX: tx, targetY: ty,
+    sourcePosition: sPos, targetPosition: tPos,
   });
 
   const edgeData = data as unknown as MoodboardEdgeData | undefined;
