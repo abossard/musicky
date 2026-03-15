@@ -1,0 +1,72 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# Top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+# TypeScript, JavaScript, JSON
+[*.{ts,tsx,js,jsx,json,jsonc}]
+indent_style = space
+indent_size = 2
+quote_type = single
+
+# JSON - single quotes not valid
+[*.json]
+quote_type = double
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 2
+
+# YAML
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Shell scripts
+[*.sh]
+indent_style = space
+indent_size = 2
+
+# Makefiles
+[Makefile]
+indent_style = tab
+
+# Package manager lock files - do not modify
+[{package-lock.json,yarn.lock,pnpm-lock.yaml}]
+indent_style = space
+indent_size = 2
+insert_final_newline = false
+
+# SQL files
+[*.sql]
+indent_style = space
+indent_size = 2
+
+# Gherkin feature files
+[*.feature]
+indent_style = space
+indent_size = 2
+
+# Configuration files
+[*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+
+# HTML templates
+[*.html]
+indent_style = space
+indent_size = 2
+
+# CSS, SCSS, Less
+[*.{css,scss,less}]
+indent_style = space
+indent_size = 2
