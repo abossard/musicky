@@ -106,13 +106,26 @@ test.describe('Moodboard', () => {
     await page.locator(".mantine-SegmentedControl-root").getByText("Phase").click();
     await page.waitForTimeout(1000);
     await fitBtn.click();
-    await page.waitForTimeout(300);
-    // Zoom in significantly to see containers clearly
-    for (let i = 0; i < 4; i++) { await zoomIn.click(); await page.waitForTimeout(200); }
-    await page.screenshot({ path: 'test-results/moodboard-02-phase-containers.png', fullPage: true });
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/moodboard-02-phase-overview.png', fullPage: true });
+
+    // Zoom into first container to show it clearly
+    for (let i = 0; i < 5; i++) { await zoomIn.click(); await page.waitForTimeout(150); }
+    await page.screenshot({ path: 'test-results/moodboard-02b-phase-zoomed.png', fullPage: true });
 
     const containers = await page.locator('.react-flow__node-container').count();
-    console.log(`Phase containers: ${containers}`);
+    const groups = await page.locator('.react-flow__node-group').count();
+    console.log(`Phase containers: ${containers}, groups: ${groups}`);
+    // Dump all node types
+    const nodeInfo = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('[class*="react-flow__node"]')).map(n => {
+        const cl = n.className;
+        const type = cl.match(/react-flow__node-(\w+)/)?.[1] || 'unknown';
+        const el = n as HTMLElement;
+        return `${type}:${el.offsetWidth}x${el.offsetHeight} bg=${getComputedStyle(el).backgroundColor} border=${getComputedStyle(el).borderColor}`;
+      });
+    });
+    nodeInfo.forEach(n => console.log('  ', n));
 
     // 3. Switch to Genre container view
     await page.locator('.mantine-SegmentedControl-root').getByText('Genre').click();

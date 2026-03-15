@@ -184,11 +184,11 @@ export function MoodboardCanvas({
     // Create container nodes with auto-layout positioning
     const containerNodes: Node[] = [];
     const childrenByContainer = new Map<string, Node[]>();
-    const SONG_TILE = 140;
-    const PADDING = 30;
-    const HEADER = 52;
-    const COLS = 4;
-    const CONTAINER_GAP = 80;
+    const SONG_TILE = 150;
+    const PADDING = 80;
+    const HEADER = 80;
+    const COLS = 3;
+    const CONTAINER_GAP = 120;
 
     // Collect containers with their children
     const containerDefs: { id: string; tag: Node; children: Node[] }[] = [];
@@ -223,20 +223,20 @@ export function MoodboardCanvas({
       childrenByContainer.set(def.id, def.children);
 
       const borderColor = def.tag.data?.color === 'violet' ? '#9775fa' : def.tag.data?.color === 'cyan' ? '#3bc9db' : def.tag.data?.color === 'pink' ? '#f06595' : '#868e96';
+      const bgColor = def.tag.data?.color === 'violet' ? 'rgba(112,72,232,0.12)' : def.tag.data?.color === 'cyan' ? 'rgba(34,184,207,0.12)' : def.tag.data?.color === 'pink' ? 'rgba(230,73,128,0.12)' : 'rgba(134,142,150,0.12)';
       containerNodes.push({
         id: def.id,
-        type: 'group',
+        type: 'container',
         position: { x: containerX, y: containerY },
-        data: { label: (def.tag.data as any)?.label || 'Tag' },
-        style: {
+        data: {
+          label: (def.tag.data as any)?.label || 'Tag',
+          category: (def.tag.data as any)?.category || category,
+          color: (def.tag.data as any)?.color || 'gray',
+          childCount: def.children.length,
           width: w,
           height: h,
-          borderRadius: 20,
-          border: `5px solid ${borderColor}`,
-          backgroundColor: '#464a52',
-          boxShadow: `0 0 50px ${borderColor}cc`,
-          padding: 0,
-        },
+        } satisfies ContainerNodeData as any,
+        style: { width: w, height: h, zIndex: -1 },
       });
 
       maxHeightInRow = Math.max(maxHeightInRow, h);
@@ -249,17 +249,21 @@ export function MoodboardCanvas({
       }
     });
 
-    // Position song nodes inside containers
+    // Position song nodes at absolute positions overlapping their container
     const allChildNodes: Node[] = [];
+    // Build a map of container positions
+    const containerPositions = new Map<string, { x: number; y: number }>();
+    containerNodes.forEach(c => containerPositions.set(c.id, c.position));
+
     for (const [containerId, children] of childrenByContainer) {
+      const cp = containerPositions.get(containerId) || { x: 0, y: 0 };
       children.forEach((song, i) => {
         const col = i % COLS;
         const row = Math.floor(i / COLS);
         allChildNodes.push({
           ...injectCallbacks([song], onPlaySong)[0],
-          parentId: containerId,
-          extent: 'parent' as const,
-          position: { x: PADDING + col * SONG_TILE, y: HEADER + PADDING + row * SONG_TILE },
+          // NO parentId — absolute positioning on top of container
+          position: { x: cp.x + PADDING + col * SONG_TILE, y: cp.y + HEADER + PADDING + row * SONG_TILE },
           data: { ...song.data, onPlay: onPlaySong, filterState: 'normal' },
         });
       });

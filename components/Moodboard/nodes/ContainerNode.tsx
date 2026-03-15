@@ -44,23 +44,23 @@ function ContainerNode({ data }: NodeProps) {
     <div style={{
       width: d.width || 600,
       height: d.height || 400,
-      borderRadius: 20,
+      borderRadius: 16,
       border: `4px solid ${borderColor}`,
-      backgroundColor: '#25262b',
-      boxShadow: `0 0 24px ${borderColor}66`,
+      backgroundColor: '#1e1e24',
+      boxShadow: `0 0 40px ${borderColor}55, inset 0 0 80px ${borderColor}11`,
       overflow: 'hidden',
     }}>
       <Group
         gap={8}
         px="md"
-        py={8}
+        py={10}
         style={{
-          borderBottom: `2px solid ${borderColor}`,
+          borderBottom: `3px solid ${borderColor}`,
           background: headerBg,
         }}
       >
         {categoryIcons[d.category]}
-        <Text size="sm" fw={700} c={borderColor} tt="uppercase" style={{ letterSpacing: 1.5 }}>
+        <Text size="md" fw={800} c={borderColor} tt="uppercase" style={{ letterSpacing: 2 }}>
           {d.label}
         </Text>
         {d.childCount > 0 && (
