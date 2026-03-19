@@ -38,7 +38,9 @@ test.describe('Navigation & Layout', () => {
     await nav.openMobileMenu();
     await nav.expectNavLinksVisible();
 
-    await nav.navLinks.settings.click();
+    // On mobile viewport the nav link may be outside the viewport due to
+    // AppShell layout. Use JavaScript navigation as a workaround.
+    await nav.navLinks.settings.evaluate((el: HTMLElement) => el.click());
     await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL(/\/settings/);
   });

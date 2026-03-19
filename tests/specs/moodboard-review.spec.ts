@@ -60,9 +60,10 @@ test.describe('Review Panel', () => {
     await moodboardPage.expectReviewDrawerVisible();
 
     const drawer = moodboardPage.reviewDrawer;
+    const exportPanel = drawer.getByRole('tabpanel', { name: /export/i });
     // The export tab is active by default — check for the empty-state text
-    const emptyExport = drawer.getByText(/no pending export edits/i);
-    const scanHint = drawer.getByText(/click "scan" to check for differences/i);
+    const emptyExport = exportPanel.getByText(/no pending export edits/i);
+    const scanHint = exportPanel.getByText(/click "scan" to check for differences/i);
     // If there are no pending edits, the empty state should show
     // (if edits exist, these won't be visible — both are valid)
     const hasEmptyState = (await emptyExport.count()) > 0;
@@ -73,7 +74,8 @@ test.describe('Review Panel', () => {
 
     // Switch to import tab and verify its empty state
     await drawer.getByRole('tab', { name: /import/i }).click();
-    const emptyImport = drawer.getByText(/no pending import edits/i);
+    const importPanel = drawer.getByRole('tabpanel', { name: /import/i });
+    const emptyImport = importPanel.getByText(/no pending import edits/i);
     const hasImportEmpty = (await emptyImport.count()) > 0;
     if (hasImportEmpty) {
       await expect(emptyImport).toBeVisible();

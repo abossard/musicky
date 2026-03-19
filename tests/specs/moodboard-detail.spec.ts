@@ -55,7 +55,8 @@ test.describe('Song Detail Panel', () => {
   test('displays tag badges grouped by category', async ({ moodboardPage, page }) => {
     // Select a song that has seeded tags (ARTBAT songs have techno/dark/peak)
     await moodboardPage.searchSongs('artbat');
-    await expect(moodboardPage.librarySongItems.first()).toBeVisible({ timeout: 10000 });
+    // Wait for filtered results that contain ARTBAT
+    await expect(moodboardPage.librarySongItems.first()).toContainText(/artbat/i, { timeout: 10000 });
     await moodboardPage.selectSong(0);
     await moodboardPage.expectSongDetailVisible();
 
@@ -64,12 +65,14 @@ test.describe('Song Detail Panel', () => {
     await expect(root).toBeVisible({ timeout: 10000 });
 
     // Category headings should be visible (phase, genre, mood, topic, custom)
-    await expect(root.getByText('phase', { exact: false })).toBeVisible();
-    await expect(root.getByText('genre', { exact: false })).toBeVisible();
-    await expect(root.getByText('mood', { exact: false })).toBeVisible();
+    await expect(root.getByText('phase', { exact: true })).toBeVisible();
+    await expect(root.getByText('genre', { exact: true })).toBeVisible();
+    await expect(root.getByText('mood', { exact: true })).toBeVisible();
 
     // ARTBAT songs are seeded with: techno (genre), dark (mood), peak (phase)
-    const badges = drawer.locator('.mantine-Badge-root');
+    // Wait for tags to load from the database
+    const badges = root.locator('.mantine-Badge-root');
+    await expect(badges.first()).toBeVisible({ timeout: 5000 });
     const badgeCount = await badges.count();
     expect(badgeCount).toBeGreaterThan(0);
   });
@@ -84,23 +87,16 @@ test.describe('Song Detail Panel', () => {
 
     const tagName = uniqueName('testtag');
 
-    // Find the add button for the "custom" category (last category section)
-    // Each category has an add (+) ActionIcon
-    const customSection = root.locator('box, div').filter({ hasText: /^custom$/i }).first();
-    // Click the + button within the custom category area
-    const addButtons = root.locator('[data-testid="custom-add-tag"]')
-      .or(root.locator('.mantine-ActionIcon-root').last());
-
-    // Find the custom category section and its + button
+    // The "custom" category heading is a <p> inside a Box. The Box also contains
+    // the add (+) ActionIcon. Navigate from heading to its parent Box.
     const customHeading = root.getByText('custom', { exact: true });
     await expect(customHeading).toBeVisible();
-    // The + button is a sibling-level ActionIcon near the "custom" heading
-    const customGroup = customHeading.locator('..').locator('..');
-    const addBtn = customGroup.locator('.mantine-ActionIcon-root');
+    const customBox = customHeading.locator('..');
+    const addBtn = customBox.getByRole('button');
     await addBtn.click();
 
     // Type the tag name and press Enter
-    const tagInput = drawer.locator('.sdp-tag-input input, .sdp-tag-input');
+    const tagInput = drawer.locator('.sdp-tag-input input');
     await expect(tagInput).toBeVisible();
     await tagInput.fill(tagName);
     await tagInput.press('Enter');
@@ -112,7 +108,7 @@ test.describe('Song Detail Panel', () => {
   test('can remove a tag from a song', async ({ moodboardPage, page }) => {
     // Use an ARTBAT song which has seeded tags
     await moodboardPage.searchSongs('artbat');
-    await expect(moodboardPage.librarySongItems.first()).toBeVisible({ timeout: 10000 });
+    await expect(moodboardPage.librarySongItems.first()).toContainText(/artbat/i, { timeout: 10000 });
     await moodboardPage.selectSong(0);
     await moodboardPage.expectSongDetailVisible();
 
@@ -120,14 +116,14 @@ test.describe('Song Detail Panel', () => {
     const root = drawer.locator('.sdp-root');
     await expect(root).toBeVisible({ timeout: 10000 });
 
-    // Count badges before removal
-    const badges = drawer.locator('.mantine-Badge-root');
+    // Wait for tags to load, then count badges before removal
+    await moodboardPage.page.waitForTimeout(1000);
+    const badges = root.locator('.mantine-Badge-root');
     await expect(badges.first()).toBeVisible({ timeout: 5000 });
     const countBefore = await badges.count();
 
     // Click the × button on the first badge to remove it
-    const firstBadgeText = await badges.first().textContent();
-    const removeBtn = badges.first().locator('.mantine-ActionIcon-root');
+    const removeBtn = badges.first().getByRole('button');
     await removeBtn.click();
 
     // Wait for the tag count to decrease
@@ -146,14 +142,14 @@ test.describe('Song Detail Panel', () => {
     const root = drawer.locator('.sdp-root');
     await expect(root).toBeVisible({ timeout: 10000 });
 
-    // The "Similar Songs" divider is always rendered
-    await expect(drawer.getByText('Similar Songs')).toBeVisible();
+    // The "Similar Songs" divider is always rendered (use exact match to avoid matching "No similar songs...")
+    await expect(drawer.getByText('Similar Songs', { exact: true })).toBeVisible();
   });
 
   test('shows similar songs section', async ({ moodboardPage }) => {
     // Select an ARTBAT song — multiple ARTBAT tracks share tags, so similarity is likely
     await moodboardPage.searchSongs('artbat');
-    await expect(moodboardPage.librarySongItems.first()).toBeVisible({ timeout: 10000 });
+    await expect(moodboardPage.librarySongItems.first()).toContainText(/artbat/i, { timeout: 10000 });
     await moodboardPage.selectSong(0);
     await moodboardPage.expectSongDetailVisible();
 
@@ -161,7 +157,7 @@ test.describe('Song Detail Panel', () => {
     const root = drawer.locator('.sdp-root');
     await expect(root).toBeVisible({ timeout: 10000 });
 
-    await expect(drawer.getByText('Similar Songs')).toBeVisible();
+    await expect(drawer.getByText('Similar Songs', { exact: true })).toBeVisible();
 
     // Either we get similar songs or "No similar songs found yet."
     const hasSimilar = drawer.locator('.sdp-connection-row');
@@ -172,7 +168,7 @@ test.describe('Song Detail Panel', () => {
   test('clicking a similar song navigates to that song', async ({ moodboardPage }) => {
     // Select an ARTBAT song that likely has similar songs
     await moodboardPage.searchSongs('artbat');
-    await expect(moodboardPage.librarySongItems.first()).toBeVisible({ timeout: 10000 });
+    await expect(moodboardPage.librarySongItems.first()).toContainText(/artbat/i, { timeout: 10000 });
     await moodboardPage.selectSong(0);
     await moodboardPage.expectSongDetailVisible();
 

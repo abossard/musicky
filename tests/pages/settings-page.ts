@@ -31,7 +31,8 @@ export class SettingsPage {
   }
 
   async removePhase(name: string) {
-    await this.page.getByRole('button', { name: `Remove ${name}` }).click();
+    // The remove button has title="Remove {name}" and text "×"
+    await this.page.locator(`button[title="Remove ${name}"]`).click();
   }
 
   // --- Assertions ---

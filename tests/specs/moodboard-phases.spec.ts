@@ -73,12 +73,12 @@ test.describe('Phase Flow Editor', () => {
 
   test('editor opens from phase bar button', async ({ moodboardPage, page }) => {
     await moodboardPage.openPhaseEditor();
-    await expect(page.getByText('Phase Flow Editor')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phase Flow Editor' })).toBeVisible();
   });
 
   test('shows all phases as cards', async ({ moodboardPage, page }) => {
     await moodboardPage.openPhaseEditor();
-    await expect(page.getByText('Phase Flow Editor')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phase Flow Editor' })).toBeVisible();
 
     for (const phase of SEEDED_PHASES) {
       await expect(page.locator(`[data-testid="pfe-node-${phase}"]`)).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('Phase Flow Editor', () => {
 
   test('can add a new phase', async ({ moodboardPage, page }) => {
     await moodboardPage.openPhaseEditor();
-    await expect(page.getByText('Phase Flow Editor')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phase Flow Editor' })).toBeVisible();
 
     const phaseName = uniqueName('encore');
     const input = page.locator('[data-testid="pfe-new-phase-input"]');
@@ -100,7 +100,7 @@ test.describe('Phase Flow Editor', () => {
 
   test('can remove a phase', async ({ moodboardPage, page }) => {
     await moodboardPage.openPhaseEditor();
-    await expect(page.getByText('Phase Flow Editor')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phase Flow Editor' })).toBeVisible();
 
     // Add a throwaway phase first so we don't break seeded flow
     const phaseName = uniqueName('throwaway');
@@ -115,7 +115,7 @@ test.describe('Phase Flow Editor', () => {
 
   test('shows directed arrows between phases', async ({ moodboardPage, page }) => {
     await moodboardPage.openPhaseEditor();
-    await expect(page.getByText('Phase Flow Editor')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phase Flow Editor' })).toBeVisible();
 
     // The SVG overlay renders path elements for each edge
     const edgeLines = page.locator('.pfe-edge-line');
@@ -125,7 +125,7 @@ test.describe('Phase Flow Editor', () => {
 
   test('auto-arrange button works', async ({ moodboardPage, page }) => {
     await moodboardPage.openPhaseEditor();
-    await expect(page.getByText('Phase Flow Editor')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phase Flow Editor' })).toBeVisible();
 
     const autoArrange = page.locator('[data-testid="pfe-auto-arrange"]');
     await expect(autoArrange).toBeVisible();
@@ -138,10 +138,10 @@ test.describe('Phase Flow Editor', () => {
 
   test('editor closes with cancel', async ({ moodboardPage, page }) => {
     await moodboardPage.openPhaseEditor();
-    await expect(page.getByText('Phase Flow Editor')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phase Flow Editor' })).toBeVisible();
 
     // Cancel without changes (no confirm dialog)
     await page.locator('[data-testid="pfe-cancel"]').click();
-    await expect(page.getByText('Phase Flow Editor')).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Phase Flow Editor' })).not.toBeVisible();
   });
 });

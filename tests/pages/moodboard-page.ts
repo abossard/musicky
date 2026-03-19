@@ -87,10 +87,10 @@ export class MoodboardPage {
 
     // Toolbar (Group with class moodboard-toolbar)
     this.toolbar = page.locator('.moodboard-toolbar');
-    this.toggleLibraryButton = this.toolbar.locator('button').nth(0);
-    this.togglePlaylistButton = this.toolbar.locator('button').nth(1);
-    this.settingsButton = this.toolbar.locator('button').nth(2);
-    this.reviewButton = this.toolbar.locator('button').nth(3);
+    this.toggleLibraryButton = page.locator('[data-testid="toolbar-toggle-library"]');
+    this.togglePlaylistButton = page.locator('[data-testid="toolbar-toggle-playlist"]');
+    this.settingsButton = page.locator('[data-testid="toolbar-settings"]');
+    this.reviewButton = page.locator('[data-testid="toolbar-review"]');
 
     // Library Panel
     this.libraryPanel = page.locator('.library-panel');
@@ -127,16 +127,16 @@ export class MoodboardPage {
     this.trackTitle = page.locator('.audio-player-bar__track-info-title');
 
     // Song Detail Drawer (Mantine Drawer with title "Song Detail")
-    this.songDetailDrawer = page.locator('.mantine-Drawer-root').filter({ hasText: 'Song Detail' });
+    this.songDetailDrawer = page.getByRole('dialog', { name: 'Song Detail' });
     this.songDetailTitle = this.songDetailDrawer.locator('.sdp-root').locator('text=Unknown').first();
     this.songDetailArtwork = this.songDetailDrawer.locator('.sdp-artwork');
 
     // Settings Drawer (Mantine Drawer with title "Settings")
-    this.settingsDrawer = page.locator('.mantine-Drawer-root').filter({ hasText: 'Settings' });
+    this.settingsDrawer = page.getByRole('dialog', { name: 'Settings' });
     this.settingsScanButton = page.locator('[data-testid="settings-scan-library"]');
 
     // Review Drawer (Mantine Drawer with title "Review Changes")
-    this.reviewDrawer = page.locator('.mantine-Drawer-root').filter({ hasText: 'Review Changes' });
+    this.reviewDrawer = page.getByRole('dialog', { name: 'Review Changes' });
     this.reviewApproveAllButton = page.locator('[data-testid="review-approve-all"]');
     this.reviewRejectAllButton = page.locator('[data-testid="review-reject-all"]');
   }
@@ -148,18 +148,21 @@ export class MoodboardPage {
     await this.page.waitForLoadState('domcontentloaded');
   }
 
-  async waitForCanvasReady(timeout = 10000) {
-    await expect(this.fitViewButton).toBeVisible({ timeout });
+  async waitForCanvasReady(timeout = 15000) {
+    await expect(this.canvas).toBeVisible({ timeout });
   }
 
   // --- Library ---
 
   async searchSongs(query: string) {
     await this.librarySearch.fill(query);
+    // Wait for debounce (300ms) + server response
+    await this.page.waitForTimeout(500);
   }
 
   async clearSearch() {
     await this.librarySearch.clear();
+    await this.page.waitForTimeout(500);
   }
 
   async filterByPhase(phase: string) {
@@ -232,17 +235,17 @@ export class MoodboardPage {
   }
 
   async closeSongDetail() {
-    const closeBtn = this.songDetailDrawer.locator('.mantine-Drawer-close, .mantine-CloseButton-root').first();
+    const closeBtn = this.songDetailDrawer.getByRole('button').first();
     await closeBtn.click();
   }
 
   async closeSettings() {
-    const closeBtn = this.settingsDrawer.locator('.mantine-Drawer-close, .mantine-CloseButton-root').first();
+    const closeBtn = this.settingsDrawer.getByRole('button').first();
     await closeBtn.click();
   }
 
   async closeReview() {
-    const closeBtn = this.reviewDrawer.locator('.mantine-Drawer-close, .mantine-CloseButton-root').first();
+    const closeBtn = this.reviewDrawer.getByRole('button').first();
     await closeBtn.click();
   }
 

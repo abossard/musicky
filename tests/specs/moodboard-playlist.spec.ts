@@ -2,86 +2,122 @@ import { test, expect, uniqueName } from '../fixtures/app-fixture';
 import path from 'path';
 import sqlite from 'better-sqlite3';
 
+function resetCanvasState() {
+  const db = sqlite(path.resolve('sqlite.db'));
+  db.exec('DELETE FROM canvas_positions');
+  db.exec('DELETE FROM song_connections');
+  db.close();
+}
+
 /**
- * Seed a moodboard with songs, tags (including phase tags), and edges
+ * Seed the canvas with songs and tags (including phase tags)
  * so the playlist generator has data to work with.
+ * Uses canvas_positions + song_tags (the tables the canvas actually reads).
  */
 function setupBoardForPlaylist() {
   const db = sqlite(path.resolve('sqlite.db'));
-  db.prepare('DELETE FROM moodboard_edges').run();
-  db.prepare('DELETE FROM moodboard_nodes').run();
-  db.prepare('DELETE FROM moodboards').run();
-
-  const board = db.prepare('INSERT INTO moodboards (name) VALUES (?)').run('Playlist Test Board');
-  const boardId = board.lastInsertRowid as number;
+  // Clear canvas state
+  db.prepare('DELETE FROM canvas_positions').run();
 
   const songs = db
     .prepare('SELECT file_path, filename, artist, title FROM mp3_file_cache ORDER BY file_path')
     .all() as { file_path: string; filename: string; artist: string | null; title: string | null }[];
 
-  const songNodes: { id: string; lowerPath: string }[] = [];
+  // Place songs on canvas via canvas_positions
+  const insertPos = db.prepare(
+    'INSERT OR REPLACE INTO canvas_positions (node_id, position_x, position_y) VALUES (?,?,?)',
+  );
   songs.forEach((s, i) => {
-    const id = `song-${i}`;
-    db.prepare(
-      'INSERT INTO moodboard_nodes (id, board_id, node_type, song_path, position_x, position_y) VALUES (?,?,?,?,?,?)',
-    ).run(id, boardId, 'song', s.file_path, (i % 7) * 160, Math.floor(i / 7) * 160);
-    songNodes.push({ id, lowerPath: s.file_path.toLowerCase() });
+    insertPos.run(`song:${s.file_path}`, (i % 7) * 160, Math.floor(i / 7) * 160);
   });
 
-  // Phase + genre + mood tags
+  // Phase + genre + mood tags placed on canvas
   const tags = [
-    { label: 'opener', cat: 'phase', color: 'violet' },
-    { label: 'buildup', cat: 'phase', color: 'violet' },
-    { label: 'peak', cat: 'phase', color: 'violet' },
-    { label: 'closer', cat: 'phase', color: 'violet' },
-    { label: 'techno', cat: 'genre', color: 'cyan' },
-    { label: 'house', cat: 'genre', color: 'cyan' },
-    { label: 'dark', cat: 'mood', color: 'pink' },
-    { label: 'dreamy', cat: 'mood', color: 'pink' },
+    { label: 'opener', cat: 'phase' },
+    { label: 'buildup', cat: 'phase' },
+    { label: 'peak', cat: 'phase' },
+    { label: 'closer', cat: 'phase' },
+    { label: 'techno', cat: 'genre' },
+    { label: 'house', cat: 'genre' },
+    { label: 'dark', cat: 'mood' },
+    { label: 'dreamy', cat: 'mood' },
   ];
-  const tagIds: Record<string, string> = {};
   tags.forEach((t, i) => {
-    const id = `tag-${t.label}`;
-    db.prepare(
-      'INSERT INTO moodboard_nodes (id, board_id, node_type, tag_label, tag_category, tag_color, position_x, position_y) VALUES (?,?,?,?,?,?,?,?)',
-    ).run(id, boardId, 'tag', t.label, t.cat, t.color, -300 + i * 60, -200 + i * 60);
-    tagIds[t.label] = id;
+    insertPos.run(`tag:${t.cat}:${t.label}`, -300 + i * 60, -200 + i * 60);
   });
 
-  // Connect songs to tags (especially phase tags for playlist generation)
-  const rules: [string, string[]][] = [
-    ['artbat', ['dark', 'techno', 'peak']],
-    ['anyma', ['dreamy', 'buildup']],
-    ['dom dolla', ['house', 'peak']],
-    ['elderbrook', ['dreamy', 'buildup']],
-    ['empire of the sun', ['dreamy', 'closer']],
-    ['moby', ['dreamy', 'closer']],
-    ['jack orley', ['house', 'opener']],
-    ['jazzy', ['house', 'opener']],
-    ['morten', ['techno', 'dark', 'peak']],
-    ['hi-lo', ['techno', 'dark', 'peak']],
-    ['jamie jones', ['house', 'peak']],
-    ['rivo', ['dreamy', 'buildup']],
-    ['pete tong', ['techno', 'peak']],
-    ['enai', ['dreamy', 'buildup']],
-    ['benny benassi', ['techno', 'peak']],
-    ['sonique', ['house', 'opener']],
-    ['rufus', ['dreamy', 'closer']],
+  // Connect songs to tags via song_tags table
+  const rules: [string, string, string][] = [
+    ['artbat', 'dark', 'mood'],
+    ['artbat', 'techno', 'genre'],
+    ['artbat', 'peak', 'phase'],
+    ['anyma', 'dreamy', 'mood'],
+    ['anyma', 'buildup', 'phase'],
+    ['dom dolla', 'house', 'genre'],
+    ['dom dolla', 'peak', 'phase'],
+    ['elderbrook', 'dreamy', 'mood'],
+    ['elderbrook', 'buildup', 'phase'],
+    ['empire of the sun', 'dreamy', 'mood'],
+    ['empire of the sun', 'closer', 'phase'],
+    ['moby', 'dreamy', 'mood'],
+    ['moby', 'closer', 'phase'],
+    ['jack orley', 'house', 'genre'],
+    ['jack orley', 'opener', 'phase'],
+    ['jazzy', 'house', 'genre'],
+    ['jazzy', 'opener', 'phase'],
+    ['morten', 'techno', 'genre'],
+    ['morten', 'dark', 'mood'],
+    ['morten', 'peak', 'phase'],
+    ['hi-lo', 'techno', 'genre'],
+    ['hi-lo', 'dark', 'mood'],
+    ['hi-lo', 'peak', 'phase'],
+    ['jamie jones', 'house', 'genre'],
+    ['jamie jones', 'peak', 'phase'],
+    ['rivo', 'dreamy', 'mood'],
+    ['rivo', 'buildup', 'phase'],
+    ['pete tong', 'techno', 'genre'],
+    ['pete tong', 'peak', 'phase'],
+    ['enai', 'dreamy', 'mood'],
+    ['enai', 'buildup', 'phase'],
+    ['benny benassi', 'techno', 'genre'],
+    ['benny benassi', 'peak', 'phase'],
+    ['sonique', 'house', 'genre'],
+    ['sonique', 'opener', 'phase'],
+    ['rufus', 'dreamy', 'mood'],
+    ['rufus', 'closer', 'phase'],
   ];
 
-  let edgeIdx = 0;
-  for (const song of songNodes) {
-    for (const [kw, labels] of rules) {
-      if (song.lowerPath.includes(kw)) {
-        for (const label of labels) {
-          if (tagIds[label]) {
-            db.prepare(
-              'INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)',
-            ).run(`e-${edgeIdx++}`, boardId, song.id, tagIds[label], tags.find(t => t.label === label)!.cat, 0.8);
-          }
-        }
+  const insertTag = db.prepare(
+    'INSERT OR IGNORE INTO song_tags (file_path, tag_label, tag_category, source) VALUES (?,?,?,?)',
+  );
+  for (const song of songs) {
+    const lowerPath = song.file_path.toLowerCase();
+    for (const [kw, label, category] of rules) {
+      if (lowerPath.includes(kw)) {
+        insertTag.run(song.file_path, label, category, 'manual');
       }
     }
+  }
+
+  // The playlist generator reads from song_connections to find songs.
+  // Create similarity connections between songs to ensure they appear.
+  db.exec(`CREATE TABLE IF NOT EXISTS song_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_path TEXT NOT NULL,
+    target_path TEXT NOT NULL,
+    connection_type TEXT DEFAULT 'similarity',
+    weight REAL DEFAULT 0.5,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_path, target_path)
+  )`);
+  db.prepare('DELETE FROM song_connections').run();
+
+  const insertConn = db.prepare(
+    'INSERT OR IGNORE INTO song_connections (source_path, target_path, connection_type, weight) VALUES (?,?,?,?)',
+  );
+  // Create chain connections between consecutive songs
+  for (let i = 0; i < songs.length - 1; i++) {
+    insertConn.run(songs[i].file_path, songs[i + 1].file_path, 'similarity', 0.7);
   }
 
   db.close();
@@ -95,6 +131,10 @@ test.describe('Playlist Panel', () => {
     await moodboardPage.goto();
     // Wait for canvas to render so the moodboard is fully loaded
     await moodboardPage.waitForCanvasReady();
+  });
+
+  test.afterAll(() => {
+    resetCanvasState();
   });
 
   test('playlist panel is hidden by default', async ({ moodboardPage }) => {

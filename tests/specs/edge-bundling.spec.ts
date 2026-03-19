@@ -10,42 +10,33 @@ const DB_PATH = path.resolve('sqlite.db');
  */
 function setupHighFanoutBoard() {
   const db = sqlite(DB_PATH);
-  db.exec('DELETE FROM moodboard_edges');
-  db.exec('DELETE FROM moodboard_nodes');
-  db.exec('DELETE FROM moodboards');
-
-  const board = db.prepare('INSERT INTO moodboards (name) VALUES (?)').run('Bundle Test');
-  const boardId = board.lastInsertRowid as number;
+  db.exec('DELETE FROM canvas_positions');
 
   const songs = db.prepare('SELECT file_path FROM mp3_file_cache ORDER BY file_path LIMIT 20').all() as { file_path: string }[];
-  const songIds: string[] = [];
+  const cols = 5;
   songs.forEach((s, i) => {
-    const id = `song-bun-${i}`;
-    const cols = 5;
-    db.prepare('INSERT INTO moodboard_nodes (id, board_id, node_type, song_path, position_x, position_y) VALUES (?,?,?,?,?,?)')
-      .run(id, boardId, 'song', s.file_path, (i % cols) * 180, Math.floor(i / cols) * 180);
-    songIds.push(id);
+    const nodeId = `song:${s.file_path}`;
+    db.prepare('INSERT INTO canvas_positions (node_id, position_x, position_y) VALUES (?,?,?)')
+      .run(nodeId, (i % cols) * 180, Math.floor(i / cols) * 180);
   });
 
   // Single tag node — all 20 songs connect to it
-  const tagId = 'tag-bun-techno';
-  db.prepare('INSERT INTO moodboard_nodes (id, board_id, node_type, tag_label, tag_category, tag_color, position_x, position_y) VALUES (?,?,?,?,?,?,?,?)')
-    .run(tagId, boardId, 'tag', 'techno', 'genre', 'cyan', -300, 200);
+  db.prepare('INSERT INTO canvas_positions (node_id, position_x, position_y) VALUES (?,?,?)')
+    .run('tag:genre:techno', -300, 200);
 
-  // Connect all songs to the tag
-  songIds.forEach((sid, i) => {
-    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-      .run(`e-bun-${i}`, boardId, sid, tagId, 'genre', 0.6 + Math.random() * 0.4);
+  // Connect all songs to the techno tag
+  songs.forEach((s) => {
+    db.prepare('INSERT OR IGNORE INTO song_tags (file_path, tag_label, tag_category, source) VALUES (?,?,?,?)')
+      .run(s.file_path, 'techno', 'genre', 'manual');
   });
 
   // Also add a second tag with fewer connections (should NOT be bundled with default threshold)
-  const tag2Id = 'tag-bun-house';
-  db.prepare('INSERT INTO moodboard_nodes (id, board_id, node_type, tag_label, tag_category, tag_color, position_x, position_y) VALUES (?,?,?,?,?,?,?,?)')
-    .run(tag2Id, boardId, 'tag', 'house', 'genre', 'cyan', -300, 350);
+  db.prepare('INSERT INTO canvas_positions (node_id, position_x, position_y) VALUES (?,?,?)')
+    .run('tag:genre:house', -300, 350);
   // Connect only 3 songs to house (below default threshold of 5)
   for (let i = 0; i < 3; i++) {
-    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-      .run(`e-bun-h-${i}`, boardId, songIds[i], tag2Id, 'genre', 0.7);
+    db.prepare('INSERT OR IGNORE INTO song_tags (file_path, tag_label, tag_category, source) VALUES (?,?,?,?)')
+      .run(songs[i].file_path, 'house', 'genre', 'manual');
   }
 
   console.log(`[bundle-test] Setup: ${songs.length} songs, 2 tags (techno: 20 edges, house: 3 edges)`);
@@ -59,6 +50,13 @@ test.describe('Edge Bundling — Hub and Spoke', () => {
     setupHighFanoutBoard();
   });
 
+  test.afterAll(() => {
+    const db = sqlite(DB_PATH);
+    db.exec('DELETE FROM canvas_positions');
+    db.exec('DELETE FROM song_connections');
+    db.close();
+  });
+
   test('bundled vs unbundled: 20 songs → 1 tag with screenshots', async ({ page, moodboardPage }) => {
     // MoodboardPage auto-selects the first board on mount
     await moodboardPage.goto();
@@ -69,10 +67,10 @@ test.describe('Edge Bundling — Hub and Spoke', () => {
     // Grid layout for consistent comparison
     const gridBtn = page.getByRole('button', { name: 'Grid layout' });
     if (await gridBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await gridBtn.click();
+      await gridBtn.dispatchEvent('click');
       await page.waitForTimeout(1000);
     }
-    await fitBtn.click();
+    await fitBtn.dispatchEvent('click');
     await page.waitForTimeout(500);
 
     // Verify edges exist
@@ -100,9 +98,9 @@ test.describe('Edge Bundling — Hub and Spoke', () => {
     // 4. Cluster layout to see how bundles look with grouped songs
     const clusterBtn = page.getByRole('button', { name: 'Cluster layout' });
     if (await clusterBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await clusterBtn.click();
+      await clusterBtn.dispatchEvent('click');
       await page.waitForTimeout(1000);
-      await fitBtn.click();
+      await fitBtn.dispatchEvent('click');
       await page.waitForTimeout(500);
     }
     await page.screenshot({ path: 'test-results/bundle-03-clustered-bundled.png', fullPage: true });

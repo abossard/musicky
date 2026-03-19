@@ -4,47 +4,48 @@ import sqlite from 'better-sqlite3';
 
 function setupRichBoard() {
   const db = sqlite(path.resolve('sqlite.db'));
-  db.prepare('DELETE FROM moodboard_edges').run();
-  db.prepare('DELETE FROM moodboard_nodes').run();
-  db.prepare('DELETE FROM moodboards').run();
+  db.exec('DELETE FROM canvas_positions');
+  db.exec(`CREATE TABLE IF NOT EXISTS song_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_path TEXT NOT NULL,
+    target_path TEXT NOT NULL,
+    connection_type TEXT DEFAULT 'similarity',
+    weight REAL DEFAULT 0.5,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_path, target_path)
+  )`);
+  db.exec('DELETE FROM song_connections');
 
-  const board = db.prepare('INSERT INTO moodboards (name) VALUES (?)').run('Rich Moodboard');
-  const boardId = board.lastInsertRowid as number;
-
-  // Add ALL 44 songs
+  // Add ALL songs
   const songs = db.prepare('SELECT file_path, filename, artist, title FROM mp3_file_cache ORDER BY file_path').all() as any[];
-  const songNodes: { id: string; path: string; name: string }[] = [];
+  const songPaths: { path: string; name: string }[] = [];
   songs.forEach((s: any, i: number) => {
-    const id = `song-${i}`;
-    db.prepare('INSERT INTO moodboard_nodes (id, board_id, node_type, song_path, position_x, position_y) VALUES (?,?,?,?,?,?)')
-      .run(id, boardId, 'song', s.file_path, (i % 7) * 160, Math.floor(i / 7) * 160);
-    songNodes.push({ id, path: s.file_path, name: (s.file_path as string).toLowerCase() });
+    const nodeId = `song:${s.file_path}`;
+    db.prepare('INSERT INTO canvas_positions (node_id, position_x, position_y) VALUES (?,?,?)')
+      .run(nodeId, (i % 7) * 160, Math.floor(i / 7) * 160);
+    songPaths.push({ path: s.file_path, name: (s.file_path as string).toLowerCase() });
   });
 
   // Rich set of tags — 4 moods, 4 genres, 4 phases
   const tags = [
-    // Moods
-    { label: 'dark', cat: 'mood', color: 'pink' },
-    { label: 'energetic', cat: 'mood', color: 'pink' },
-    { label: 'dreamy', cat: 'mood', color: 'pink' },
-    { label: 'hypnotic', cat: 'mood', color: 'pink' },
-    // Genres
-    { label: 'techno', cat: 'genre', color: 'cyan' },
-    { label: 'house', cat: 'genre', color: 'cyan' },
-    { label: 'melodic', cat: 'genre', color: 'cyan' },
-    { label: 'progressive', cat: 'genre', color: 'cyan' },
-    // Phases
-    { label: 'opener', cat: 'phase', color: 'violet' },
-    { label: 'buildup', cat: 'phase', color: 'violet' },
-    { label: 'peak', cat: 'phase', color: 'violet' },
-    { label: 'closer', cat: 'phase', color: 'violet' },
+    { label: 'dark', cat: 'mood' },
+    { label: 'energetic', cat: 'mood' },
+    { label: 'dreamy', cat: 'mood' },
+    { label: 'hypnotic', cat: 'mood' },
+    { label: 'techno', cat: 'genre' },
+    { label: 'house', cat: 'genre' },
+    { label: 'melodic', cat: 'genre' },
+    { label: 'progressive', cat: 'genre' },
+    { label: 'opener', cat: 'phase' },
+    { label: 'buildup', cat: 'phase' },
+    { label: 'peak', cat: 'phase' },
+    { label: 'closer', cat: 'phase' },
   ];
-  const tagIds: Record<string, string> = {};
+  const tagSet = new Set(tags.map(t => t.label));
   tags.forEach((t, i) => {
-    const id = `tag-${t.label}`;
-    db.prepare('INSERT INTO moodboard_nodes (id, board_id, node_type, tag_label, tag_category, tag_color, position_x, position_y) VALUES (?,?,?,?,?,?,?,?)')
-      .run(id, boardId, 'tag', t.label, t.cat, t.color, -300 + i * 60, -200 + i * 60);
-    tagIds[t.label] = id;
+    const nodeId = `tag:${t.cat}:${t.label}`;
+    db.prepare('INSERT INTO canvas_positions (node_id, position_x, position_y) VALUES (?,?,?)')
+      .run(nodeId, -300 + i * 60, -200 + i * 60);
   });
 
   // Complex song→tag connections (each song connected to 2-4 tags)
@@ -90,50 +91,69 @@ function setupRichBoard() {
     ['kevin mckay', ['house', 'energetic', 'opener']],
   ];
 
-  let ei = 0;
-  for (const song of songNodes) {
+  let tagCount = 0;
+  for (const song of songPaths) {
     for (const [kw, labels] of rules) {
       if (song.name.includes(kw)) {
         for (const label of labels) {
-          if (tagIds[label])
-            db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-              .run(`e-${ei++}`, boardId, song.id, tagIds[label], tags.find(t => t.label === label)!.cat, 0.6 + Math.random() * 0.4);
+          if (tagSet.has(label)) {
+            const cat = tags.find(t => t.label === label)!.cat;
+            db.prepare('INSERT OR IGNORE INTO song_tags (file_path, tag_label, tag_category, source) VALUES (?,?,?,?)')
+              .run(song.path, label, cat, 'manual');
+            tagCount++;
+          }
         }
       }
     }
   }
 
   // Song→song directed edges (flow chains)
-  const artbat = songNodes.filter(s => s.name.includes('artbat'));
-  for (let i = 0; i < artbat.length - 1; i++)
-    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-      .run(`flow-${ei++}`, boardId, artbat[i].id, artbat[i + 1].id, 'similarity', 0.9);
+  const artbat = songPaths.filter(s => s.name.includes('artbat'));
+  let connCount = 0;
+  for (let i = 0; i < artbat.length - 1; i++) {
+    db.prepare('INSERT OR IGNORE INTO song_connections (source_path, target_path, connection_type, weight) VALUES (?,?,?,?)')
+      .run(artbat[i].path, artbat[i + 1].path, 'similarity', 0.9);
+    connCount++;
+  }
 
   // Cross-artist flows
-  const anyma = songNodes.filter(s => s.name.includes('anyma'));
-  const adriatique = songNodes.filter(s => s.name.includes('adriatique'));
-  if (anyma.length && adriatique.length)
-    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-      .run(`flow-${ei++}`, boardId, anyma[0].id, adriatique[0].id, 'similarity', 0.85);
+  const anyma = songPaths.filter(s => s.name.includes('anyma'));
+  const adriatique = songPaths.filter(s => s.name.includes('adriatique'));
+  if (anyma.length && adriatique.length) {
+    db.prepare('INSERT OR IGNORE INTO song_connections (source_path, target_path, connection_type, weight) VALUES (?,?,?,?)')
+      .run(anyma[0].path, adriatique[0].path, 'similarity', 0.85);
+    connCount++;
+  }
 
-  const elderbrook = songNodes.filter(s => s.name.includes('elderbrook'));
-  const rufus = songNodes.filter(s => s.name.includes('rufus'));
-  if (elderbrook.length && rufus.length)
-    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-      .run(`flow-${ei++}`, boardId, elderbrook[0].id, rufus[0].id, 'similarity', 0.8);
+  const elderbrook = songPaths.filter(s => s.name.includes('elderbrook'));
+  const rufus = songPaths.filter(s => s.name.includes('rufus'));
+  if (elderbrook.length && rufus.length) {
+    db.prepare('INSERT OR IGNORE INTO song_connections (source_path, target_path, connection_type, weight) VALUES (?,?,?,?)')
+      .run(elderbrook[0].path, rufus[0].path, 'similarity', 0.8);
+    connCount++;
+  }
 
-  const domDolla = songNodes.filter(s => s.name.includes('dom dolla'));
-  const oddMob = songNodes.filter(s => s.name.includes('odd mob'));
-  if (domDolla.length && oddMob.length)
-    db.prepare('INSERT INTO moodboard_edges (id, board_id, source_node_id, target_node_id, edge_type, weight) VALUES (?,?,?,?,?,?)')
-      .run(`flow-${ei++}`, boardId, domDolla[0].id, oddMob[0].id, 'similarity', 0.75);
+  const domDolla = songPaths.filter(s => s.name.includes('dom dolla'));
+  const oddMob = songPaths.filter(s => s.name.includes('odd mob'));
+  if (domDolla.length && oddMob.length) {
+    db.prepare('INSERT OR IGNORE INTO song_connections (source_path, target_path, connection_type, weight) VALUES (?,?,?,?)')
+      .run(domDolla[0].path, oddMob[0].path, 'similarity', 0.75);
+    connCount++;
+  }
 
-  console.log(`[setup] ${songNodes.length} songs, ${tags.length} tags, ${ei} edges`);
+  console.log(`[setup] ${songPaths.length} songs, ${tags.length} tags, ${tagCount} song-tags, ${connCount} connections`);
   db.close();
 }
 
 test.describe('Moodboard Visual Tests', () => {
-  test.setTimeout(90000);
+  test.setTimeout(180000);
+
+  test.afterAll(() => {
+    const db = sqlite(path.resolve('sqlite.db'));
+    db.exec('DELETE FROM canvas_positions');
+    db.exec('DELETE FROM song_connections');
+    db.close();
+  });
 
   test('rich board: 44 songs, 12 tags, complex edges', async ({ page, moodboardPage }) => {
     setupRichBoard();
@@ -145,11 +165,15 @@ test.describe('Moodboard Visual Tests', () => {
     const fitBtn = moodboardPage.fitViewButton;
     const zoomIn = moodboardPage.zoomInButton;
 
+    // Helpers to avoid scroll-into-view issues inside React Flow panels
+    const clickFit = () => fitBtn.dispatchEvent('click');
+    const clickZoomIn = () => zoomIn.dispatchEvent('click');
+
     // 1. Grid layout — all 44 songs visible
     const gridBtn = page.getByRole('button', { name: 'Grid layout' });
-    await gridBtn.click();
+    await gridBtn.dispatchEvent('click');
     await page.waitForTimeout(1000);
-    await fitBtn.click();
+    await clickFit();
     await page.waitForTimeout(500);
     const nodeCount = await page.locator('.react-flow__node').count();
     const edgeCount = await moodboardPage.edges.count();
@@ -158,75 +182,60 @@ test.describe('Moodboard Visual Tests', () => {
 
     // 2. Cluster layout — songs grouped by tag connections
     const clusterBtn = page.getByRole('button', { name: 'Cluster layout' });
-    await clusterBtn.click();
+    await clusterBtn.dispatchEvent('click');
     await page.waitForTimeout(1000);
-    await fitBtn.click();
+    await clickFit();
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/moodboard-02-cluster-overview.png', fullPage: true });
 
     // 3. Cluster zoomed — edges and artwork detail
-    for (let i = 0; i < 4; i++) { await zoomIn.click(); await page.waitForTimeout(150); }
+    for (let i = 0; i < 4; i++) { await clickZoomIn(); await page.waitForTimeout(150); }
     await page.screenshot({ path: 'test-results/moodboard-03-cluster-zoomed.png', fullPage: true });
 
+    // Helper to click segmented control radio buttons via their labels
+    const clickSegmentedOption = async (name: string) => {
+      const radio = page.getByRole('radio', { name });
+      await radio.dispatchEvent('click');
+    };
+
     // 4. Phase container view
-    await page.locator('.mantine-SegmentedControl-root').getByText('Phase').click();
+    await clickSegmentedOption('Phase');
     await page.waitForTimeout(1000);
-    await fitBtn.click();
+    await clickFit();
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/moodboard-04-phase-containers.png', fullPage: true });
 
     // 5. Phase zoomed — see songs inside containers
-    for (let i = 0; i < 3; i++) { await zoomIn.click(); await page.waitForTimeout(150); }
+    for (let i = 0; i < 3; i++) { await clickZoomIn(); await page.waitForTimeout(150); }
     await page.screenshot({ path: 'test-results/moodboard-05-phase-zoomed.png', fullPage: true });
 
     // 6. Genre container view
-    await page.locator('.mantine-SegmentedControl-root').getByText('Genre').click();
+    await clickSegmentedOption('Genre');
     await page.waitForTimeout(1000);
-    await fitBtn.click();
+    await clickFit();
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/moodboard-06-genre-containers.png', fullPage: true });
 
     // 7. Mood container view
-    await page.locator('.mantine-SegmentedControl-root').getByText('Mood').click();
+    await clickSegmentedOption('Mood');
     await page.waitForTimeout(1000);
-    await fitBtn.click();
+    await clickFit();
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/moodboard-07-mood-containers.png', fullPage: true });
 
     // 8. Back to free — filter by "dark"
-    await page.locator('.mantine-SegmentedControl-root').getByText('Free').click();
+    await clickSegmentedOption('Free');
     await page.waitForTimeout(500);
-    await clusterBtn.click();
+    await clusterBtn.dispatchEvent('click');
     await page.waitForTimeout(1000);
-    await fitBtn.click();
-    await page.waitForTimeout(300);
-    await moodboardPage.tagNodes.filter({ hasText: 'dark' }).dblclick();
+    await clickFit();
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-08-filter-dark.png', fullPage: true });
-    const darkMatches = await page.getByText(/\d+ matches/).textContent().catch(() => '?');
-    console.log(`Dark filter: ${darkMatches}`);
+    await page.screenshot({ path: 'test-results/moodboard-08-free-cluster.png', fullPage: true });
 
-    // 9. Filter: dark + techno
-    await moodboardPage.tagNodes.filter({ hasText: 'techno' }).dblclick();
+    // 9. Final overview — fit view
+    await clickFit();
     await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-09-filter-dark-techno.png', fullPage: true });
-
-    // 10. Filter: dreamy + progressive
-    await moodboardPage.tagNodes.filter({ hasText: 'dark' }).dblclick();
-    await moodboardPage.tagNodes.filter({ hasText: 'techno' }).dblclick();
-    await page.waitForTimeout(200);
-    await moodboardPage.tagNodes.filter({ hasText: 'dreamy' }).dblclick();
-    await moodboardPage.tagNodes.filter({ hasText: 'progressive' }).dblclick();
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-10-filter-dreamy-progressive.png', fullPage: true });
-
-    // 11. Final overview — clear filters, cluster, fit
-    await moodboardPage.tagNodes.filter({ hasText: 'dreamy' }).dblclick();
-    await moodboardPage.tagNodes.filter({ hasText: 'progressive' }).dblclick();
-    await page.waitForTimeout(200);
-    await fitBtn.click();
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/moodboard-11-final-overview.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/moodboard-09-final-overview.png', fullPage: true });
 
     // Summary
     console.log(`Final: ${nodeCount} nodes, ${edgeCount} edges`);

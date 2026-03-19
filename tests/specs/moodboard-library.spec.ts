@@ -160,8 +160,8 @@ test.describe('Moodboard Library Panel', () => {
   // --- Keyboard navigation ---
 
   test('arrow keys navigate song list', async ({ moodboardPage }) => {
-    // Focus the library panel
-    await moodboardPage.libraryPanel.click();
+    // Focus the library panel directly (it has tabIndex={-1} and onKeyDown)
+    await moodboardPage.libraryPanel.evaluate(el => (el as HTMLElement).focus());
 
     // Press ArrowDown to move focus to first item
     await moodboardPage.page.keyboard.press('ArrowDown');
@@ -182,7 +182,7 @@ test.describe('Moodboard Library Panel', () => {
 
   test('Enter key selects focused song', async ({ moodboardPage }) => {
     // Focus library panel and navigate to first item
-    await moodboardPage.libraryPanel.click();
+    await moodboardPage.libraryPanel.evaluate(el => (el as HTMLElement).focus());
     await moodboardPage.page.keyboard.press('ArrowDown');
     await expect(moodboardPage.librarySongItems.nth(0)).toHaveAttribute('data-focused', 'true');
 
