@@ -1,9 +1,9 @@
 .audio-player-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 16px;
-  height: 56px;
+  gap: 10px;
+  padding: 0 12px;
+  height: 44px;
   border-top: 1px solid var(--mantine-color-dark-5);
   background: var(--mantine-color-dark-7);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
@@ -13,13 +13,13 @@
 }
 
 .audio-player-bar--empty {
-  height: 40px;
+  height: 32px;
 }
 
 /* Artwork */
 .audio-player-bar__artwork {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;

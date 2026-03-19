@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Drawer, ActionIcon, Tooltip, Group, Text, Loader, Transition } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -8,11 +8,15 @@ import {
   IconChecklist,
   IconCheck,
   IconLoader2,
+  IconMaximize,
+  IconMinimize,
+  IconHome,
 } from '@tabler/icons-react';
 import { ReactFlowProvider } from '@xyflow/react';
 
 import { MoodboardCanvas } from './MoodboardCanvas';
 import { MoodboardSearch } from './MoodboardSearch';
+import { GlobalSearch } from './GlobalSearch';
 import { useMoodboardState } from './hooks/useMoodboardState';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { onLoadMoodboardState, onGetPhaseEdges, onGetPhaseOrder, onGetPhasesWithCounts } from './MoodboardPage.telefunc';
@@ -53,6 +57,7 @@ export function MoodboardPage() {
 
   // Board state
   const [searchOpened, setSearchOpened] = useState(false);
+  const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
 
   // Phase data (from unified API)
   const [phaseEdges, setPhaseEdges] = useState<PhaseEdgeInfo[]>([]);
@@ -63,6 +68,23 @@ export function MoodboardPage() {
 
   // Loading
   const [loading, setLoading] = useState(true);
+
+  // Fullscreen
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }, []);
 
   // Audio
   const audioQueue = useAudioQueue();
@@ -75,6 +97,21 @@ export function MoodboardPage() {
   // Library search input ref for keyboard focus
   const librarySearchRef = useRef<HTMLInputElement>(null);
 
+  // Scroll-to-node ref (populated by MoodboardCanvas)
+  const scrollToNodeRef = useRef<((nodeId: string) => void) | null>(null);
+
+  // Compute set of file paths currently on canvas
+  const canvasFilePaths = useMemo(() => {
+    const paths = new Set<string>();
+    for (const node of moodboard.nodes) {
+      if (node.type === 'song') {
+        const fp = (node.data as Record<string, unknown>).filePath as string;
+        if (fp) paths.add(fp);
+      }
+    }
+    return paths;
+  }, [moodboard.nodes]);
+
   // Keyboard navigation
   const { activeZone, setActiveZone, showShortcutHelp, setShowShortcutHelp } = useKeyboardNav({
     onPlayPause: audioQueue.togglePlayPause,
@@ -83,10 +120,10 @@ export function MoodboardPage() {
     onTogglePlaylist: () => setPlaylistPanelOpen(v => !v),
     onOpenSettings: () => setSettingsDrawerOpen(true),
     onOpenSearch: () => {
-      if (!libraryPanelOpen) setLibraryPanelOpen(true);
-      setTimeout(() => librarySearchRef.current?.focus(), 50);
+      setGlobalSearchOpened(true);
     },
     onEscape: () => {
+      if (globalSearchOpened) { setGlobalSearchOpened(false); return; }
       if (detailDrawerOpen) { setDetailDrawerOpen(false); return; }
       if (settingsDrawerOpen) { setSettingsDrawerOpen(false); return; }
       if (reviewDrawerOpen) { setReviewDrawerOpen(false); return; }
@@ -202,6 +239,86 @@ export function MoodboardPage() {
 
   return (
     <Box className="moodboard-page">
+      {/* Compact header bar */}
+      <Group className="moodboard-header" gap={4}>
+        <Tooltip label="Home" position="bottom">
+          <ActionIcon component="a" href="/" size="sm" variant="subtle" c="dimmed">
+            <IconHome size={14} />
+          </ActionIcon>
+        </Tooltip>
+        <Text size="xs" fw={600} c="dimmed">Musicky</Text>
+
+        <Box style={{ flex: 1 }} />
+
+        {/* Save status indicator */}
+        <Transition mounted={moodboard.saveStatus !== 'idle'} transition="fade" duration={300}>
+          {(styles) => (
+            <Group gap={4} style={styles} className="save-indicator">
+              {moodboard.saveStatus === 'saving' && (
+                <>
+                  <IconLoader2 size={12} className="save-spinner" />
+                  <Text size="xs" c="dimmed">Saving…</Text>
+                </>
+              )}
+              {moodboard.saveStatus === 'saved' && (
+                <>
+                  <IconCheck size={12} color="var(--mantine-color-green-5)" />
+                  <Text size="xs" c="green.5">Saved</Text>
+                </>
+              )}
+            </Group>
+          )}
+        </Transition>
+
+        <Tooltip label={libraryPanelOpen ? 'Hide Library (⌘L)' : 'Show Library (⌘L)'} position="bottom">
+          <ActionIcon
+            size="sm"
+            variant={libraryPanelOpen ? 'filled' : 'subtle'}
+            color="violet"
+            onClick={() => setLibraryPanelOpen(v => !v)}
+            data-testid="toolbar-toggle-library"
+          >
+            <IconLayoutSidebar size={14} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label={playlistPanelOpen ? 'Hide Playlist (⌘P)' : 'Show Playlist (⌘P)'} position="bottom">
+          <ActionIcon
+            size="sm"
+            variant={playlistPanelOpen ? 'filled' : 'subtle'}
+            color="violet"
+            onClick={() => setPlaylistPanelOpen(v => !v)}
+            data-testid="toolbar-toggle-playlist"
+          >
+            <IconPlaylist size={14} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label="Settings (⌘,)" position="bottom">
+          <ActionIcon
+            size="sm"
+            variant="subtle"
+            onClick={() => setSettingsDrawerOpen(true)}
+            data-testid="toolbar-settings"
+          >
+            <IconSettings size={14} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label="Review Changes" position="bottom">
+          <ActionIcon
+            size="sm"
+            variant="subtle"
+            onClick={() => setReviewDrawerOpen(true)}
+            data-testid="toolbar-review"
+          >
+            <IconChecklist size={14} />
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label={isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)'} position="bottom">
+          <ActionIcon size="sm" variant="subtle" onClick={toggleFullscreen}>
+            {isFullscreen ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+
       {/* Phase Flow Bar */}
       <PhaseFlowBar
         phaseEdges={phaseEdges}
@@ -267,72 +384,6 @@ export function MoodboardPage() {
               onAddSong={handleDropSong}
             />
           </ReactFlowProvider>
-
-          {/* Toolbar overlay */}
-          <Group className="moodboard-toolbar" gap={4}>
-            {/* Save status indicator */}
-            <Transition mounted={moodboard.saveStatus !== 'idle'} transition="fade" duration={300}>
-              {(styles) => (
-                <Group gap={4} style={styles} className="save-indicator">
-                  {moodboard.saveStatus === 'saving' && (
-                    <>
-                      <IconLoader2 size={12} className="save-spinner" />
-                      <Text size="xs" c="dimmed">Saving…</Text>
-                    </>
-                  )}
-                  {moodboard.saveStatus === 'saved' && (
-                    <>
-                      <IconCheck size={12} color="var(--mantine-color-green-5)" />
-                      <Text size="xs" c="green.5">Saved</Text>
-                    </>
-                  )}
-                </Group>
-              )}
-            </Transition>
-
-            <Tooltip label={libraryPanelOpen ? 'Hide Library' : 'Show Library'} position="bottom">
-              <ActionIcon
-                size="sm"
-                variant={libraryPanelOpen ? 'filled' : 'subtle'}
-                color="violet"
-                onClick={() => setLibraryPanelOpen(v => !v)}
-                data-testid="toolbar-toggle-library"
-              >
-                <IconLayoutSidebar size={14} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label={playlistPanelOpen ? 'Hide Playlist' : 'Show Playlist'} position="bottom">
-              <ActionIcon
-                size="sm"
-                variant={playlistPanelOpen ? 'filled' : 'subtle'}
-                color="violet"
-                onClick={() => setPlaylistPanelOpen(v => !v)}
-                data-testid="toolbar-toggle-playlist"
-              >
-                <IconPlaylist size={14} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Settings" position="bottom">
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                onClick={() => setSettingsDrawerOpen(true)}
-                data-testid="toolbar-settings"
-              >
-                <IconSettings size={14} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Review Changes" position="bottom">
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                onClick={() => setReviewDrawerOpen(true)}
-                data-testid="toolbar-review"
-              >
-                <IconChecklist size={14} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
         </Box>
       </Box>
 

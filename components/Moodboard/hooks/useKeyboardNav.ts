@@ -52,6 +52,17 @@ export function useKeyboardNav(options: UseKeyboardNavOptions): UseKeyboardNavRe
     const mod = e.metaKey || e.ctrlKey;
     const typing = isInputTarget(e);
 
+    // F11 — toggle fullscreen
+    if (e.key === 'F11') {
+      e.preventDefault();
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        document.documentElement.requestFullscreen();
+      }
+      return;
+    }
+
     // ? — show shortcut help (only when not typing)
     if (e.key === '?' && !typing && !mod) {
       e.preventDefault();
