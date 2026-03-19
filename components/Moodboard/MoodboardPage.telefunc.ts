@@ -29,6 +29,7 @@ import {
   getAllNodePositions, bulkUpdatePositions as dbBulkUpdatePositions,
   getCanvasState, setViewport as dbSetViewport, setViewMode as dbSetViewMode,
   getViewport, getViewMode, songNodeId, tagNodeId, parseSongNodeId,
+  removeNodePosition, getNodePosition,
 } from '../../database/sqlite/queries/canvas-state';
 import {
   insertMP3Cache, searchMP3Cache, getMP3CacheByPath, deleteMP3Cache,
@@ -127,7 +128,7 @@ interface PlaylistWithItems {
 
 interface MoodboardState {
   songs: { filePath: string; title: string; artist: string; x: number; y: number; tags: SongTagInfo[] }[];
-  connections: { sourcePath: string; targetPath: string; type: string; weight: number }[];
+  connections: { id: number; sourcePath: string; targetPath: string; type: string; weight: number }[];
   positions: { nodeId: string; x: number; y: number }[];
   tags: { label: string; category: string; x: number; y: number }[];
   viewport: { x: number; y: number; zoom: number };
@@ -720,6 +721,7 @@ export async function onLoadMoodboardState(): Promise<MoodboardState> {
   // Connections from DB
   const allConn = getAllConnections();
   const connections = allConn.map(c => ({
+    id: c.id,
     sourcePath: c.source_path,
     targetPath: c.target_path,
     type: c.connection_type,
@@ -758,6 +760,14 @@ export async function onSaveViewport(viewport: { x: number; y: number; zoom: num
 
 export async function onSaveViewMode(mode: string): Promise<void> {
   dbSetViewMode(mode as 'free' | 'phase' | 'genre' | 'mood');
+}
+
+export async function onRemoveCanvasNode(nodeId: string): Promise<void> {
+  removeNodePosition(nodeId);
+}
+
+export async function onIsSongOnCanvas(filePath: string): Promise<boolean> {
+  return getNodePosition(songNodeId(filePath)) !== null;
 }
 
 export async function onGetSongMetadata(filePath: string): Promise<SongMetadata | null> {

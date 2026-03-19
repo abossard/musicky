@@ -1,7 +1,7 @@
 import {
   createMoodboard, getMoodboards, getMoodboardById, updateMoodboardViewport, deleteMoodboard,
   getNodes, upsertNode, deleteNode, isSongOnBoard, bulkUpdatePositions,
-  getEdges, upsertEdge, updateEdgeWeight, deleteEdge, saveBoardState,
+  getEdges, upsertEdge, updateEdgeWeight, updateEdgeType, deleteEdge, saveBoardState,
   type Moodboard, type MoodboardNodeRow, type MoodboardEdgeRow,
 } from '../../database/sqlite/queries/moodboard';
 import { searchMP3Cache, getMP3CacheByPath } from '../../database/sqlite/queries/dj-sets';
@@ -124,6 +124,10 @@ export async function onAddEdge(
 
 export async function onUpdateEdgeWeight(edgeId: string, weight: number): Promise<void> {
   updateEdgeWeight(edgeId, weight);
+}
+
+export async function onUpdateEdgeType(edgeId: string, edgeType: string): Promise<void> {
+  updateEdgeType(edgeId, edgeType);
 }
 
 export async function onDeleteEdge(edgeId: string): Promise<void> {

@@ -129,6 +129,10 @@ export function updateEdgeWeight(edgeId: string, weight: number): void {
   client.prepare('UPDATE moodboard_edges SET weight = ? WHERE id = ?').run(weight, edgeId);
 }
 
+export function updateEdgeType(edgeId: string, edgeType: string): void {
+  client.prepare('UPDATE moodboard_edges SET edge_type = ? WHERE id = ?').run(edgeType, edgeId);
+}
+
 export function deleteEdge(edgeId: string): void {
   client.prepare('DELETE FROM moodboard_edges WHERE id = ?').run(edgeId);
 }

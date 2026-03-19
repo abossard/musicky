@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Drawer, ActionIcon, Tooltip, Group, Text, Loader } from '@mantine/core';
+import { Box, Drawer, ActionIcon, Tooltip, Group, Text, Loader, Transition } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   IconLayoutSidebar,
   IconPlaylist,
   IconSettings,
   IconChecklist,
+  IconCheck,
+  IconLoader2,
 } from '@tabler/icons-react';
 import { ReactFlowProvider } from '@xyflow/react';
 
@@ -90,8 +93,14 @@ export function MoodboardPage() {
       if (searchOpened) { setSearchOpened(false); return; }
     },
     onSaveCanvas: () => {
-      // Canvas auto-saves via debounce; this triggers an immediate flush
-      moodboard.onViewportChange(moodboard.viewport);
+      moodboard.saveNow();
+      notifications.show({
+        title: 'Canvas saved',
+        message: 'Your moodboard has been saved',
+        icon: <IconCheck size={16} />,
+        color: 'green',
+        autoClose: 2000,
+      });
     },
     libraryOpen: libraryPanelOpen,
     playlistOpen: playlistPanelOpen,
@@ -261,6 +270,26 @@ export function MoodboardPage() {
 
           {/* Toolbar overlay */}
           <Group className="moodboard-toolbar" gap={4}>
+            {/* Save status indicator */}
+            <Transition mounted={moodboard.saveStatus !== 'idle'} transition="fade" duration={300}>
+              {(styles) => (
+                <Group gap={4} style={styles} className="save-indicator">
+                  {moodboard.saveStatus === 'saving' && (
+                    <>
+                      <IconLoader2 size={12} className="save-spinner" />
+                      <Text size="xs" c="dimmed">Saving…</Text>
+                    </>
+                  )}
+                  {moodboard.saveStatus === 'saved' && (
+                    <>
+                      <IconCheck size={12} color="var(--mantine-color-green-5)" />
+                      <Text size="xs" c="green.5">Saved</Text>
+                    </>
+                  )}
+                </Group>
+              )}
+            </Transition>
+
             <Tooltip label={libraryPanelOpen ? 'Hide Library' : 'Show Library'} position="bottom">
               <ActionIcon
                 size="sm"
