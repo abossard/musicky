@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, TextInput, ScrollArea, Stack, Group, Text, Card, Box, Loader, Badge, Highlight } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconSearch, IconMusic, IconCheck } from '@tabler/icons-react';
+import { IconSearch, IconCheck } from '@tabler/icons-react';
 import type { MP3SearchResult } from '../../database/sqlite/queries/dj-sets';
 
 interface MoodboardSearchProps {
@@ -27,20 +27,36 @@ export function MoodboardSearch({ opened, onClose, onAddSong, checkOnBoard, sear
   }, [opened]);
 
   useEffect(() => {
-    if (debouncedQuery.length < 2) { setResults([]); return; }
+    if (!opened) {
+      return;
+    }
+
+    let cancelled = false;
+
     (async () => {
       setLoading(true);
       try {
         const res = await searchSongs(debouncedQuery);
+        if (cancelled) {
+          return;
+        }
         setResults(res);
-        // Check which are already on the board
         const checks = await Promise.all(res.map(r => checkOnBoard(r.file_path)));
+        if (cancelled) {
+          return;
+        }
         setOnBoard(new Set(res.filter((_, i) => checks[i]).map(r => r.file_path)));
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
-  }, [debouncedQuery]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [opened, debouncedQuery, searchSongs, checkOnBoard]);
 
   const handleSelect = async (result: MP3SearchResult) => {
     if (onBoard.has(result.file_path)) return;
@@ -69,12 +85,12 @@ export function MoodboardSearch({ opened, onClose, onAddSong, checkOnBoard, sear
             <Group justify="center" py="xl"><Loader size="sm" /><Text size="sm" c="dimmed">Searching...</Text></Group>
           )}
 
-          {!loading && debouncedQuery.length >= 2 && results.length === 0 && (
+          {!loading && results.length === 0 && debouncedQuery.length > 0 && (
             <Text size="sm" c="dimmed" ta="center" py="xl">No songs found for "{debouncedQuery}"</Text>
           )}
 
-          {!loading && debouncedQuery.length > 0 && debouncedQuery.length < 2 && (
-            <Text size="sm" c="dimmed" ta="center" py="xl">Type at least 2 characters</Text>
+          {!loading && results.length === 0 && debouncedQuery.length === 0 && (
+            <Text size="sm" c="dimmed" ta="center" py="xl">No songs available yet. Import music in MP3 Library first.</Text>
           )}
 
           <Stack gap="xs">

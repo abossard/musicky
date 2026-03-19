@@ -207,13 +207,12 @@ export function db(): Database { ... }
 
 // Hidden complexity:
 // - Singleton management
-// - Automatic backup on first connection
 // - Environment variable resolution
 // - Error handling for missing DATABASE_URL
 ```
 [^10]
 
-**The `db()` function hides 5 concerns behind a zero-argument interface.** Callers never think about connection management, backup policy, or environment configuration.
+**The `db()` function hides 4 concerns behind a zero-argument interface.** Callers never think about connection management or environment configuration.
 
 **Another deep module:**
 

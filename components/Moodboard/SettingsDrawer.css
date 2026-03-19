@@ -1,0 +1,75 @@
+.settings-drawer {
+  padding: 0 4px;
+}
+
+.settings-drawer .section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings-drawer .base-folder-path {
+  font-family: monospace;
+  font-size: 13px;
+  word-break: break-all;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--mantine-color-dark-6);
+  border: 1px solid var(--mantine-color-dark-4);
+}
+
+.settings-drawer .scan-result {
+  font-size: 13px;
+}
+
+.settings-drawer .phase-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-drawer .phase-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--mantine-color-dark-6);
+  border: 1px solid var(--mantine-color-dark-4);
+}
+
+.settings-drawer .phase-item:hover {
+  border-color: var(--mantine-color-dark-3);
+}
+
+.settings-drawer .phase-item.dragging {
+  opacity: 0.7;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+
+.settings-drawer .phase-drag-handle {
+  cursor: grab;
+  color: var(--mantine-color-dimmed);
+  display: flex;
+  align-items: center;
+}
+
+.settings-drawer .phase-drag-handle:active {
+  cursor: grabbing;
+}
+
+.settings-drawer .phase-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-drawer .about-section {
+  text-align: center;
+  padding: 12px 0;
+}

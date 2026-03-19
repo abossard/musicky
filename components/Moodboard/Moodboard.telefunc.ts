@@ -133,8 +133,7 @@ export async function onDeleteEdge(edgeId: string): Promise<void> {
 // --- Song search (reuse existing) ---
 
 export async function onSearchSongs(query: string, limit: number = 30) {
-  if (!query || query.length < 2) return [];
-  return searchMP3Cache(query, limit);
+  return searchMP3Cache(query.trim(), limit);
 }
 
 export async function onIsSongOnBoard(boardId: number, songPath: string): Promise<boolean> {

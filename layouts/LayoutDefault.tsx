@@ -8,13 +8,12 @@ import {
   Image, 
   MantineProvider, 
   Text, 
-  ScrollArea, 
   Stack,
   Badge,
   Flex
 } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import theme from "./theme.js";
 
@@ -23,39 +22,14 @@ import { Link } from "../components/Link";
 import { StatusProvider, useStatus } from "../contexts/StatusContext";
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [opened, { toggle, close }] = useDisclosure();
   const { status, statusColor, setIsMenuOpen } = useStatus();
   const isMobile = useMediaQuery('(max-width: 768px)');
-
-  // Initialize time and update every second, but only on client side
-  useEffect(() => {
-    // Set initial time
-    setCurrentTime(new Date());
-    
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   // Sync menu state with context
   useEffect(() => {
     setIsMenuOpen(opened);
   }, [opened, setIsMenuOpen]);
-
-  const formatDateTime = (date: Date) => {
-    return date.toLocaleString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
 
   // Handler to close menu on mobile when navigation link is clicked
   const handleNavLinkClick = () => {
@@ -66,18 +40,17 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell
-      header={{ height: 60 }}
+      header={{ height: 44 }}
       navbar={{ 
         width: 280, 
         breakpoint: "sm", 
         collapsed: { mobile: !opened, desktop: false } 
       }}
-      footer={{ height: 40 }}
-      padding="md"
+      footer={{ height: 32 }}
+      padding="xs"
     >
-      {/* Top Title Bar with Date and Time */}
       <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
+        <Group h="100%" px="sm" justify="space-between">
           <Group>
             <Burger 
               opened={opened} 
@@ -87,13 +60,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               aria-label="Toggle navigation"
             />
             <a href="/" aria-label="Go to home page">
-              <Image h={40} fit="contain" src={logoUrl} />
+              <Image h={28} fit="contain" src={logoUrl} />
             </a>
-            <Text size="lg" fw={600}>Musicky</Text>
+            <Text size="sm" fw={600}>Musicky</Text>
           </Group>
-          <Text size="sm" c="dimmed">
-            {currentTime ? formatDateTime(currentTime) : 'Loading...'}
-          </Text>
         </Group>
       </AppShell.Header>
 
@@ -103,25 +73,19 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <Text size="sm" fw={600} c="dimmed" mb="xs">
             Navigation
           </Text>
-          <Link href="/review-changes" label="Reviews" onClick={handleNavLinkClick} />
-          <Link href="/settings" label="Settings" onClick={handleNavLinkClick} />
-          <Link href="/mp3-library" label="MP3 Library" onClick={handleNavLinkClick} />
-          <Link href="/dj-sets" label="DJ Sets" onClick={handleNavLinkClick} />
           <Link href="/moodboard" label="Moodboard" onClick={handleNavLinkClick} />
-          <Link href="/tag-sync" label="Tag Sync" onClick={handleNavLinkClick} />
+          <Link href="/settings" label="Settings" onClick={handleNavLinkClick} />
         </Stack>
       </AppShell.Navbar>
 
       {/* Scrollable Main Content */}
-      <AppShell.Main>
-        <ScrollArea h="calc(100vh - 140px)" type="auto">
-          {children}
-        </ScrollArea>
+      <AppShell.Main style={{ height: 'calc(100vh - 44px - 32px)', overflow: 'auto' }}>
+        {children}
       </AppShell.Main>
 
       {/* Bottom Status Bar */}
       <AppShell.Footer>
-        <Flex h="100%" px="md" align="center" justify="space-between">
+        <Flex h="100%" px="sm" align="center" justify="space-between">
           <Group gap="sm">
             <Badge variant="dot" color={statusColor} size="sm">
               {status}

@@ -8,6 +8,7 @@ export interface ProgressBarProps {
   isLoading: boolean;
   onSeek: (time: number) => void;
   mb?: string | number;
+  compact?: boolean;
 }
 
 
@@ -29,7 +30,8 @@ export function ProgressBar({
   duration,
   isLoading,
   onSeek,
-  mb
+  mb,
+  compact = false,
 }: ProgressBarProps) {
   const [seekingTo, setSeekingTo] = useState<number | null>(null);
 
@@ -52,33 +54,36 @@ export function ProgressBar({
     }
   }, [currentTime, seekingTo]);
 
+  const sliderMax = duration || 100;
+
   return (
     <Box mb={mb}>
-      {/* Time display */}
-      <Group justify="space-between" mb="xs">
-        <Text size="xs" c="dimmed">
-          {formatTime(displayTime)}
-        </Text>
-        <Text size="xs" c="dimmed">
-          {formatTime(duration)}
-        </Text>
-      </Group>
+      {!compact && (
+        <Group justify="space-between" mb="xs">
+          <Text size="xs" c="dimmed">
+            {formatTime(displayTime)}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {formatTime(duration)}
+          </Text>
+        </Group>
+      )}
 
-      {/* Slider */}
       <Slider
         value={seekingTo ?? currentTime}
         min={0}
-        max={duration || 100}
+        max={sliderMax}
         step={0.1}
-        marks={marks}
+        marks={compact ? [] : marks}
         disabled={isLoading || duration === 0}
         onChange={handleChange}
         onChangeEnd={handleChangeEnd}
         color="violet"
-        size="sm"
-        thumbSize={27}
+        size={compact ? 'xs' : 'sm'}
+        thumbSize={compact ? 14 : 27}
         label={formatTime}
         styles={{
+          root: compact ? { paddingTop: 0, paddingBottom: 0 } : undefined,
           mark: {
             borderColor: 'rgba(255, 255, 255, 0.5)',
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -93,10 +98,10 @@ export function ProgressBar({
             borderRadius: '3px',
           },
           track: {
-            height: '6px',
+            height: compact ? '4px' : '6px',
           },
           bar: {
-            height: '6px',
+            height: compact ? '4px' : '6px',
           },
         }}
       />

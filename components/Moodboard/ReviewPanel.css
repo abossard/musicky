@@ -1,0 +1,69 @@
+.review-panel {
+  padding: 0;
+}
+
+.review-diff-card {
+  border-color: var(--mantine-color-dark-5);
+  background: var(--mantine-color-dark-7);
+}
+
+.review-diff-card:hover {
+  background: var(--mantine-color-dark-6);
+}
+
+.review-file-name {
+  font-family: monospace;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-diff-field {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--mantine-color-dark-6);
+  flex-wrap: wrap;
+}
+
+.review-diff-field:last-of-type {
+  border-bottom: none;
+}
+
+.review-field-name {
+  min-width: 80px;
+  font-weight: 600;
+  font-size: 0.85em;
+  font-family: monospace;
+  color: var(--mantine-color-violet-4);
+}
+
+.review-value-old {
+  color: var(--mantine-color-red-4);
+  text-decoration: line-through;
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.review-value-new {
+  color: var(--mantine-color-green-4);
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.review-value-empty {
+  color: var(--mantine-color-dimmed);
+  font-style: italic;
+  font-size: 0.85em;
+}
+
+.review-history-row {
+  padding: 2px var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-xs);
+}
+
+.review-history-row:hover {
+  background: var(--mantine-color-dark-6);
+}

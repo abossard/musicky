@@ -30,6 +30,15 @@ export const EDGE_COLORS: Record<EdgeType, string> = {
   custom: '#868e96',
 };
 
+export const EDGE_MEANINGS: Record<EdgeType, string> = {
+  genre: 'This song is associated with a genre tag, used for clustering and browsing.',
+  phase: 'This song belongs to a set phase, useful for sequencing and set building.',
+  mood: 'This song matches a mood tag, which helps guide selection by feeling.',
+  similarity: 'These songs connect directly, meaning they likely mix or flow well together.',
+  topic: 'This song is linked to a topic tag, used as a conceptual grouping.',
+  custom: 'This is a custom relationship you defined manually on the board.',
+};
+
 export const TAG_PRESETS: { emoji: string; title: string; category: TagCategory; color: string; tags: string[] }[] = [
   { emoji: '🎭', title: 'Mood', category: 'mood', color: 'pink', tags: ['dark', 'energetic', 'dreamy', 'jungle', 'chill', 'uplifting', 'melancholic', 'hypnotic', 'aggressive', 'euphoric'] },
   { emoji: '🎵', title: 'Genre', category: 'genre', color: 'cyan', tags: ['techno', 'house', 'trance', 'melodic', 'progressive', 'minimal', 'deep', 'afro', 'disco', 'drum & bass'] },

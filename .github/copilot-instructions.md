@@ -40,7 +40,7 @@ The server entry (`fastify-entry.ts`) wires up Vite dev middleware, static file 
 
 ### Database Layer
 
-- **Singleton:** `database/sqlite/db.ts` creates one `better-sqlite3` instance (auto-backs up on first connect)
+- **Singleton:** `database/sqlite/db.ts` creates one `better-sqlite3` instance
 - **Schemas:** `database/sqlite/schema/*.ts` — run via `npm run sqlite:migrate`
 - **Queries:** `database/sqlite/queries/*.ts` — typed functions using prepared statements
 - **Transactions:** Use `client.transaction()` for batch operations (see `reorderSetItems` in dj-sets queries)

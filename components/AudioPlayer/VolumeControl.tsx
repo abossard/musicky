@@ -5,9 +5,10 @@ import { IconVolume, IconVolume2, IconVolume3, IconVolumeOff } from '@tabler/ico
 export interface VolumeControlProps {
   volume: number;
   onChange: (volume: number) => void;
+  compact?: boolean;
 }
 
-export function VolumeControl({ volume, onChange }: VolumeControlProps) {
+export function VolumeControl({ volume, onChange, compact = false }: VolumeControlProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const volumeIcons = [
@@ -31,6 +32,7 @@ export function VolumeControl({ volume, onChange }: VolumeControlProps) {
         variant="subtle"
         onClick={toggleMute}
         aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+        size={compact ? 'sm' : 'md'}
       >
         {getVolumeIcon()}
       </ActionIcon>
@@ -48,6 +50,7 @@ export function VolumeControl({ volume, onChange }: VolumeControlProps) {
             variant="subtle"
             onClick={() => setIsOpen(!isOpen)}
             aria-label="Volume control"
+            size={compact ? 'sm' : 'md'}
           >
             {getVolumeIcon()}
           </ActionIcon>

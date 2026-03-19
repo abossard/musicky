@@ -186,8 +186,8 @@ export function useMoodboardState(boardId: number | null, currentPlayingPath?: s
     setEdges(eds => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
   };
 
-  const connectNodes = async (connection: Connection, edgeType: EdgeType = 'custom', weight: number = 0.7) => {
-    if (!boardIdRef.current || !connection.source || !connection.target) return;
+  const connectNodes = async (connection: Connection, edgeType: EdgeType = 'custom', weight: number = 0.7): Promise<Edge | null> => {
+    if (!boardIdRef.current || !connection.source || !connection.target) return null;
     const edgeId = await onAddEdge(boardIdRef.current, connection.source, connection.target, edgeType, weight);
 
     // Song→song edges are directed (flow direction)
@@ -204,6 +204,7 @@ export function useMoodboardState(boardId: number | null, currentPlayingPath?: s
       ...(directed ? { markerEnd: { type: MarkerType.ArrowClosed, color: '#40c057' } } : {}),
     };
     setEdges(eds => addEdge(newEdge, eds));
+    return newEdge;
   };
 
   const removeEdge = async (edgeId: string) => {

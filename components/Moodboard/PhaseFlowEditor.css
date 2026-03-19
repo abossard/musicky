@@ -1,0 +1,156 @@
+.phase-flow-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+  height: 100%;
+  min-height: 400px;
+}
+
+/* Canvas area with SVG overlay */
+.pfe-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  border: 1px solid var(--mantine-color-dark-5);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-dark-8);
+  overflow: auto;
+}
+
+.pfe-canvas-inner {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-lg);
+  padding: var(--mantine-spacing-xl);
+  min-height: 100%;
+  align-items: flex-start;
+  align-content: flex-start;
+}
+
+.pfe-svg-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pfe-svg-overlay line,
+.pfe-svg-overlay path {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.pfe-svg-overlay line:hover,
+.pfe-svg-overlay path:hover {
+  filter: drop-shadow(0 0 4px var(--mantine-color-red-5));
+}
+
+/* Phase card node */
+.pfe-node {
+  position: relative;
+  z-index: 2;
+  min-width: 120px;
+  max-width: 160px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  user-select: none;
+}
+
+.pfe-node:hover {
+  transform: translateY(-2px);
+}
+
+.pfe-node-source {
+  box-shadow: 0 0 10px 3px var(--mantine-color-yellow-5) !important;
+  outline: 2px solid var(--mantine-color-yellow-5);
+  outline-offset: 2px;
+}
+
+.pfe-node-target-hint {
+  box-shadow: 0 0 6px 2px var(--mantine-color-violet-4);
+}
+
+.pfe-node-delete {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 3;
+}
+
+/* Inline rename input */
+.pfe-rename-input {
+  font-weight: 600;
+}
+
+/* Edge arrow markers */
+.pfe-arrow-marker {
+  fill: var(--mantine-color-violet-5);
+}
+
+.pfe-edge-line {
+  stroke: var(--mantine-color-violet-5);
+  stroke-width: 2;
+  fill: none;
+  transition: stroke 0.15s ease;
+}
+
+.pfe-edge-line:hover {
+  stroke: var(--mantine-color-red-5);
+  stroke-width: 3;
+}
+
+.pfe-edge-line-preview {
+  stroke: var(--mantine-color-yellow-5);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  fill: none;
+  pointer-events: none;
+}
+
+/* Edge delete button */
+.pfe-edge-delete-btn {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.pfe-edge-delete-btn circle {
+  fill: var(--mantine-color-red-7);
+  transition: fill 0.15s ease;
+}
+
+.pfe-edge-delete-btn:hover circle {
+  fill: var(--mantine-color-red-5);
+}
+
+.pfe-edge-delete-btn text {
+  fill: white;
+  font-size: 10px;
+  font-weight: bold;
+  dominant-baseline: central;
+  text-anchor: middle;
+}
+
+/* Topological preview */
+.pfe-preview {
+  border-top: 1px solid var(--mantine-color-dark-5);
+  padding-top: var(--mantine-spacing-xs);
+}
+
+/* Connection hint overlay */
+.pfe-connection-hint {
+  position: absolute;
+  bottom: var(--mantine-spacing-sm);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  animation: pfe-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pfe-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

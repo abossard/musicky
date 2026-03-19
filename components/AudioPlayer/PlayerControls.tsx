@@ -6,17 +6,19 @@ export interface PlayerControlsProps {
   isPlaying: boolean;
   isLoading: boolean;
   onTogglePlayPause: () => void;
+  compact?: boolean;
 }
 
 export function PlayerControls({
   isPlaying,
   isLoading,
-  onTogglePlayPause
+  onTogglePlayPause,
+  compact = false,
 }: PlayerControlsProps) {
   return (
     <Group justify="center">
       <ActionIcon
-        size="lg"
+        size={compact ? 'md' : 'lg'}
         variant="filled"
         color="violet"
         onClick={onTogglePlayPause}
