@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, MiniMap, Controls, Background, BackgroundVariant, ConnectionMode,
+  useReactFlow,
   type Node, type Edge, type Connection, type NodeTypes, type EdgeTypes,
   type OnNodesChange, type OnEdgesChange, type Viewport,
   Panel,
@@ -48,11 +49,13 @@ interface MoodboardCanvasProps {
   onNodeDelete: (nodeId: string) => void;
   onEdgeDelete: (edgeId: string) => void;
   onEdgeWeightChange: (edgeId: string, weight: number) => void;
+  onEdgeTypeChange?: (edgeId: string, newType: string) => void;
   onSearchOpen: () => void;
   onAddTag: (label: string, category: TagCategory, color: string, x: number, y: number) => void;
   onPlaySong: (filePath: string) => void;
   onHoverPlaySong: (filePath: string) => void;
   onNodesUpdate: (nodes: Node[]) => void;
+  onAddSong?: (filePath: string, x: number, y: number) => void;
 }
 
 function injectCallbacks(
@@ -100,12 +103,14 @@ function resolveEdgeType(nodes: Node[], connection: Connection): EdgeType {
 export function MoodboardCanvas({
   nodes, edges, onNodesChange, onEdgesChange,
   viewport, onViewportChange,
-  onConnect, onNodeDelete, onEdgeDelete, onEdgeWeightChange,
-  onSearchOpen, onAddTag, onPlaySong, onHoverPlaySong, onNodesUpdate,
+  onConnect, onNodeDelete, onEdgeDelete, onEdgeWeightChange, onEdgeTypeChange,
+  onSearchOpen, onAddTag, onPlaySong, onHoverPlaySong, onNodesUpdate, onAddSong,
 }: MoodboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pendingConnectionRef = useRef<PendingConnection | null>(null);
   const connectionCreatedRef = useRef(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const { screenToFlowPosition } = useReactFlow();
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [editorPosition, setEditorPosition] = useState<{ x: number; y: number } | null>(null);
@@ -386,11 +391,42 @@ export function MoodboardCanvas({
     onNodeDelete(node.id);
   }, [onNodeDelete]);
 
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    if (event.dataTransfer.types.includes('application/x-moodboard-song')) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((event: React.DragEvent) => {
+    if (!event.currentTarget.contains(event.relatedTarget as globalThis.Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    const filePath = event.dataTransfer.getData('application/x-moodboard-song');
+    if (!filePath || !onAddSong) return;
+
+    const position = screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+    onAddSong(filePath, position.x, position.y);
+  }, [screenToFlowPosition, onAddSong]);
+
   return (
     <Box
       ref={containerRef}
       tabIndex={0}
       onKeyDown={handleCanvasKeyDown}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={isDragOver ? 'moodboard-canvas-drop-active' : undefined}
       style={{ width: '100%', height: '100%', position: 'relative', outline: 'none' }}
     >
       <ReactFlow
@@ -582,6 +618,7 @@ export function MoodboardCanvas({
           onWeightChange={(id, w) => {
             onEdgeWeightChange(id, w);
           }}
+          onTypeChange={onEdgeTypeChange}
           onDelete={(id) => {
             onEdgeDelete(id);
             setSelectedEdgeId(null);

@@ -69,3 +69,9 @@
   border-color: #adb5bd !important;
   box-shadow: 0 0 30px rgba(173, 181, 189, 0.3) !important;
 }
+
+/* Drop zone highlight when dragging songs from library */
+.moodboard-canvas-drop-active {
+  outline: 2px dashed var(--mantine-color-violet-5);
+  outline-offset: -2px;
+}

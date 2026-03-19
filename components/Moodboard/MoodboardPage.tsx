@@ -5,8 +5,6 @@ import {
   IconPlaylist,
   IconSettings,
   IconChecklist,
-  IconPlayerPlay,
-  IconMusic,
 } from '@tabler/icons-react';
 import { ReactFlowProvider } from '@xyflow/react';
 
@@ -14,10 +12,8 @@ import { MoodboardCanvas } from './MoodboardCanvas';
 import { MoodboardSearch } from './MoodboardSearch';
 import { useMoodboardState } from './hooks/useMoodboardState';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
-import { onGetMoodboards, onCreateMoodboard } from './Moodboard.telefunc';
 import { onLoadMoodboardState, onGetPhaseEdges, onGetPhaseOrder, onGetPhasesWithCounts } from './MoodboardPage.telefunc';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
-import { showSuccess } from '../../lib/notifications';
 
 import { PhaseFlowBar } from './PhaseFlowBar';
 import { PhaseFlowEditor } from './PhaseFlowEditor';
@@ -53,8 +49,6 @@ export function MoodboardPage() {
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
 
   // Board state
-  const [boards, setBoards] = useState<{ id: number; name: string }[]>([]);
-  const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [searchOpened, setSearchOpened] = useState(false);
 
   // Phase data (from unified API)
@@ -70,9 +64,8 @@ export function MoodboardPage() {
   // Audio
   const audioQueue = useAudioQueue();
 
-  // Moodboard canvas state (board-specific)
+  // Moodboard canvas state (unified graph)
   const moodboard = useMoodboardState(
-    selectedBoardId,
     audioQueue.isPlaying ? audioQueue.currentTrack?.filePath : null,
   );
 
@@ -104,34 +97,20 @@ export function MoodboardPage() {
     playlistOpen: playlistPanelOpen,
   });
 
-  // Load boards and phase data on mount
+  // Load phase data on mount via unified API
   useEffect(() => {
     Promise.all([
-      onGetMoodboards(),
-      onGetPhaseEdges(),
-      onGetPhaseOrder(),
+      onLoadMoodboardState(),
       onGetPhasesWithCounts(),
-    ]).then(([boardList, edges, order, counts]) => {
-      setBoards(boardList.map(x => ({ id: x.id, name: x.name })));
-      if (boardList.length > 0) setSelectedBoardId(boardList[0].id);
-      setPhaseEdges(edges);
-      setPhaseOrder(order);
+    ]).then(([state, counts]) => {
+      setPhaseEdges(state.phaseEdges);
+      setPhaseOrder(state.phaseOrder);
       const countMap: Record<string, number> = {};
       for (const c of counts) countMap[c.phase] = c.count;
       setPhaseCounts(countMap);
       setLoading(false);
     });
   }, []);
-
-  // Refresh phase data when moodboard state reloads
-  useEffect(() => {
-    if (!loading) {
-      onLoadMoodboardState().then(state => {
-        setPhaseEdges(state.phaseEdges);
-        setPhaseOrder(state.phaseOrder);
-      });
-    }
-  }, [selectedBoardId, loading]);
 
   const refreshPhaseData = useCallback(async () => {
     const [edges, order, counts] = await Promise.all([
@@ -148,13 +127,6 @@ export function MoodboardPage() {
 
   const handlePhaseFilterClick = useCallback((phase: string) => {
     setActivePhaseFilter((prev) => (prev === phase ? null : phase));
-  }, []);
-
-  const handleCreateBoard = useCallback(async () => {
-    const name = `Board ${new Date().toLocaleDateString()}`;
-    const board = await onCreateMoodboard(name);
-    setBoards(prev => [{ id: board.id, name: board.name }, ...prev]);
-    setSelectedBoardId(board.id);
   }, []);
 
   const getTrackMetadata = useCallback((filePath: string): MP3Metadata => {
@@ -188,6 +160,10 @@ export function MoodboardPage() {
     const col = existingCount % cols;
     const row = Math.floor(existingCount / cols);
     return moodboard.addSong(songPath, col * spacing + Math.random() * 30, row * spacing + Math.random() * 30);
+  }, [moodboard]);
+
+  const handleDropSong = useCallback(async (songPath: string, x: number, y: number) => {
+    return moodboard.addSong(songPath, x, y);
   }, [moodboard]);
 
   const handleConnect = useCallback((connection: Connection, edgeType: EdgeType, weight: number) => {
@@ -261,37 +237,27 @@ export function MoodboardPage() {
           data-focus-zone="canvas"
           onClick={() => setActiveZone('canvas')}
         >
-          {selectedBoardId ? (
-            <ReactFlowProvider>
-              <MoodboardCanvas
-                nodes={moodboard.nodes}
-                edges={moodboard.edges}
-                onNodesChange={moodboard.onNodesChange}
-                onEdgesChange={moodboard.onEdgesChange}
-                viewport={moodboard.viewport}
-                onViewportChange={moodboard.onViewportChange}
-                onConnect={handleConnect}
-                onNodeDelete={moodboard.removeNode}
-                onEdgeDelete={moodboard.removeEdge}
-                onEdgeWeightChange={moodboard.setEdgeWeight}
-                onSearchOpen={() => setSearchOpened(true)}
-                onAddTag={handleAddTag}
-                onPlaySong={handlePlaySong}
-                onHoverPlaySong={handleHoverPlaySong}
-                onNodesUpdate={(newNodes) => moodboard.setNodes(newNodes)}
-              />
-            </ReactFlowProvider>
-          ) : (
-            <Box className="moodboard-loading">
-              <Group gap="sm">
-                <IconMusic size={16} />
-                <Text c="dimmed">No board selected</Text>
-                <ActionIcon size="sm" variant="light" onClick={handleCreateBoard} title="Create board">
-                  <IconPlayerPlay size={14} />
-                </ActionIcon>
-              </Group>
-            </Box>
-          )}
+          <ReactFlowProvider>
+            <MoodboardCanvas
+              nodes={moodboard.nodes}
+              edges={moodboard.edges}
+              onNodesChange={moodboard.onNodesChange}
+              onEdgesChange={moodboard.onEdgesChange}
+              viewport={moodboard.viewport}
+              onViewportChange={moodboard.onViewportChange}
+              onConnect={handleConnect}
+              onNodeDelete={moodboard.removeNode}
+              onEdgeDelete={moodboard.removeEdge}
+              onEdgeWeightChange={moodboard.setEdgeWeight}
+              onEdgeTypeChange={(edgeId, newType) => { moodboard.setEdgeType(edgeId, newType as EdgeType); }}
+              onSearchOpen={() => setSearchOpened(true)}
+              onAddTag={handleAddTag}
+              onPlaySong={handlePlaySong}
+              onHoverPlaySong={handleHoverPlaySong}
+              onNodesUpdate={(newNodes) => moodboard.setNodes(newNodes)}
+              onAddSong={handleDropSong}
+            />
+          </ReactFlowProvider>
 
           {/* Toolbar overlay */}
           <Group className="moodboard-toolbar" gap={4}>
@@ -399,13 +365,11 @@ export function MoodboardPage() {
         <SettingsDrawer
           onClose={() => setSettingsDrawerOpen(false)}
           onScanComplete={() => {
-            // Reload moodboard state after library scan
-            if (selectedBoardId) {
-              onLoadMoodboardState().then(state => {
-                setPhaseEdges(state.phaseEdges);
-                setPhaseOrder(state.phaseOrder);
-              });
-            }
+            // Reload phase data after library scan
+            onLoadMoodboardState().then(state => {
+              setPhaseEdges(state.phaseEdges);
+              setPhaseOrder(state.phaseOrder);
+            });
           }}
           onPhasesChanged={() => {
             onGetPhaseOrder().then(setPhaseOrder);
