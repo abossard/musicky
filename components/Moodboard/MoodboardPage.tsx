@@ -226,6 +226,23 @@ export function MoodboardPage() {
     setDetailDrawerOpen(true);
   }, []);
 
+  // Global search: select a song (scroll to it if on canvas, add then scroll if not)
+  const handleGlobalSearchSelect = useCallback(async (filePath: string, isOnCanvas: boolean) => {
+    const nodeId = `song:${filePath}`;
+    if (isOnCanvas) {
+      // Scroll to existing node
+      scrollToNodeRef.current?.(nodeId);
+    } else {
+      // Add at viewport center, then scroll to it
+      const vp = moodboard.viewport;
+      const centerX = (-vp.x + window.innerWidth / 2) / vp.zoom;
+      const centerY = (-vp.y + window.innerHeight / 2) / vp.zoom;
+      await moodboard.addSong(filePath, centerX - 60, centerY - 60);
+      // Small delay for React Flow to process the new node
+      setTimeout(() => scrollToNodeRef.current?.(`song:${filePath}`), 200);
+    }
+  }, [moodboard]);
+
   if (loading) {
     return (
       <Box className="moodboard-loading">
@@ -382,6 +399,7 @@ export function MoodboardPage() {
               onHoverPlaySong={handleHoverPlaySong}
               onNodesUpdate={(newNodes) => moodboard.setNodes(newNodes)}
               onAddSong={handleDropSong}
+              scrollToNodeRef={scrollToNodeRef}
             />
           </ReactFlowProvider>
         </Box>
@@ -475,6 +493,14 @@ export function MoodboardPage() {
         onAddSong={handleAddSong}
         checkOnBoard={moodboard.checkSongOnBoard}
         searchSongs={moodboard.searchSongs}
+      />
+
+      {/* Global Search Command Palette */}
+      <GlobalSearch
+        opened={globalSearchOpened}
+        onClose={() => setGlobalSearchOpened(false)}
+        onSelectSong={handleGlobalSearchSelect}
+        canvasFilePaths={canvasFilePaths}
       />
 
       {/* Keyboard Shortcut Help */}

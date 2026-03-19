@@ -56,6 +56,7 @@ interface MoodboardCanvasProps {
   onHoverPlaySong: (filePath: string) => void;
   onNodesUpdate: (nodes: Node[]) => void;
   onAddSong?: (filePath: string, x: number, y: number) => void;
+  scrollToNodeRef?: React.MutableRefObject<((nodeId: string) => void) | null>;
 }
 
 function injectCallbacks(
@@ -105,12 +106,13 @@ export function MoodboardCanvas({
   viewport, onViewportChange,
   onConnect, onNodeDelete, onEdgeDelete, onEdgeWeightChange, onEdgeTypeChange,
   onSearchOpen, onAddTag, onPlaySong, onHoverPlaySong, onNodesUpdate, onAddSong,
+  scrollToNodeRef,
 }: MoodboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pendingConnectionRef = useRef<PendingConnection | null>(null);
   const connectionCreatedRef = useRef(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, setCenter, getNode, setNodes: rfSetNodes } = useReactFlow();
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [editorPosition, setEditorPosition] = useState<{ x: number; y: number } | null>(null);
@@ -146,6 +148,19 @@ export function MoodboardCanvas({
       setSelectedNodeIds(nextSelectedNodeIds);
     }
   }, [nodes, selectedNodeIds]);
+
+  // Expose scrollToNode via ref for parent components (e.g. GlobalSearch)
+  useEffect(() => {
+    if (!scrollToNodeRef) return;
+    scrollToNodeRef.current = (nodeId: string) => {
+      const node = getNode(nodeId);
+      if (node) {
+        setCenter(node.position.x + 60, node.position.y + 60, { zoom: 1.5, duration: 500 });
+        rfSetNodes(nds => nds.map(n => ({ ...n, selected: n.id === nodeId })));
+      }
+    };
+    return () => { scrollToNodeRef.current = null; };
+  }, [scrollToNodeRef, setCenter, getNode, rfSetNodes]);
 
   const focusCanvas = useCallback(() => {
     containerRef.current?.focus();

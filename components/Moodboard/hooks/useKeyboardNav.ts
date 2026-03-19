@@ -98,6 +98,10 @@ export function useKeyboardNav(options: UseKeyboardNavOptions): UseKeyboardNavRe
           e.preventDefault();
           onOpenSearch();
           return;
+        case 'k':
+          e.preventDefault();
+          onOpenSearch();
+          return;
         case 's':
           e.preventDefault();
           onSaveCanvas();
