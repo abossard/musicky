@@ -21,13 +21,30 @@ import {
   type TagEditHistory,
 } from '../database/sqlite/queries/mp3-tag-edits';
 import {
+  getTagsForSong,
+  addSongTag,
+  clearSongTags,
+  bulkSetSongTags,
+  type TagCategory,
+} from '../database/sqlite/queries/song-tags';
+import {
+  getConnectionsForSong,
+  addSongConnection,
+  clearConnectionsForSong,
+  type ConnectionType,
+} from '../database/sqlite/queries/song-connections';
+import {
+  getMP3CacheByPath,
+  searchMP3Cache,
+} from '../database/sqlite/queries/dj-sets';
+import {
   createMoodboard,
   upsertNode,
   upsertEdge,
   isSongOnBoard,
   getNodes,
 } from '../database/sqlite/queries/moodboard';
-import { searchMP3Cache } from '../database/sqlite/queries/dj-sets';
+import { resolveRelatedSong as resolveRelated } from '../lib/scan-engine';
 import { MP3Library } from '../lib/mp3-library';
 import { readBaseFolder } from '../database/sqlite/queries/library-settings';
 
@@ -39,6 +56,8 @@ const library = new MP3Library();
 /**
  * Preview export: generate diffs for specified files (or whole library)
  * and create pending tag edits for review.
+ * Reads from song_tags + song_connections (the graph model) as well as
+ * moodboard edges to produce a complete export diff.
  */
 export async function onPreviewExport(filePaths?: string[]): Promise<{
   summaries: FileDiffSummary[];
@@ -48,7 +67,53 @@ export async function onPreviewExport(filePaths?: string[]): Promise<{
   clearPendingTagEditsByDirection('export');
 
   const paths = filePaths || await getLibraryFilePaths();
+
+  // Generate diffs using the tag-sync-engine (moodboard-based) first
   const summaries = await generateBulkExportDiff(paths);
+
+  // Supplement with song_tags/song_connections data for songs not on moodboards
+  for (const fp of paths) {
+    // Skip files already covered by moodboard diffs
+    if (summaries.find(s => s.filePath === fp)) continue;
+
+    const dbTags = getTagsForSong(fp);
+    const dbConns = getConnectionsForSong(fp);
+    if (dbTags.length === 0 && dbConns.length === 0) continue;
+
+    // Build connection targets with title/artist from cache
+    const connTargets = dbConns.map(c => {
+      const otherPath = c.source_path === fp ? c.target_path : c.source_path;
+      const cached = getMP3CacheByPath(otherPath);
+      return {
+        targetTitle: cached?.title || otherPath.split('/').pop()?.replace(/\.mp3$/i, '') || 'Unknown',
+        targetArtist: cached?.artist || 'Unknown',
+        type: c.connection_type,
+        weight: c.weight,
+      };
+    });
+
+    const proposedData = MP3MetadataManager.tagsToMusickData(
+      dbTags.map(t => ({ label: t.tag_label, category: t.tag_category })),
+      connTargets,
+    );
+
+    // Read current ID3 tags
+    let currentTags: MusickTagData = {};
+    try {
+      currentTags = await mp3Manager.readMusickTags(fp) || {};
+    } catch { /* skip unreadable files */ continue; }
+
+    const diffs = buildFieldDiffs(fp, currentTags, proposedData, 'export');
+    if (diffs.length > 0) {
+      const cached = getMP3CacheByPath(fp);
+      summaries.push({
+        filePath: fp,
+        title: cached?.title,
+        artist: cached?.artist,
+        diffs,
+      });
+    }
+  }
 
   let editCount = 0;
   for (const summary of summaries) {
@@ -156,6 +221,7 @@ export async function onRejectExport(editIds: number[]): Promise<void> {
 
 /**
  * Preview import: scan files for µ: tags and generate import proposals.
+ * Compares ID3 µ: tags against both moodboard state AND song_tags/song_connections tables.
  */
 export async function onPreviewImport(filePaths?: string[]): Promise<{
   summaries: FileDiffSummary[];
@@ -164,7 +230,50 @@ export async function onPreviewImport(filePaths?: string[]): Promise<{
   clearPendingTagEditsByDirection('import');
 
   const paths = filePaths || await getLibraryFilePaths();
+
+  // Use moodboard-based diffs first
   const summaries = await generateBulkImportDiff(paths);
+
+  // Supplement: for songs not on a moodboard, compare ID3 vs song_tags table
+  for (const fp of paths) {
+    if (summaries.find(s => s.filePath === fp)) continue;
+
+    let fileTags: MusickTagData | null;
+    try {
+      fileTags = await mp3Manager.readMusickTags(fp);
+    } catch { continue; }
+    if (!fileTags) continue;
+
+    const dbTags = getTagsForSong(fp);
+    const dbConns = getConnectionsForSong(fp);
+
+    // Build current DB state as MusickTagData for comparison
+    const connTargets = dbConns.map(c => {
+      const otherPath = c.source_path === fp ? c.target_path : c.source_path;
+      const cached = getMP3CacheByPath(otherPath);
+      return {
+        targetTitle: cached?.title || 'Unknown',
+        targetArtist: cached?.artist || 'Unknown',
+        type: c.connection_type,
+        weight: c.weight,
+      };
+    });
+    const dbMusickData = MP3MetadataManager.tagsToMusickData(
+      dbTags.map(t => ({ label: t.tag_label, category: t.tag_category })),
+      connTargets,
+    );
+
+    const diffs = buildFieldDiffs(fp, dbMusickData, fileTags, 'import');
+    if (diffs.length > 0) {
+      const cached = getMP3CacheByPath(fp);
+      summaries.push({
+        filePath: fp,
+        title: cached?.title,
+        artist: cached?.artist,
+        diffs,
+      });
+    }
+  }
 
   let editCount = 0;
   for (const summary of summaries) {
@@ -196,8 +305,8 @@ export async function onPreviewImportFile(filePath: string): Promise<{
 }
 
 /**
- * Apply approved import edits — update dashboard/DB from file tags.
- * Creates/updates moodboard tag nodes and edges for each file.
+ * Apply approved import edits — update song_tags and song_connections from file tags.
+ * Groups edits by file and applies tag/connection changes as a batch.
  */
 export async function onApplyImport(editIds: number[]): Promise<{
   success: number;
@@ -206,18 +315,87 @@ export async function onApplyImport(editIds: number[]): Promise<{
   let successCount = 0;
   const failed: { id: number; error: string; filePath: string }[] = [];
 
+  // Group edits by file to batch writes
+  const editsByFile = new Map<string, PendingTagEdit[]>();
   for (const id of editIds) {
     const edit = getTagEditById(id);
     if (!edit || edit.status !== 'pending') continue;
+    const group = editsByFile.get(edit.filePath) || [];
+    group.push(edit);
+    editsByFile.set(edit.filePath, group);
+  }
 
+  for (const [filePath, edits] of editsByFile) {
     try {
-      updateTagEditStatus(id, 'applied');
-      addTagHistory(edit.filePath, edit.fieldName, edit.originalValue, edit.newValue, 'import');
-      successCount++;
+      for (const edit of edits) {
+        const field = edit.fieldName.startsWith(MUSICK_TAG_PREFIX)
+          ? edit.fieldName.slice(MUSICK_TAG_PREFIX.length)
+          : edit.fieldName;
+
+        switch (field) {
+          case 'genres':
+          case 'phases':
+          case 'moods':
+          case 'topics':
+          case 'tags': {
+            const category = fieldToCategory(field);
+            const labels = edit.newValue.split(',').map(s => s.trim()).filter(Boolean);
+            // Clear existing tags in this category, then re-add
+            clearSongTags(filePath, category);
+            if (labels.length > 0) {
+              bulkSetSongTags(filePath, labels.map(label => ({
+                label,
+                category,
+                source: 'id3_import' as const,
+              })));
+            }
+            break;
+          }
+          case 'related': {
+            let related: { title: string; artist: string; type: string; weight: number }[];
+            try { related = JSON.parse(edit.newValue); } catch { related = []; }
+            if (related.length > 0) {
+              // Resolve references to file paths and add connections
+              const allCached = searchMP3Cache('', 10000);
+              const knownSongs = allCached.map(c => ({
+                filePath: c.file_path,
+                title: c.title ?? undefined,
+                artist: c.artist ?? undefined,
+              }));
+              for (const rel of related) {
+                const targetPath = resolveRelated(rel.title, rel.artist, knownSongs);
+                if (targetPath && targetPath !== filePath) {
+                  addSongConnection(filePath, targetPath, rel.type as ConnectionType, rel.weight, 'id3_import');
+                }
+              }
+            }
+            break;
+          }
+          // 'genre' (standard field) — map to genre category tags
+          case 'genre': {
+            const labels = edit.newValue.split(',').map(s => s.trim()).filter(Boolean);
+            clearSongTags(filePath, 'genre');
+            if (labels.length > 0) {
+              bulkSetSongTags(filePath, labels.map(label => ({
+                label,
+                category: 'genre' as TagCategory,
+                source: 'id3_import' as const,
+              })));
+            }
+            break;
+          }
+        }
+
+        updateTagEditStatus(edit.id, 'applied');
+        addTagHistory(edit.filePath, edit.fieldName, edit.originalValue, edit.newValue, 'import');
+        successCount++;
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      updateTagEditStatus(id, 'failed');
-      failed.push({ id: edit.id, error: errorMessage, filePath: edit.filePath });
+      for (const edit of edits) {
+        updateTagEditStatus(edit.id, 'failed');
+        failed.push({ id: edit.id, error: errorMessage, filePath: edit.filePath });
+      }
     }
   }
 
@@ -433,6 +611,157 @@ async function getLibraryFilePaths(): Promise<string[]> {
   if (!base) throw new Error('Base folder not set');
   const scan = await library.scan(base);
   return scan.files.map(f => f.filePath);
+}
+
+/** Map µ: field names to TagCategory */
+function fieldToCategory(field: string): TagCategory {
+  switch (field) {
+    case 'genres': return 'genre';
+    case 'phases': return 'phase';
+    case 'moods':  return 'mood';
+    case 'topics': return 'topic';
+    case 'tags':   return 'custom';
+    default:       return 'custom';
+  }
+}
+
+/** Normalize a string array for comparison */
+function normalizeList(arr?: string[]): string {
+  if (!arr || arr.length === 0) return '';
+  return [...arr].sort().join(', ');
+}
+
+/**
+ * Build field-level TagDiff entries comparing two MusickTagData objects.
+ * `current` is what's already stored, `proposed` is the new desired state.
+ */
+function buildFieldDiffs(
+  filePath: string,
+  current: MusickTagData,
+  proposed: MusickTagData,
+  direction: 'export' | 'import',
+): TagDiff[] {
+  const diffs: TagDiff[] = [];
+
+  const comparisons: { field: string; cur: string[]; prop: string[] }[] = [
+    { field: `${MUSICK_TAG_PREFIX}genres`, cur: current.genres || [], prop: proposed.genres || [] },
+    { field: `${MUSICK_TAG_PREFIX}phases`, cur: current.phases || [], prop: proposed.phases || [] },
+    { field: `${MUSICK_TAG_PREFIX}moods`,  cur: current.moods  || [], prop: proposed.moods  || [] },
+    { field: `${MUSICK_TAG_PREFIX}topics`, cur: current.topics || [], prop: proposed.topics || [] },
+    { field: `${MUSICK_TAG_PREFIX}tags`,   cur: current.tags   || [], prop: proposed.tags   || [] },
+  ];
+
+  for (const c of comparisons) {
+    const curNorm = normalizeList(c.cur);
+    const propNorm = normalizeList(c.prop);
+    if (curNorm !== propNorm && propNorm !== '') {
+      diffs.push({ filePath, fieldName: c.field, currentValue: curNorm, proposedValue: propNorm, direction });
+    }
+  }
+
+  // Related songs
+  const curRelated = JSON.stringify((current.related || []).sort((a, b) => `${a.title}${a.artist}`.localeCompare(`${b.title}${b.artist}`)));
+  const propRelated = JSON.stringify((proposed.related || []).sort((a, b) => `${a.title}${a.artist}`.localeCompare(`${b.title}${b.artist}`)));
+  if (curRelated !== propRelated && proposed.related && proposed.related.length > 0) {
+    diffs.push({
+      filePath,
+      fieldName: `${MUSICK_TAG_PREFIX}related`,
+      currentValue: curRelated === '[]' ? '' : curRelated,
+      proposedValue: propRelated,
+      direction,
+    });
+  }
+
+  return diffs;
+}
+
+// ─── Conflict Resolution ─────────────────────────────────────────────────
+
+export interface ConflictInfo {
+  filePath: string;
+  title?: string;
+  artist?: string;
+  field: string;
+  dashboardValue: string;
+  id3Value: string;
+  direction: 'export' | 'import';
+}
+
+/**
+ * Detect conflicts where dashboard (song_tags + song_connections) disagrees with ID3 µ: tags.
+ * Returns a list of per-field conflicts with both values shown.
+ */
+export async function onGetConflicts(filePaths?: string[]): Promise<ConflictInfo[]> {
+  const paths = filePaths || await getLibraryFilePaths();
+  const conflicts: ConflictInfo[] = [];
+
+  for (const fp of paths) {
+    let id3Tags: MusickTagData;
+    try {
+      id3Tags = await mp3Manager.readMusickTags(fp) || {};
+    } catch { continue; }
+
+    // Build dashboard state from song_tags + song_connections
+    const dbTags = getTagsForSong(fp);
+    const dbConns = getConnectionsForSong(fp);
+    const connTargets = dbConns.map(c => {
+      const otherPath = c.source_path === fp ? c.target_path : c.source_path;
+      const cached = getMP3CacheByPath(otherPath);
+      return {
+        targetTitle: cached?.title || 'Unknown',
+        targetArtist: cached?.artist || 'Unknown',
+        type: c.connection_type,
+        weight: c.weight,
+      };
+    });
+    const dbMusickData = MP3MetadataManager.tagsToMusickData(
+      dbTags.map(t => ({ label: t.tag_label, category: t.tag_category })),
+      connTargets,
+    );
+
+    const cached = getMP3CacheByPath(fp);
+
+    const fieldPairs: { field: string; dbVal: string[]; id3Val: string[] }[] = [
+      { field: `${MUSICK_TAG_PREFIX}genres`, dbVal: dbMusickData.genres || [], id3Val: id3Tags.genres || [] },
+      { field: `${MUSICK_TAG_PREFIX}phases`, dbVal: dbMusickData.phases || [], id3Val: id3Tags.phases || [] },
+      { field: `${MUSICK_TAG_PREFIX}moods`,  dbVal: dbMusickData.moods  || [], id3Val: id3Tags.moods  || [] },
+      { field: `${MUSICK_TAG_PREFIX}topics`, dbVal: dbMusickData.topics || [], id3Val: id3Tags.topics || [] },
+      { field: `${MUSICK_TAG_PREFIX}tags`,   dbVal: dbMusickData.tags   || [], id3Val: id3Tags.tags   || [] },
+    ];
+
+    for (const pair of fieldPairs) {
+      const dbNorm = normalizeList(pair.dbVal);
+      const id3Norm = normalizeList(pair.id3Val);
+      if (dbNorm !== id3Norm && (dbNorm !== '' || id3Norm !== '')) {
+        conflicts.push({
+          filePath: fp,
+          title: cached?.title ?? undefined,
+          artist: cached?.artist ?? undefined,
+          field: pair.field,
+          dashboardValue: dbNorm,
+          id3Value: id3Norm,
+          direction: dbNorm && !id3Norm ? 'export' : 'import',
+        });
+      }
+    }
+
+    // Related songs conflict
+    const dbRelStr = JSON.stringify((dbMusickData.related || []).sort((a, b) => `${a.title}${a.artist}`.localeCompare(`${b.title}${b.artist}`)));
+    const id3RelStr = JSON.stringify((id3Tags.related || []).sort((a, b) => `${a.title}${a.artist}`.localeCompare(`${b.title}${b.artist}`)));
+    if (dbRelStr !== id3RelStr && (dbRelStr !== '[]' || id3RelStr !== '[]')) {
+      conflicts.push({
+        filePath: fp,
+        title: cached?.title ?? undefined,
+        artist: cached?.artist ?? undefined,
+        field: `${MUSICK_TAG_PREFIX}related`,
+        dashboardValue: dbRelStr === '[]' ? '' : dbRelStr,
+        id3Value: id3RelStr === '[]' ? '' : id3RelStr,
+        direction: dbRelStr !== '[]' && id3RelStr === '[]' ? 'export' : 'import',
+      });
+    }
+  }
+
+  return conflicts;
 }
 
 /**

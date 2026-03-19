@@ -406,6 +406,79 @@ export class MP3MetadataManager {
   }
 
   /**
+   * Convert song_tags + song_connections database entries into MusickTagData for ID3 writing.
+   */
+  static tagsToMusickData(
+    tags: { label: string; category: string }[],
+    connections: { targetTitle: string; targetArtist: string; type: string; weight: number }[],
+  ): MusickTagData {
+    const data: MusickTagData = { version: 1 };
+
+    const byCategory: Record<string, string[]> = {};
+    for (const t of tags) {
+      const cat = t.category.toLowerCase();
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(t.label);
+    }
+
+    if (byCategory['genre']?.length)  data.genres  = [...new Set(byCategory['genre'])].sort();
+    if (byCategory['phase']?.length)  data.phases  = [...new Set(byCategory['phase'])].sort();
+    if (byCategory['mood']?.length)   data.moods   = [...new Set(byCategory['mood'])].sort();
+    if (byCategory['topic']?.length)  data.topics  = [...new Set(byCategory['topic'])].sort();
+    if (byCategory['custom']?.length) data.tags    = [...new Set(byCategory['custom'])].sort();
+
+    if (connections.length > 0) {
+      data.related = connections.map(c => ({
+        title: c.targetTitle,
+        artist: c.targetArtist,
+        type: c.type,
+        weight: c.weight,
+      }));
+    }
+
+    return data;
+  }
+
+  /**
+   * Convert MusickTagData read from ID3 back to normalized tags + related entries.
+   */
+  static musickDataToTags(
+    data: MusickTagData,
+  ): {
+    tags: { label: string; category: 'genre' | 'phase' | 'mood' | 'topic' | 'custom' }[];
+    related: { title: string; artist: string; type: string; weight: number }[];
+  } {
+    const tags: { label: string; category: 'genre' | 'phase' | 'mood' | 'topic' | 'custom' }[] = [];
+
+    const mapping: [keyof Pick<MusickTagData, 'genres' | 'phases' | 'moods' | 'topics' | 'tags'>, 'genre' | 'phase' | 'mood' | 'topic' | 'custom'][] = [
+      ['genres', 'genre'],
+      ['phases', 'phase'],
+      ['moods', 'mood'],
+      ['topics', 'topic'],
+      ['tags', 'custom'],
+    ];
+
+    for (const [field, category] of mapping) {
+      const values = data[field];
+      if (values) {
+        for (const v of values) {
+          const trimmed = v.trim();
+          if (trimmed) tags.push({ label: trimmed, category });
+        }
+      }
+    }
+
+    const related = (data.related ?? []).map(r => ({
+      title: r.title,
+      artist: r.artist,
+      type: r.type,
+      weight: r.weight,
+    }));
+
+    return { tags, related };
+  }
+
+  /**
    * Format file size in human-readable format
    */
   static formatFileSize(bytes: number): string {
