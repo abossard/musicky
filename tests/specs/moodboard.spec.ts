@@ -135,21 +135,15 @@ function setupRichBoard() {
 test.describe('Moodboard Visual Tests', () => {
   test.setTimeout(90000);
 
-  test('rich board: 44 songs, 12 tags, complex edges', async ({ page }) => {
+  test('rich board: 44 songs, 12 tags, complex edges', async ({ page, moodboardPage }) => {
     setupRichBoard();
-    await page.goto('/moodboard');
-    await page.waitForTimeout(5000);
 
-    // Select board
-    const fitBtn = page.locator('.react-flow__controls-fitview');
-    if (!(await fitBtn.isVisible({ timeout: 8000 }).catch(() => false))) {
-      await page.getByPlaceholder("Board").click().catch(() => {});
-      await page.waitForTimeout(500);
-      const opt = page.getByRole('option').first();
-      if (await opt.isVisible().catch(() => false)) await opt.click();
-      await page.waitForTimeout(3000);
-    }
-    await expect(fitBtn).toBeVisible({ timeout: 10000 });
+    // MoodboardPage auto-selects the first board on mount
+    await moodboardPage.goto();
+    await moodboardPage.waitForCanvasReady(15000);
+
+    const fitBtn = moodboardPage.fitViewButton;
+    const zoomIn = moodboardPage.zoomInButton;
 
     // 1. Grid layout — all 44 songs visible
     const gridBtn = page.getByRole('button', { name: 'Grid layout' });
@@ -158,7 +152,7 @@ test.describe('Moodboard Visual Tests', () => {
     await fitBtn.click();
     await page.waitForTimeout(500);
     const nodeCount = await page.locator('.react-flow__node').count();
-    const edgeCount = await page.locator('.react-flow__edge').count();
+    const edgeCount = await moodboardPage.edges.count();
     console.log(`Grid: ${nodeCount} nodes, ${edgeCount} edges`);
     await page.screenshot({ path: 'test-results/moodboard-01-grid-44songs.png', fullPage: true });
 
@@ -171,7 +165,6 @@ test.describe('Moodboard Visual Tests', () => {
     await page.screenshot({ path: 'test-results/moodboard-02-cluster-overview.png', fullPage: true });
 
     // 3. Cluster zoomed — edges and artwork detail
-    const zoomIn = page.locator('.react-flow__controls-zoomin');
     for (let i = 0; i < 4; i++) { await zoomIn.click(); await page.waitForTimeout(150); }
     await page.screenshot({ path: 'test-results/moodboard-03-cluster-zoomed.png', fullPage: true });
 
@@ -207,29 +200,29 @@ test.describe('Moodboard Visual Tests', () => {
     await page.waitForTimeout(1000);
     await fitBtn.click();
     await page.waitForTimeout(300);
-    await page.locator('.react-flow__node-tag').filter({ hasText: 'dark' }).dblclick();
+    await moodboardPage.tagNodes.filter({ hasText: 'dark' }).dblclick();
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/moodboard-08-filter-dark.png', fullPage: true });
     const darkMatches = await page.getByText(/\d+ matches/).textContent().catch(() => '?');
     console.log(`Dark filter: ${darkMatches}`);
 
     // 9. Filter: dark + techno
-    await page.locator('.react-flow__node-tag').filter({ hasText: 'techno' }).dblclick();
+    await moodboardPage.tagNodes.filter({ hasText: 'techno' }).dblclick();
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/moodboard-09-filter-dark-techno.png', fullPage: true });
 
     // 10. Filter: dreamy + progressive
-    await page.locator('.react-flow__node-tag').filter({ hasText: 'dark' }).dblclick();
-    await page.locator('.react-flow__node-tag').filter({ hasText: 'techno' }).dblclick();
+    await moodboardPage.tagNodes.filter({ hasText: 'dark' }).dblclick();
+    await moodboardPage.tagNodes.filter({ hasText: 'techno' }).dblclick();
     await page.waitForTimeout(200);
-    await page.locator('.react-flow__node-tag').filter({ hasText: 'dreamy' }).dblclick();
-    await page.locator('.react-flow__node-tag').filter({ hasText: 'progressive' }).dblclick();
+    await moodboardPage.tagNodes.filter({ hasText: 'dreamy' }).dblclick();
+    await moodboardPage.tagNodes.filter({ hasText: 'progressive' }).dblclick();
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/moodboard-10-filter-dreamy-progressive.png', fullPage: true });
 
     // 11. Final overview — clear filters, cluster, fit
-    await page.locator('.react-flow__node-tag').filter({ hasText: 'dreamy' }).dblclick();
-    await page.locator('.react-flow__node-tag').filter({ hasText: 'progressive' }).dblclick();
+    await moodboardPage.tagNodes.filter({ hasText: 'dreamy' }).dblclick();
+    await moodboardPage.tagNodes.filter({ hasText: 'progressive' }).dblclick();
     await page.waitForTimeout(200);
     await fitBtn.click();
     await page.waitForTimeout(500);
@@ -237,13 +230,13 @@ test.describe('Moodboard Visual Tests', () => {
 
     // Summary
     console.log(`Final: ${nodeCount} nodes, ${edgeCount} edges`);
-    const imgs = page.locator('.react-flow__node-song img');
+    const imgs = moodboardPage.songNodes.locator('img');
     let loaded = 0;
     const imgCount = await imgs.count();
     for (let i = 0; i < imgCount; i++)
       if (await imgs.nth(i).evaluate((el: HTMLImageElement) => el.naturalWidth) > 0) loaded++;
     console.log(`Artwork: ${loaded}/${imgCount} loaded`);
 
-    await expect(page.getByText('Moodboard').first()).toBeVisible();
+    await expect(moodboardPage.canvas).toBeVisible();
   });
 });

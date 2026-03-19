@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/app-fixture';
+import { test, expect, uniqueName } from '../fixtures/app-fixture';
 
 test.describe('Settings', () => {
   test.beforeEach(async ({ settingsPage }) => {
@@ -28,5 +28,20 @@ test.describe('Settings', () => {
 
   test('phase management section is visible', async ({ settingsPage }) => {
     await settingsPage.expectLibraryPhasesVisible();
+  });
+
+  test('can add a phase', async ({ settingsPage }) => {
+    const phaseName = uniqueName('TestPhase');
+    await settingsPage.addPhase(phaseName);
+    await settingsPage.expectPhaseVisible(phaseName);
+  });
+
+  test('can remove a phase', async ({ settingsPage }) => {
+    const phaseName = uniqueName('RemoveMe');
+    await settingsPage.addPhase(phaseName);
+    await settingsPage.expectPhaseVisible(phaseName);
+
+    await settingsPage.removePhase(phaseName);
+    await settingsPage.expectPhaseNotVisible(phaseName);
   });
 });

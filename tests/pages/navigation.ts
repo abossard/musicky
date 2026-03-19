@@ -7,11 +7,8 @@ export class NavigationHelper {
   readonly sidebar: Locator;
   readonly burger: Locator;
   readonly navLinks: {
-    djSets: Locator;
-    mp3Library: Locator;
-    reviews: Locator;
+    moodboard: Locator;
     settings: Locator;
-    tagSync: Locator;
   };
   readonly statusBadge: Locator;
   readonly appTitle: Locator;
@@ -20,11 +17,8 @@ export class NavigationHelper {
     this.sidebar = page.locator('nav');
     this.burger = page.locator('.mantine-Burger-root');
     this.navLinks = {
-      djSets: page.getByRole('link', { name: 'DJ Sets' }),
-      mp3Library: page.getByRole('link', { name: 'MP3 Library' }),
-      reviews: page.getByRole('link', { name: 'Reviews' }),
+      moodboard: page.getByRole('link', { name: 'Moodboard' }),
       settings: page.getByRole('link', { name: 'Settings' }),
-      tagSync: page.getByRole('link', { name: 'Tag Sync' }),
     };
     this.statusBadge = page.locator('.mantine-Badge-root');
     this.appTitle = page.getByText('Musicky');
@@ -32,38 +26,15 @@ export class NavigationHelper {
 
   async goto(path: string) {
     await this.page.goto(path);
-    // Wait for React hydration — the live clock only renders after JS runs
-    await expect(
-      this.page.locator('text=/\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)/i')
-    ).toBeVisible({ timeout: 15000 });
+    await this.page.waitForLoadState('domcontentloaded');
   }
 
-  async goToDJSets() {
-    await this.goto('/dj-sets');
-  }
-
-  async goToMP3Library() {
-    await this.goto('/mp3-library');
+  async goToMoodboard() {
+    await this.goto('/moodboard');
   }
 
   async goToSettings() {
     await this.goto('/settings');
-  }
-
-  async goToReviewChanges() {
-    await this.goto('/review-changes');
-  }
-
-  async goToFileBrowser() {
-    await this.goto('/file-browser');
-  }
-
-  async goToAudioPlayer() {
-    await this.goto('/audio-player');
-  }
-
-  async goToTagSync() {
-    await this.goto('/tag-sync');
   }
 
   async goHome() {

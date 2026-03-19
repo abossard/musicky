@@ -31,9 +31,7 @@ export class SettingsPage {
   }
 
   async removePhase(name: string) {
-    const phaseButton = this.page.getByRole('button', { name: new RegExp(`${name}.*×`) });
-    const removeBtn = phaseButton.getByRole('button', { name: '×' });
-    await removeBtn.click();
+    await this.page.getByRole('button', { name: `Remove ${name}` }).click();
   }
 
   // --- Assertions ---

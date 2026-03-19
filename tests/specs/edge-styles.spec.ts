@@ -58,23 +58,12 @@ test.describe('Moodboard Edge Styles', () => {
     setupBoardForEdgeTest();
   });
 
-  test('edge style selector: switch between all 5 styles with screenshots', async ({ page }) => {
-    await page.goto('/moodboard');
-    await page.waitForTimeout(3000);
+  test('edge style selector: switch between all 5 styles with screenshots', async ({ page, moodboardPage }) => {
+    // MoodboardPage auto-selects the first board on mount
+    await moodboardPage.goto();
+    await moodboardPage.waitForCanvasReady(15000);
 
-    // Select the board
-    const boardSelect = page.getByPlaceholder('Board');
-    if (await boardSelect.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await boardSelect.click();
-      await page.waitForTimeout(500);
-      const opt = page.getByRole('option').first();
-      if (await opt.isVisible({ timeout: 2000 }).catch(() => false)) await opt.click();
-      await page.waitForTimeout(2000);
-    }
-
-    // Wait for nodes to appear
-    const fitBtn = page.locator('.react-flow__controls-fitview');
-    await expect(fitBtn).toBeVisible({ timeout: 10000 });
+    const fitBtn = moodboardPage.fitViewButton;
 
     // Grid layout for clean comparison
     const gridBtn = page.getByRole('button', { name: 'Grid layout' });
@@ -90,7 +79,7 @@ test.describe('Moodboard Edge Styles', () => {
     await expect(edgeStyleSelector).toBeVisible();
 
     // Verify edges are visible
-    const edgeCount = await page.locator('.react-flow__edge').count();
+    const edgeCount = await moodboardPage.edges.count();
     console.log(`[edge-test] Edges visible: ${edgeCount}`);
     expect(edgeCount).toBeGreaterThan(0);
 
@@ -114,7 +103,7 @@ test.describe('Moodboard Edge Styles', () => {
 
     // 5. Smart (A* pathfinding)
     await edgeStyleSelector.getByText('Smart').click();
-    await page.waitForTimeout(1000); // Smart edges need more time to compute
+    await page.waitForTimeout(1000);
     await page.screenshot({ path: 'test-results/edge-style-05-smart.png', fullPage: true });
 
     // 6. Back to Curve
@@ -123,7 +112,7 @@ test.describe('Moodboard Edge Styles', () => {
     await page.screenshot({ path: 'test-results/edge-style-06-back-to-bezier.png', fullPage: true });
 
     // Verify all edges still render after style switching
-    const finalEdgeCount = await page.locator('.react-flow__edge').count();
+    const finalEdgeCount = await moodboardPage.edges.count();
     expect(finalEdgeCount).toBe(edgeCount);
 
     console.log(`[edge-test] All 5 edge styles captured`);

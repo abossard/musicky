@@ -1,8 +1,8 @@
-export const testSets = [
-  { name: 'Test Set Alpha', description: 'First test set for automated testing' },
-  { name: 'Test Set Beta', description: 'Second test set for automated testing' },
-  { name: 'Test Set Gamma', description: 'Third test set with no songs' },
-] as const;
+export const testPhases = ['opener', 'buildup', 'peak', 'cooldown', 'closer'] as const;
+
+export const testMoods = ['euphoric', 'dark', 'energetic', 'dreamy'] as const;
+
+export const testGenres = ['techno', 'house', 'trance', 'progressive'] as const;
 
 export const searchQueries = {
   valid: ['test', 'song', 'mp3'],

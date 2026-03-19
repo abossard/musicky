@@ -399,6 +399,7 @@ export function PlaylistPanel({
               leftSection={generating ? <Loader size={12} /> : <IconPlaylist size={12} />}
               onClick={handleGenerate}
               disabled={generating}
+              data-testid="playlist-generate"
             >
               Generate
             </Button>
@@ -407,7 +408,7 @@ export function PlaylistPanel({
           {/* Play all */}
           {playlist && onPlayAll && (
             <Tooltip label="Play all" position="bottom">
-              <ActionIcon size="sm" variant="light" color="green" onClick={handlePlayAll}>
+              <ActionIcon size="sm" variant="light" color="green" onClick={handlePlayAll} data-testid="playlist-play-all">
                 <IconPlayerPlay size={14} />
               </ActionIcon>
             </Tooltip>
@@ -416,7 +417,7 @@ export function PlaylistPanel({
           {/* Save */}
           {playlist && (
             <Tooltip label="Save playlist" position="bottom">
-              <ActionIcon size="sm" variant="light" color="blue" onClick={() => { setSaveName(''); setSaveModalOpen(true); }}>
+              <ActionIcon size="sm" variant="light" color="blue" onClick={() => { setSaveName(''); setSaveModalOpen(true); }} data-testid="playlist-save">
                 <IconDeviceFloppy size={14} />
               </ActionIcon>
             </Tooltip>

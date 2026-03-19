@@ -224,6 +224,7 @@ export function AudioPlayerBar({
           onClick={onTogglePlayPause}
           aria-label={isPlaying ? 'Pause' : 'Play'}
           className="audio-player-bar__play-btn"
+          data-testid="audio-play-pause"
         >
           {isPlaying ? <IconPlayerPause size={18} /> : <IconPlayerPlay size={18} />}
         </ActionIcon>

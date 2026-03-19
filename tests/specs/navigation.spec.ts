@@ -1,66 +1,56 @@
 import { test, expect } from '../fixtures/app-fixture';
 
 test.describe('Navigation & Layout', () => {
-  test('home page loads with welcome message', async ({ nav }) => {
+  test('home redirects to moodboard', async ({ page, nav }) => {
     await nav.goHome();
+    await expect(page).toHaveURL(/\/moodboard/, { timeout: 15000 });
+  });
+
+  test('moodboard page loads with canvas and toolbar', async ({ moodboardPage }) => {
+    await moodboardPage.goto();
+    await expect(moodboardPage.canvas).toBeVisible({ timeout: 15000 });
+    await expect(moodboardPage.toolbar).toBeVisible({ timeout: 15000 });
+  });
+
+  test('settings page loads', async ({ settingsPage }) => {
+    await settingsPage.goto();
+    await settingsPage.expectPlaybackSettingsVisible();
+  });
+
+  test('sidebar navigation works on desktop', async ({ nav, page }) => {
+    await nav.goToMoodboard();
+    await nav.expectNavLinksVisible();
+
+    await nav.navigateViaLink(nav.navLinks.settings);
+    await expect(page).toHaveURL(/\/settings/);
+    await expect(page.getByText('Playback Settings')).toBeVisible({ timeout: 15000 });
+
+    await nav.navigateViaLink(nav.navLinks.moodboard);
+    await expect(page).toHaveURL(/\/moodboard/);
+    await expect(page.locator('.react-flow')).toBeVisible({ timeout: 15000 });
+  });
+
+  test('mobile burger menu', async ({ nav, page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await nav.goToMoodboard();
+
+    await expect(nav.burger).toBeVisible();
+    await nav.openMobileMenu();
+    await nav.expectNavLinksVisible();
+
+    await nav.navLinks.settings.click();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page).toHaveURL(/\/settings/);
+  });
+
+  test('app title visible', async ({ nav }) => {
+    await nav.goToMoodboard();
     await expect(nav.appTitle.first()).toBeVisible();
   });
 
-  test('all pages are accessible from sidebar', async ({ nav, page }) => {
-    await nav.goHome();
-
-    await nav.navigateViaLink(nav.navLinks.djSets);
-    await expect(page.getByRole('heading', { name: 'DJ Set Management' })).toBeVisible();
-
-    await nav.navigateViaLink(nav.navLinks.mp3Library);
-    await expect(page.getByText('MP3 Library').first()).toBeVisible();
-
-    await nav.navigateViaLink(nav.navLinks.settings);
-    await expect(page.getByText('Playback Settings')).toBeVisible({ timeout: 15000 });
-
-    await nav.navigateViaLink(nav.navLinks.reviews);
-    await expect(page.getByText('Review Changes').first()).toBeVisible();
-  });
-
-  test('navigation links are visible on desktop', async ({ nav }) => {
-    await nav.goHome();
-    await nav.expectNavLinksVisible();
-  });
-
-  test('mobile viewport shows burger menu', async ({ nav, page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await nav.goHome();
-
-    // On mobile, the burger should be visible
-    if (await nav.burger.isVisible()) {
-      await nav.openMobileMenu();
-      await nav.expectNavLinksVisible();
-    }
-  });
-
-  test('each page route loads directly', async ({ page }) => {
-    test.setTimeout(120000);
-    const routes: { path: string; locator: string; timeout?: number }[] = [
-      { path: '/dj-sets', locator: 'heading:DJ Set Management' },
-      { path: '/settings', locator: 'text:Playback Settings', timeout: 30000 },
-      { path: '/review-changes', locator: 'text-first:Review Changes' },
-      { path: '/audio-player', locator: 'text-first:Audio Player Demo' },
-      { path: '/file-browser', locator: 'text-first:File Browser' },
-      // MP3 Library skipped — scanning can take >2min
-    ];
-
-    for (const route of routes) {
-      await page.goto(route.path);
-      await page.waitForLoadState('domcontentloaded');
-      const [type, text] = route.locator.split(':');
-      const timeout = route.timeout ?? 15000;
-      if (type === 'heading') {
-        await expect(page.getByRole('heading', { name: text })).toBeVisible({ timeout });
-      } else if (type === 'text-first') {
-        await expect(page.getByText(text).first()).toBeVisible({ timeout });
-      } else {
-        await expect(page.getByText(text)).toBeVisible({ timeout });
-      }
-    }
+  test('404 handling', async ({ page }) => {
+    await page.goto('/this-route-does-not-exist');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByText(/404|not found|page.*not.*found/i).first()).toBeVisible({ timeout: 10000 });
   });
 });

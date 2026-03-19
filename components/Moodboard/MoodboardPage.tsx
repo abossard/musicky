@@ -301,6 +301,7 @@ export function MoodboardPage() {
                 variant={libraryPanelOpen ? 'filled' : 'subtle'}
                 color="violet"
                 onClick={() => setLibraryPanelOpen(v => !v)}
+                data-testid="toolbar-toggle-library"
               >
                 <IconLayoutSidebar size={14} />
               </ActionIcon>
@@ -311,6 +312,7 @@ export function MoodboardPage() {
                 variant={playlistPanelOpen ? 'filled' : 'subtle'}
                 color="violet"
                 onClick={() => setPlaylistPanelOpen(v => !v)}
+                data-testid="toolbar-toggle-playlist"
               >
                 <IconPlaylist size={14} />
               </ActionIcon>
@@ -320,6 +322,7 @@ export function MoodboardPage() {
                 size="sm"
                 variant="subtle"
                 onClick={() => setSettingsDrawerOpen(true)}
+                data-testid="toolbar-settings"
               >
                 <IconSettings size={14} />
               </ActionIcon>
@@ -329,6 +332,7 @@ export function MoodboardPage() {
                 size="sm"
                 variant="subtle"
                 onClick={() => setReviewDrawerOpen(true)}
+                data-testid="toolbar-review"
               >
                 <IconChecklist size={14} />
               </ActionIcon>

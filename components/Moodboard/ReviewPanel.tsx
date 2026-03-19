@@ -254,6 +254,7 @@ export function ReviewPanel({ onClose: _onClose, onChangesApplied }: ReviewPanel
               leftSection={<IconCheck size={14} />}
               onClick={() => handleApproveAll(direction)}
               loading={applying}
+              data-testid="review-approve-all"
             >
               Approve All
             </Button>
@@ -264,6 +265,7 @@ export function ReviewPanel({ onClose: _onClose, onChangesApplied }: ReviewPanel
               leftSection={<IconX size={14} />}
               onClick={() => handleRejectAll(direction)}
               loading={applying}
+              data-testid="review-reject-all"
             >
               Reject All
             </Button>

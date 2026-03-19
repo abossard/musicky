@@ -234,6 +234,7 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
                 onClick={handleScan}
                 disabled={!baseFolder || scanning}
                 loading={scanning}
+                data-testid="settings-scan-library"
               >
                 Scan Library
               </Button>

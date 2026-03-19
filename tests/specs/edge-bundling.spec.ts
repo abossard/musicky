@@ -59,22 +59,12 @@ test.describe('Edge Bundling — Hub and Spoke', () => {
     setupHighFanoutBoard();
   });
 
-  test('bundled vs unbundled: 20 songs → 1 tag with screenshots', async ({ page }) => {
-    await page.goto('/moodboard');
-    await page.waitForTimeout(3000);
+  test('bundled vs unbundled: 20 songs → 1 tag with screenshots', async ({ page, moodboardPage }) => {
+    // MoodboardPage auto-selects the first board on mount
+    await moodboardPage.goto();
+    await moodboardPage.waitForCanvasReady(15000);
 
-    // Select board
-    const boardSelect = page.getByPlaceholder('Board');
-    if (await boardSelect.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await boardSelect.click();
-      await page.waitForTimeout(500);
-      const opt = page.getByRole('option').first();
-      if (await opt.isVisible({ timeout: 2000 }).catch(() => false)) await opt.click();
-      await page.waitForTimeout(2000);
-    }
-
-    const fitBtn = page.locator('.react-flow__controls-fitview');
-    await expect(fitBtn).toBeVisible({ timeout: 10000 });
+    const fitBtn = moodboardPage.fitViewButton;
 
     // Grid layout for consistent comparison
     const gridBtn = page.getByRole('button', { name: 'Grid layout' });
@@ -86,7 +76,7 @@ test.describe('Edge Bundling — Hub and Spoke', () => {
     await page.waitForTimeout(500);
 
     // Verify edges exist
-    const edgeCount = await page.locator('.react-flow__edge').count();
+    const edgeCount = await moodboardPage.edges.count();
     console.log(`[bundle-test] Total edges: ${edgeCount}`);
     expect(edgeCount).toBeGreaterThan(0);
 
