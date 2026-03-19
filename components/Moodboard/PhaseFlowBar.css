@@ -1,0 +1,117 @@
+.phase-flow-bar {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--mantine-color-dark-5);
+  background: var(--mantine-color-dark-8);
+  padding: 6px var(--mantine-spacing-sm);
+  min-height: 48px;
+  max-height: 56px;
+  display: flex;
+  align-items: center;
+  outline: none;
+}
+
+.phase-flow-inner {
+  min-width: max-content;
+  align-items: center;
+}
+
+.phase-flow-label {
+  white-space: nowrap;
+  user-select: none;
+}
+
+.phase-flow-node-group {
+  align-items: center;
+}
+
+.phase-flow-pill-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.phase-flow-pill {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  user-select: none;
+  text-transform: capitalize;
+}
+
+.phase-flow-pill:hover {
+  transform: translateY(-1px) scale(1.05);
+}
+
+.phase-flow-pill-active {
+  box-shadow: 0 0 8px 2px var(--mantine-color-violet-5);
+  animation: phase-active-glow 2s ease-in-out infinite;
+}
+
+.phase-flow-pill-focused {
+  outline: 2px solid var(--mantine-color-violet-4);
+  outline-offset: 2px;
+}
+
+.phase-flow-pill-edge-source {
+  box-shadow: 0 0 6px 2px var(--mantine-color-yellow-5);
+  outline: 2px solid var(--mantine-color-yellow-5);
+  outline-offset: 1px;
+}
+
+@keyframes phase-active-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px var(--mantine-color-violet-5); }
+  50% { box-shadow: 0 0 14px 4px var(--mantine-color-violet-4); }
+}
+
+.phase-flow-count {
+  line-height: 1;
+  user-select: none;
+}
+
+.phase-flow-delete-pill {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  border-radius: 50%;
+}
+
+.phase-flow-arrow-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.phase-flow-arrow {
+  color: var(--mantine-color-dimmed);
+  transition: opacity 0.15s ease;
+  animation: arrow-flow 1.5s linear infinite;
+}
+
+@keyframes arrow-flow {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.phase-flow-delete-arrow {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+}
+
+.phase-flow-actions {
+  margin-left: auto;
+}
+
+.phase-flow-edge-hint {
+  white-space: nowrap;
+  animation: pulse-hint 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-hint {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

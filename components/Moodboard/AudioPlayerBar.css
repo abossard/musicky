@@ -1,0 +1,131 @@
+.audio-player-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 56px;
+  border-top: 1px solid var(--mantine-color-dark-5);
+  background: var(--mantine-color-dark-7);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.audio-player-bar--empty {
+  height: 40px;
+}
+
+/* Artwork */
+.audio-player-bar__artwork {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--mantine-color-dark-6);
+  transition: box-shadow 0.3s ease;
+}
+
+.audio-player-bar--playing .audio-player-bar__artwork {
+  animation: artwork-pulse 2s ease-in-out infinite;
+}
+
+@keyframes artwork-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(112, 72, 232, 0); }
+  50% { box-shadow: 0 0 8px 2px rgba(112, 72, 232, 0.4); }
+}
+
+.audio-player-bar__artwork-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.audio-player-bar__artwork-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--mantine-color-dark-3);
+}
+
+/* Track info */
+.audio-player-bar__track-info {
+  min-width: 0;
+  max-width: 200px;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.audio-player-bar__track-info-title {
+  white-space: nowrap;
+}
+
+.audio-player-bar--playing .audio-player-bar__track-info-title {
+  display: inline-block;
+  animation: marquee-scroll 12s linear infinite;
+  animation-play-state: running;
+}
+
+.audio-player-bar--playing .audio-player-bar__track-info-title:hover {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-scroll {
+  0%, 20% { transform: translateX(0); }
+  80%, 100% { transform: translateX(calc(-100% + 200px)); }
+}
+
+/* Transport controls */
+.audio-player-bar__controls {
+  flex-shrink: 0;
+}
+
+.audio-player-bar__play-btn {
+  transition: transform 0.15s ease;
+}
+
+.audio-player-bar__play-btn:active {
+  transform: scale(0.92);
+}
+
+/* Progress bar */
+.audio-player-bar__progress {
+  flex: 1;
+  min-width: 80px;
+}
+
+/* Gradient fill on progress bar */
+.audio-player-bar__progress .mantine-Slider-bar {
+  background: linear-gradient(90deg, var(--mantine-color-violet-5), var(--mantine-color-pink-5));
+}
+
+/* Time display */
+.audio-player-bar__time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Playlist position */
+.audio-player-bar__playlist-pos {
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--mantine-color-dark-6);
+}
+
+/* Volume control */
+.audio-player-bar__volume {
+  flex-shrink: 0;
+}
+
+.audio-player-bar__volume-slider {
+  width: 80px;
+}

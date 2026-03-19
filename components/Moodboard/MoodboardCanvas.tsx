@@ -1,15 +1,19 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, MiniMap, Controls, Background, BackgroundVariant, ConnectionMode,
   type Node, type Edge, type Connection, type NodeTypes, type EdgeTypes,
   type OnNodesChange, type OnEdgesChange, type Viewport,
   Panel,
+  type OnConnectStart,
+  type OnConnectEnd,
+  type OnSelectionChangeFunc,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './Moodboard.css';
 import { Box, ActionIcon, Group, Tooltip, Text, Badge, SegmentedControl, Slider, Switch } from '@mantine/core';
 import { IconTrash, IconSearch, IconLayoutDistributeHorizontal, IconGridDots } from '@tabler/icons-react';
 import { EdgeWeightEditor } from './EdgeWeightEditor';
+import { MoodboardConnectionLine } from './edges/MoodboardConnectionLine';
 import SongNode from './nodes/SongNode';
 import TagNode from './nodes/TagNode';
 import ContainerNode from './nodes/ContainerNode';
@@ -40,37 +44,145 @@ interface MoodboardCanvasProps {
   onEdgesChange: OnEdgesChange;
   viewport: Viewport;
   onViewportChange: (vp: Viewport) => void;
-  onConnect: (connection: Connection, edgeType: EdgeType, weight: number) => void;
+  onConnect: (connection: Connection, edgeType: EdgeType, weight: number) => Promise<Edge | null>;
   onNodeDelete: (nodeId: string) => void;
   onEdgeDelete: (edgeId: string) => void;
   onEdgeWeightChange: (edgeId: string, weight: number) => void;
   onSearchOpen: () => void;
   onAddTag: (label: string, category: TagCategory, color: string, x: number, y: number) => void;
   onPlaySong: (filePath: string) => void;
+  onHoverPlaySong: (filePath: string) => void;
   onNodesUpdate: (nodes: Node[]) => void;
 }
 
-// Inject onPlay callback into song node data
-function injectCallbacks(nodes: Node[], onPlaySong: (path: string) => void): Node[] {
+function injectCallbacks(
+  nodes: Node[],
+  onPlaySong: (path: string) => void,
+  onHoverPlaySong: (path: string) => void,
+): Node[] {
   return nodes.map(n => {
     if (n.type !== 'song') return n;
-    return { ...n, data: { ...n.data, onPlay: onPlaySong } };
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        onPlayToggle: onPlaySong,
+        onHoverPlay: onHoverPlaySong,
+      },
+    };
   });
+}
+
+interface PendingConnection {
+  nodeId: string;
+  handleId: string | null;
+  handleType: 'source' | 'target' | null;
+}
+
+function resolveEdgeType(nodes: Node[], connection: Connection): EdgeType {
+  const targetNode = nodes.find((node) => node.id === connection.target);
+
+  if (targetNode?.type === 'tag') {
+    const category = (targetNode.data as any)?.category as TagCategory | undefined;
+    if (category === 'genre' || category === 'mood' || category === 'phase' || category === 'topic') {
+      return category;
+    }
+  }
+
+  const sourceNode = nodes.find((node) => node.id === connection.source);
+  if (sourceNode?.type === 'song' && targetNode?.type === 'song') {
+    return 'similarity';
+  }
+
+  return 'custom';
 }
 
 export function MoodboardCanvas({
   nodes, edges, onNodesChange, onEdgesChange,
   viewport, onViewportChange,
   onConnect, onNodeDelete, onEdgeDelete, onEdgeWeightChange,
-  onSearchOpen, onAddTag, onPlaySong, onNodesUpdate,
+  onSearchOpen, onAddTag, onPlaySong, onHoverPlaySong, onNodesUpdate,
 }: MoodboardCanvasProps) {
-  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const pendingConnectionRef = useRef<PendingConnection | null>(null);
+  const connectionCreatedRef = useRef(false);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [editorPosition, setEditorPosition] = useState<{ x: number; y: number } | null>(null);
   const [activeFilterTags, setActiveFilterTags] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('free');
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('smart');
   const [smartNodePadding, setSmartNodePadding] = useState(15);
   const [smartGridRatio, setSmartGridRatio] = useState(10);
   const [bundleConfig, setBundleConfig] = useState<BundleConfig>(DEFAULT_BUNDLE_CONFIG);
+
+  const selectedEdge = useMemo(
+    () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
+    [edges, selectedEdgeId],
+  );
+
+  useEffect(() => {
+    if (!selectedEdgeId) return;
+    if (!edges.some((edge) => edge.id === selectedEdgeId)) {
+      setSelectedEdgeId(null);
+      setEditorPosition(null);
+    }
+  }, [edges, selectedEdgeId]);
+
+  useEffect(() => {
+    if (selectedNodeIds.length === 0) {
+      return;
+    }
+
+    const existingNodeIds = new Set(nodes.map((node) => node.id));
+    const nextSelectedNodeIds = selectedNodeIds.filter((nodeId) => existingNodeIds.has(nodeId));
+
+    if (nextSelectedNodeIds.length !== selectedNodeIds.length) {
+      setSelectedNodeIds(nextSelectedNodeIds);
+    }
+  }, [nodes, selectedNodeIds]);
+
+  const focusCanvas = useCallback(() => {
+    containerRef.current?.focus();
+  }, []);
+
+  const getRelativePosition = useCallback((event: MouseEvent | TouchEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return { x: 160, y: 160 };
+    }
+
+    const clientX = 'touches' in event ? (event.touches[0]?.clientX ?? rect.left + rect.width / 2) : event.clientX;
+    const clientY = 'touches' in event ? (event.touches[0]?.clientY ?? rect.top + rect.height / 2) : event.clientY;
+
+    return {
+      x: Math.min(Math.max(clientX - rect.left, 24), rect.width - 24),
+      y: Math.min(Math.max(clientY - rect.top, 24), rect.height - 24),
+    };
+  }, []);
+
+  const selectEdge = useCallback((edgeId: string, position?: { x: number; y: number } | null) => {
+    setSelectedEdgeId(edgeId);
+    if (position) {
+      setEditorPosition(position);
+    }
+    focusCanvas();
+  }, [focusCanvas]);
+
+  const createEdge = useCallback(async (connection: Connection, position?: { x: number; y: number } | null) => {
+    if (!connection.source || !connection.target || connection.source === connection.target) {
+      return null;
+    }
+
+    const createdEdge = await onConnect(connection, resolveEdgeType(nodes, connection), 0.7);
+    if (!createdEdge) {
+      return null;
+    }
+
+    connectionCreatedRef.current = true;
+    selectEdge(createdEdge.id, position ?? editorPosition ?? null);
+    return createdEdge;
+  }, [editorPosition, nodes, onConnect, selectEdge]);
 
   const toggleFilter = useCallback((tagNodeId: string) => {
     setActiveFilterTags(prev => {
@@ -98,7 +210,7 @@ export function MoodboardCanvas({
   );
 
   const { filteredNodes, filteredEdges } = useMemo(() => {
-    const fn = injectCallbacks(nodes, onPlaySong).map(n => {
+    const fn = injectCallbacks(nodes, onPlaySong, onHoverPlaySong).map(n => {
       const fs = nodeStates.get(n.id) ?? 'normal';
       if (n.type === 'tag') {
         const isActive = activeFilterTags.has(n.id);
@@ -113,10 +225,14 @@ export function MoodboardCanvas({
     const fe = edges.map(e => {
       const fs = edgeStates.get(e.id) ?? 'normal';
       const bundleInfo = bundles.get(e.id);
-      return { ...e, data: { ...e.data, filterState: fs, edgeStyle, smartNodePadding, smartGridRatio, bundleInfo } };
+      return {
+        ...e,
+        selected: e.id === selectedEdgeId,
+        data: { ...e.data, filterState: fs, edgeStyle, smartNodePadding, smartGridRatio, bundleInfo },
+      };
     });
     return { filteredNodes: fn, filteredEdges: fe };
-  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, toggleFilter, edgeStyle, smartNodePadding, smartGridRatio, bundleConfig]);
+  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, onHoverPlaySong, toggleFilter, edgeStyle, smartNodePadding, smartGridRatio, bundleConfig, selectedEdgeId]);
 
   // Container view: transform flat nodes into grouped nodes when viewMode !== 'free'
   const { viewNodes, viewEdges } = useMemo(() => {
@@ -128,7 +244,14 @@ export function MoodboardCanvas({
     // Inject callbacks into the pure result
     const vn = containerResult.viewNodes.map(n => {
       if (n.type === 'song') {
-        return { ...n, data: { ...n.data, onPlay: onPlaySong } };
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            onPlayToggle: onPlaySong,
+            onHoverPlay: onHoverPlaySong,
+          },
+        };
       }
       if (n.type === 'tag') {
         return { ...n, data: { ...n.data, onFilterToggle: toggleFilter, isFilterActive: false } };
@@ -137,32 +260,126 @@ export function MoodboardCanvas({
     });
 
     return { viewNodes: vn, viewEdges: containerResult.viewEdges };
-  }, [viewMode, filteredNodes, filteredEdges, nodes, edges, onPlaySong, toggleFilter]);
+  }, [viewMode, filteredNodes, filteredEdges, nodes, edges, onPlaySong, onHoverPlaySong, toggleFilter]);
 
-  const handleConnect = useCallback((connection: Connection) => {
-    const targetNode = nodes.find(n => n.id === connection.target);
-    let edgeType: EdgeType = 'custom';
-    if (targetNode?.type === 'tag') {
-      const category = (targetNode.data as any)?.category as TagCategory | undefined;
-      if (category === 'genre' || category === 'mood' || category === 'phase' || category === 'topic') {
-        edgeType = category;
-      }
-    } else {
-      const sourceNode = nodes.find(n => n.id === connection.source);
-      if (sourceNode?.type === 'song' && targetNode?.type === 'song') {
-        edgeType = 'similarity';
-      }
-    }
-    onConnect(connection, edgeType, 0.7);
-  }, [nodes, onConnect]);
+  const handleConnect = useCallback(async (connection: Connection) => {
+    await createEdge(connection);
+  }, [createEdge]);
 
-  const handleEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
-    setSelectedEdge(edge);
+  const handleConnectStart = useCallback<OnConnectStart>((_event, params) => {
+    pendingConnectionRef.current = params.nodeId ? {
+      nodeId: params.nodeId,
+      handleId: params.handleId,
+      handleType: params.handleType,
+    } : null;
+    connectionCreatedRef.current = false;
   }, []);
+
+  const handleConnectEnd = useCallback<OnConnectEnd>(async (event, connectionState) => {
+    const pending = pendingConnectionRef.current;
+    pendingConnectionRef.current = null;
+
+    if (!pending) {
+      connectionCreatedRef.current = false;
+      return;
+    }
+
+    if (connectionCreatedRef.current) {
+      connectionCreatedRef.current = false;
+      return;
+    }
+
+    const position = getRelativePosition(event);
+    const closestNode = (event.target as HTMLElement | null)?.closest?.('.react-flow__node');
+    const domTargetId = closestNode?.getAttribute('data-id');
+    const stateTargetId = connectionState.toNode?.id ?? null;
+    const targetId = stateTargetId || domTargetId;
+
+    if (!targetId || targetId === pending.nodeId) {
+      return;
+    }
+
+    await createEdge({
+      source: pending.nodeId,
+      sourceHandle: pending.handleId ?? undefined,
+      target: targetId,
+      targetHandle: connectionState.toHandle?.id ?? undefined,
+    }, position);
+  }, [createEdge, getRelativePosition]);
+
+  const handleEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.stopPropagation();
+    selectEdge(edge.id, getRelativePosition(event.nativeEvent));
+  }, [getRelativePosition, selectEdge]);
+
+  const handleSelectionChange = useCallback<OnSelectionChangeFunc>(({ nodes: selectedNodes, edges: selectedEdges }) => {
+    const nextSelectedNodeIds = selectedNodes.map((node) => node.id);
+    setSelectedNodeIds(nextSelectedNodeIds);
+
+    if (selectedEdges.length > 0) {
+      setSelectedEdgeId(selectedEdges[0].id);
+    } else {
+      setSelectedEdgeId(null);
+      setEditorPosition(null);
+    }
+
+    focusCanvas();
+  }, [focusCanvas]);
 
   const handlePaneClick = useCallback(() => {
-    setSelectedEdge(null);
+    setSelectedNodeIds([]);
+    setSelectedEdgeId(null);
+    setEditorPosition(null);
   }, []);
+
+  const handleEdgesDelete = useCallback((deletedEdges: Edge[]) => {
+    deletedEdges.forEach((edge) => onEdgeDelete(edge.id));
+    if (deletedEdges.some((edge) => edge.id === selectedEdgeId)) {
+      setSelectedEdgeId(null);
+      setEditorPosition(null);
+    }
+  }, [onEdgeDelete, selectedEdgeId]);
+
+  const handleCanvasKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    const element = event.target as HTMLElement | null;
+    const tagName = element?.tagName;
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+      return;
+    }
+
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      if (!selectedEdgeId && selectedNodeIds.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (selectedEdgeId) {
+        onEdgeDelete(selectedEdgeId);
+        setSelectedEdgeId(null);
+        setEditorPosition(null);
+      }
+
+      selectedNodeIds.forEach((nodeId) => onNodeDelete(nodeId));
+      setSelectedNodeIds([]);
+    }
+
+    if (event.key === 'Escape') {
+      setSelectedNodeIds([]);
+      setSelectedEdgeId(null);
+      setEditorPosition(null);
+    }
+  }, [onEdgeDelete, onNodeDelete, selectedEdgeId, selectedNodeIds]);
+
+  const connectionLineComponent = useCallback((props: any) => (
+    <MoodboardConnectionLine
+      {...props}
+      edgeStyle={edgeStyle}
+      smartNodePadding={smartNodePadding}
+      smartGridRatio={smartGridRatio}
+    />
+  ), [edgeStyle, smartGridRatio, smartNodePadding]);
 
   const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
     event.preventDefault();
@@ -170,7 +387,12 @@ export function MoodboardCanvas({
   }, [onNodeDelete]);
 
   return (
-    <Box style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <Box
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleCanvasKeyDown}
+      style={{ width: '100%', height: '100%', position: 'relative', outline: 'none' }}
+    >
       <ReactFlow
         nodes={viewNodes}
         edges={viewEdges}
@@ -179,9 +401,14 @@ export function MoodboardCanvas({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
+        onConnectStart={handleConnectStart}
+        onConnectEnd={handleConnectEnd}
         onEdgeClick={handleEdgeClick}
+        onSelectionChange={handleSelectionChange}
+        onEdgesDelete={handleEdgesDelete}
         onPaneClick={handlePaneClick}
         onNodeContextMenu={handleNodeContextMenu}
+        connectionLineComponent={connectionLineComponent}
         defaultViewport={viewport}
         onMoveEnd={(_event, vp) => onViewportChange(vp)}
         fitView
@@ -190,8 +417,9 @@ export function MoodboardCanvas({
         maxZoom={4}
         snapToGrid
         snapGrid={[15, 15]}
-        deleteKeyCode="Delete"
+        deleteKeyCode={null}
         multiSelectionKeyCode="Shift"
+        edgesFocusable
         panOnScroll
         zoomOnScroll
         zoomOnPinch
@@ -320,18 +548,49 @@ export function MoodboardCanvas({
             </Text>
           </Panel>
         )}
+
+        {/* Empty canvas hint */}
+        {nodes.length === 0 && (
+          <Panel position="bottom-center">
+            <Box className="moodboard-empty-state">
+              <IconSearch size={32} opacity={0.4} />
+              <Text size="sm" c="dimmed" fw={500}>
+                Drag songs from the library to start building your moodboard
+              </Text>
+              <Text size="xs" c="dimmed">
+                Or press Ctrl+K to search and add songs
+              </Text>
+            </Box>
+          </Panel>
+        )}
+
+        {/* No connections hint */}
+        {nodes.filter(n => n.type === 'song').length >= 2 && edges.length === 0 && (
+          <Panel position="bottom-center">
+            <Text size="xs" c="dimmed" style={{ background: 'rgba(37,38,43,0.7)', padding: '3px 10px', borderRadius: 4 }}>
+              Connect songs by dragging between their handles to discover relationships
+            </Text>
+          </Panel>
+        )}
       </ReactFlow>
 
       {/* Edge weight editor */}
-      {selectedEdge && (
+      {selectedEdge && editorPosition && (
         <EdgeWeightEditor
           edge={selectedEdge}
+          position={editorPosition}
           onWeightChange={(id, w) => {
             onEdgeWeightChange(id, w);
-            setSelectedEdge(prev => prev ? { ...prev, data: { ...prev.data, weight: w } } : null);
           }}
-          onDelete={onEdgeDelete}
-          onClose={() => setSelectedEdge(null)}
+          onDelete={(id) => {
+            onEdgeDelete(id);
+            setSelectedEdgeId(null);
+            setEditorPosition(null);
+          }}
+          onClose={() => {
+            setSelectedEdgeId(null);
+            setEditorPosition(null);
+          }}
         />
       )}
     </Box>

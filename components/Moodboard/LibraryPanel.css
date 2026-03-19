@@ -1,0 +1,110 @@
+.library-panel {
+  width: 280px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--mantine-color-dark-5);
+  background: var(--mantine-color-dark-7);
+  overflow: hidden;
+}
+
+.library-panel-header {
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--mantine-color-dark-6);
+}
+
+.library-panel-filters {
+  padding: 4px 10px 6px;
+  border-bottom: 1px solid var(--mantine-color-dark-6);
+}
+
+.library-song-list {
+  flex: 1;
+  min-height: 0;
+}
+
+.library-song-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--mantine-color-dark-6);
+  border-left: 3px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.library-song-item:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+.library-song-item[data-focused='true'] {
+  background: var(--mantine-color-dark-4);
+  border-left-color: var(--mantine-color-violet-5);
+}
+
+.library-song-item[data-selected='true'] {
+  background: var(--mantine-color-violet-light);
+}
+
+.library-song-item[draggable='true']:active {
+  opacity: 0.6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.library-song-artwork {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--mantine-color-dark-5);
+}
+
+.library-song-artwork-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: var(--mantine-color-dark-5);
+  color: var(--mantine-color-dark-2);
+}
+
+.library-song-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.library-panel-footer {
+  padding: 6px 10px;
+  border-top: 1px solid var(--mantine-color-dark-6);
+  flex-shrink: 0;
+}
+
+.library-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px 16px;
+  text-align: center;
+  gap: 8px;
+  animation: empty-panel-fade 0.3s ease;
+}
+
+/* Search input focus glow */
+.library-panel-header .mantine-TextInput-input:focus {
+  border-color: var(--mantine-color-violet-5);
+  box-shadow: 0 0 0 2px rgba(112, 72, 232, 0.25);
+}
+
+@keyframes empty-panel-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
