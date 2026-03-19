@@ -85,8 +85,8 @@ export class MoodboardPage {
     this.zoomOutButton = page.locator('.react-flow__controls-zoomout');
     this.minimap = page.locator('.react-flow__minimap');
 
-    // Toolbar (Group with class moodboard-toolbar)
-    this.toolbar = page.locator('.moodboard-toolbar');
+    // Toolbar (Group with class moodboard-header)
+    this.toolbar = page.locator('.moodboard-header');
     this.toggleLibraryButton = page.locator('[data-testid="toolbar-toggle-library"]');
     this.togglePlaylistButton = page.locator('[data-testid="toolbar-toggle-playlist"]');
     this.settingsButton = page.locator('[data-testid="toolbar-settings"]');

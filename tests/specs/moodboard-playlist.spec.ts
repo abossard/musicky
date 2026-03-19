@@ -221,6 +221,6 @@ test.describe('Playlist Panel', () => {
     await moodboardPage.savePlaylist(name);
 
     // Success notification should appear
-    await expect(page.getByText(/saved successfully/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/saved successfully/i).first()).toBeVisible({ timeout: 5_000 });
   });
 });

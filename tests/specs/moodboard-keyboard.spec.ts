@@ -81,17 +81,16 @@ test.describe('Moodboard Keyboard Navigation', () => {
     await expect(moodboardPage.playlistPanel).not.toBeVisible();
   });
 
-  test('Control+F focuses library search', async ({ page, moodboardPage }) => {
+  test('Control+F opens GlobalSearch modal', async ({ page }) => {
     await page.keyboard.press('Control+f');
-    // The hook opens library if closed, then focuses the search input
-    await expect(moodboardPage.libraryPanel).toBeVisible();
-    await expect(moodboardPage.librarySearch).toBeFocused({ timeout: 1000 });
+    await expect(page.locator('.global-search-overlay')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('[data-testid="global-search-input"]')).toBeFocused({ timeout: 1000 });
   });
 
-  test('/ key focuses library search', async ({ page, moodboardPage }) => {
+  test('/ key opens GlobalSearch modal', async ({ page }) => {
     await page.keyboard.press('/');
-    await expect(moodboardPage.libraryPanel).toBeVisible();
-    await expect(moodboardPage.librarySearch).toBeFocused({ timeout: 1000 });
+    await expect(page.locator('.global-search-overlay')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('[data-testid="global-search-input"]')).toBeFocused({ timeout: 1000 });
   });
 
   test('Control+, opens settings drawer', async ({ page, moodboardPage }) => {
@@ -112,14 +111,14 @@ test.describe('Moodboard Keyboard Navigation', () => {
     await expect(modal).not.toBeVisible();
   });
 
-  test('Control+F focuses search even when library is closed', async ({ page, moodboardPage }) => {
+  test('Control+F opens GlobalSearch even when library is closed', async ({ page, moodboardPage }) => {
     // Close library first
     await page.keyboard.press('Control+l');
     await expect(moodboardPage.libraryPanel).not.toBeVisible();
 
-    // Ctrl+F should reopen library and focus search
+    // Ctrl+F should open GlobalSearch modal
     await page.keyboard.press('Control+f');
-    await expect(moodboardPage.libraryPanel).toBeVisible();
-    await expect(moodboardPage.librarySearch).toBeFocused({ timeout: 1000 });
+    await expect(page.locator('.global-search-overlay')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('[data-testid="global-search-input"]')).toBeFocused({ timeout: 1000 });
   });
 });
