@@ -29,6 +29,7 @@ import { SettingsDrawer } from './SettingsDrawer';
 import { ReviewPanel } from './ReviewPanel';
 import { ShortcutHelpModal } from './ShortcutHelpModal';
 import { RevisionBrowser } from './RevisionBrowser';
+import { AudioPlayerBar } from './AudioPlayerBar';
 
 import { onGetRevisionCount } from './Moodboard.telefunc';
 
@@ -391,6 +392,20 @@ export function MoodboardPage() {
           onGetRevisionCount(1).then(setRevisionCount).catch(() => {});
         }}
       />
+
+      {/* Audio Player (floating at bottom) */}
+      <Box style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100 }}>
+        <AudioPlayerBar
+          currentTrack={audioQueue.currentTrack}
+          isPlaying={audioQueue.isPlaying}
+          volume={audioQueue.volume}
+          onPlayStateChange={audioQueue.setIsPlaying}
+          onVolumeChange={audioQueue.setVolume}
+          onTimeUpdate={audioQueue.setCurrentTime}
+          onEnded={() => audioQueue.setIsPlaying(false)}
+          onTogglePlayPause={audioQueue.togglePlayPause}
+        />
+      </Box>
     </Box>
   );
 }
