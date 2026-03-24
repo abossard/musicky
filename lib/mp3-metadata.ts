@@ -224,8 +224,8 @@ export class MP3MetadataManager {
         }
       };
       
-      // Write only the comment tag
-      const success = NodeID3.update(tags, filePath);
+      // Write only the comment tag — use include filter to avoid GEOB/APIC issues
+      const success = NodeID3.update(tags, filePath, { include: ['COMM'] });
       
       console.log(`[MP3Manager] NodeID3.update result:`, success);
       
@@ -365,8 +365,14 @@ export class MP3MetadataManager {
       await fs.access(filePath);
       const NodeID3 = await getNodeID3();
 
-      // Read existing tags to preserve non-Musicky TXXX frames
-      const existingTags = NodeID3.read(filePath, { noRaw: true }) || {};
+      // Read only TXXX frames to preserve non-Musicky custom tags
+      // Use include filter to avoid reading problematic GEOB/APIC frames
+      let existingTags: any = {};
+      try {
+        existingTags = NodeID3.read(filePath, { noRaw: true, include: ['userDefinedText'] }) || {};
+      } catch {
+        // If read fails, proceed with empty — we'll just write our tags
+      }
       const existingTxxx: { description: string; value: string }[] = [];
       if (existingTags.userDefinedText) {
         const arr = Array.isArray(existingTags.userDefinedText)
@@ -413,7 +419,8 @@ export class MP3MetadataManager {
         updatePayload.genre = tags.genres.join(', ');
       }
 
-      const success = NodeID3.update(updatePayload, filePath);
+      // Use include filter to avoid re-serializing problematic GEOB/APIC frames
+      const success = NodeID3.update(updatePayload, filePath, { include: ['TXXX', 'TCON'] });
       if (!success) {
         throw new Error('NodeID3.update returned false — failed to write tags');
       }
@@ -541,7 +548,8 @@ export class MP3MetadataManager {
       // Only call update if we have standard frames to write
       const hasStandardFrames = updatePayload.genre || updatePayload.comment || updatePayload.contentGroupDescription;
       if (hasStandardFrames) {
-        const success = NodeID3.update(updatePayload, filePath);
+        // Use include filter to avoid re-serializing problematic GEOB/APIC frames
+        const success = NodeID3.update(updatePayload, filePath, { include: ['TXXX', 'TCON', 'COMM', 'TIT1'] });
         if (!success) {
           throw new Error('NodeID3.update returned false — failed to write VDJ tags');
         }
