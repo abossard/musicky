@@ -27,13 +27,13 @@ Musicky is a local-first DJ music management app built around a visual moodboard
 
 ### Stack
 
-- React 19
+- React
 - TypeScript
 - Vike
-- Fastify 5
+- Fastify
 - Telefunc
 - SQLite with `better-sqlite3`
-- Mantine v8
+- Mantine
 - React Flow
 
 ### Runtime flow

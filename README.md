@@ -23,7 +23,7 @@ Musicky is centered on the **Moodboard** page. Instead of treating the library a
 
 This makes the product part library manager, part set-planning tool, and part metadata workbench.
 
-## Architecture at a glance
+## Architecture overview
 
 **Stack**
 
@@ -93,7 +93,7 @@ Musicky stores state in SQLite, including:
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js
 - npm
 - A local music library
 

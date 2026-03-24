@@ -6,10 +6,10 @@ Musicky is a local-first DJ music management app. The current product is centere
 
 When working in this repository, optimize for:
 
-- **fast local workflows**
-- **safe metadata handling**
-- **responsive canvas interactions**
-- **clear separation between UI, RPC, and persistence**
+- **Fast local workflows**
+- **Safe metadata handling**
+- **Responsive canvas interactions**
+- **Clear separation between UI, RPC, and persistence**
 
 ## Core skills to apply
 
