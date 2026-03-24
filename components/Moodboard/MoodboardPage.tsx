@@ -11,6 +11,7 @@ import {
   IconMaximize,
   IconMinimize,
   IconHome,
+  IconHistory,
 } from '@tabler/icons-react';
 import { ReactFlowProvider } from '@xyflow/react';
 
@@ -20,6 +21,7 @@ import { GlobalSearch } from './GlobalSearch';
 import { useMoodboardState } from './hooks/useMoodboardState';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { onLoadMoodboardState, onGetPhaseEdges, onGetPhaseOrder, onGetPhasesWithCounts } from './MoodboardPage.telefunc';
+import { onGetPhases } from '../Settings.telefunc';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
 
 import { PhaseFlowBar } from './PhaseFlowBar';
@@ -31,11 +33,15 @@ import { SettingsDrawer } from './SettingsDrawer';
 import { ReviewPanel } from './ReviewPanel';
 import { AudioPlayerBar } from './AudioPlayerBar';
 import { ShortcutHelpModal } from './ShortcutHelpModal';
+import { RevisionBrowser } from './RevisionBrowser';
+
+import { onGetRevisionCount } from './Moodboard.telefunc';
 
 import type { MP3Metadata } from '../../lib/mp3-metadata';
 import type { TagCategory } from './moodboard-constants';
 import type { Connection } from '@xyflow/react';
 import type { EdgeType } from './edges/WeightedEdge';
+import type { SetPhase } from '../../lib/set-phase';
 
 import './MoodboardPage.css';
 
@@ -63,11 +69,16 @@ export function MoodboardPage() {
   const [phaseEdges, setPhaseEdges] = useState<PhaseEdgeInfo[]>([]);
   const [phaseOrder, setPhaseOrder] = useState<string[]>([]);
   const [phaseCounts, setPhaseCounts] = useState<Record<string, number>>({});
+  const [phaseDetails, setPhaseDetails] = useState<SetPhase[]>([]);
   const [activePhaseFilter, setActivePhaseFilter] = useState<string | null>(null);
   const [phaseEditorOpen, setPhaseEditorOpen] = useState(false);
 
   // Loading
   const [loading, setLoading] = useState(true);
+
+  // Revision browser
+  const [revisionBrowserOpen, setRevisionBrowserOpen] = useState(false);
+  const [revisionCount, setRevisionCount] = useState(0);
 
   // Fullscreen
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -148,27 +159,32 @@ export function MoodboardPage() {
     Promise.all([
       onLoadMoodboardState(),
       onGetPhasesWithCounts(),
-    ]).then(([state, counts]) => {
+      onGetPhases(),
+    ]).then(([state, counts, details]) => {
       setPhaseEdges(state.phaseEdges);
       setPhaseOrder(state.phaseOrder);
       const countMap: Record<string, number> = {};
       for (const c of counts) countMap[c.phase] = c.count;
       setPhaseCounts(countMap);
+      setPhaseDetails(details);
       setLoading(false);
     });
+    onGetRevisionCount(1).then(setRevisionCount).catch(() => {});
   }, []);
 
   const refreshPhaseData = useCallback(async () => {
-    const [edges, order, counts] = await Promise.all([
+    const [edges, order, counts, details] = await Promise.all([
       onGetPhaseEdges(),
       onGetPhaseOrder(),
       onGetPhasesWithCounts(),
+      onGetPhases(),
     ]);
     setPhaseEdges(edges);
     setPhaseOrder(order);
     const countMap: Record<string, number> = {};
     for (const c of counts) countMap[c.phase] = c.count;
     setPhaseCounts(countMap);
+    setPhaseDetails(details);
   }, []);
 
   const handlePhaseFilterClick = useCallback((phase: string) => {
@@ -319,6 +335,21 @@ export function MoodboardPage() {
             <IconSettings size={14} />
           </ActionIcon>
         </Tooltip>
+        <Tooltip label="Revision History" position="bottom">
+          <ActionIcon
+            size="sm"
+            variant="subtle"
+            onClick={() => setRevisionBrowserOpen(true)}
+            data-testid="revision-badge"
+          >
+            <Group gap={2} wrap="nowrap">
+              <IconHistory size={14} />
+              {revisionCount > 0 && (
+                <Text size="xs" c="dimmed" span>v{revisionCount}</Text>
+              )}
+            </Group>
+          </ActionIcon>
+        </Tooltip>
         <Tooltip label="Review Changes" position="bottom">
           <ActionIcon
             size="sm"
@@ -342,6 +373,7 @@ export function MoodboardPage() {
         phaseOrder={phaseOrder}
         phaseCounts={phaseCounts}
         activePhaseFilter={activePhaseFilter}
+        phaseDetails={phaseDetails}
         onPhaseClick={handlePhaseFilterClick}
         onPhaseEdgesChanged={refreshPhaseData}
         onOpenEditor={() => setPhaseEditorOpen(true)}
@@ -354,6 +386,7 @@ export function MoodboardPage() {
         phaseEdges={phaseEdges}
         phases={phaseOrder}
         phaseCounts={phaseCounts}
+        phaseDetails={phaseDetails}
         onSave={refreshPhaseData}
       />
 
@@ -507,6 +540,17 @@ export function MoodboardPage() {
       <ShortcutHelpModal
         opened={showShortcutHelp}
         onClose={() => setShowShortcutHelp(false)}
+      />
+
+      {/* Revision Browser */}
+      <RevisionBrowser
+        opened={revisionBrowserOpen}
+        onClose={() => setRevisionBrowserOpen(false)}
+        boardId={1}
+        onRestore={() => {
+          moodboard.reload();
+          onGetRevisionCount(1).then(setRevisionCount).catch(() => {});
+        }}
       />
     </Box>
   );

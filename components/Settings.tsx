@@ -16,10 +16,12 @@ import {
 } from '@dnd-kit/sortable';
 import { onGetPhases, onSetPhases, onGetKeepPlayHead, onSetKeepPlayHead } from './Settings.telefunc';
 import { SortablePhaseItem } from './SortablePhaseItem';
+import type { SetPhase } from '../lib/set-phase';
+import { stringToSetPhase } from '../lib/set-phase';
 import './Settings.css';
 
 export function Settings() {
-  const [phases, setPhases] = useState<string[]>([]);
+  const [phases, setPhases] = useState<SetPhase[]>([]);
   const [newPhase, setNewPhase] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,34 +59,29 @@ export function Settings() {
     }
   };
 
-  const loadPhases = async () => {
-    try {
-      setIsLoading(true);
-      const currentPhases = await onGetPhases();
-      setPhases(currentPhases);
-    } catch (error) {
-      console.error('Failed to load phases:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleAddPhase = () => {
-    if (newPhase.trim() && !phases.includes(newPhase.trim())) {
-      const updatedPhases = [...phases, newPhase.trim()];
+    const name = newPhase.trim();
+    if (name && !phases.some(p => p.name === name)) {
+      const updatedPhases = [...phases, stringToSetPhase(name)];
       setPhases(updatedPhases);
       setNewPhase('');
-      savePhases(updatedPhases);
+      persistPhases(updatedPhases);
     }
   };
 
-  const handleRemovePhase = (phaseToRemove: string) => {
-    const updatedPhases = phases.filter(phase => phase !== phaseToRemove);
+  const handleRemovePhase = (phaseId: string) => {
+    const updatedPhases = phases.filter(p => p.id !== phaseId);
     setPhases(updatedPhases);
-    savePhases(updatedPhases);
+    persistPhases(updatedPhases);
   };
 
-  const savePhases = async (phasesToSave: string[]) => {
+  const handleUpdatePhase = (updated: SetPhase) => {
+    const updatedPhases = phases.map(p => p.id === updated.id ? updated : p);
+    setPhases(updatedPhases);
+    persistPhases(updatedPhases);
+  };
+
+  const persistPhases = async (phasesToSave: SetPhase[]) => {
     try {
       setIsSaving(true);
       await onSetPhases(phasesToSave);
@@ -118,13 +115,13 @@ export function Settings() {
 
     // Only proceed if we have a valid drop target and it's different from the source
     if (active.id !== over?.id && over?.id) {
-      const oldIndex = phases.indexOf(active.id as string);
-      const newIndex = phases.indexOf(over.id as string);
+      const oldIndex = phases.findIndex(p => p.id === active.id);
+      const newIndex = phases.findIndex(p => p.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
         const reorderedPhases = arrayMove(phases, oldIndex, newIndex);
         setPhases(reorderedPhases);
-        savePhases(reorderedPhases);
+        persistPhases(reorderedPhases);
       }
     }
   };
@@ -160,7 +157,7 @@ export function Settings() {
       
       <div className="phases-section">
         <h3>Library Phases</h3>
-        <p>Manage the phases used to organize your MP3 library. Drag the ⋮⋮ handle to reorder phases.</p>
+        <p>Manage the phases used to organize your MP3 library. Drag the handle to reorder phases. Click the arrow to expand and edit details.</p>
         
         <div className="add-phase">
           <input
@@ -174,7 +171,7 @@ export function Settings() {
           />
           <button 
             onClick={handleAddPhase}
-            disabled={!newPhase.trim() || phases.includes(newPhase.trim()) || isSaving}
+            disabled={!newPhase.trim() || phases.some(p => p.name === newPhase.trim()) || isSaving}
             className="add-phase-btn"
           >
             Add Phase
@@ -190,14 +187,15 @@ export function Settings() {
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
             >
-              <SortableContext items={phases} strategy={verticalListSortingStrategy}>
+              <SortableContext items={phases.map(p => p.id)} strategy={verticalListSortingStrategy}>
                 <ul className="phases">
                   {phases.map((phase) => (
                     <SortablePhaseItem
-                      key={phase}
-                      id={phase}
+                      key={phase.id}
+                      id={phase.id}
                       phase={phase}
                       onRemove={handleRemovePhase}
+                      onUpdate={handleUpdatePhase}
                       disabled={isSaving}
                     />
                   ))}

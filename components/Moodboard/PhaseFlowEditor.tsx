@@ -10,6 +10,7 @@ import {
   onAddPhaseEdge, onRemovePhaseEdge, onSuggestPhaseFlow,
 } from './MoodboardPage.telefunc';
 import { wouldCreateCycle, getPhaseOrder, type PhaseEdge } from '../../lib/phase-graph';
+import type { SetPhase } from '../../lib/set-phase';
 
 import './PhaseFlowEditor.css';
 
@@ -19,6 +20,7 @@ export interface PhaseFlowEditorProps {
   phaseEdges: { id: number; fromPhase: string; toPhase: string; weight: number }[];
   phases: string[];
   phaseCounts?: Record<string, number>;
+  phaseDetails?: SetPhase[];
   onSave: () => void;
 }
 
@@ -36,8 +38,15 @@ export function PhaseFlowEditor({
   phaseEdges: initialEdges,
   phases: initialPhases,
   phaseCounts = {},
+  phaseDetails = [],
   onSave,
 }: PhaseFlowEditorProps) {
+  // Build lookup for phase details by name
+  const detailsMap = useMemo(() => {
+    const m = new Map<string, SetPhase>();
+    for (const d of phaseDetails) m.set(d.name, d);
+    return m;
+  }, [phaseDetails]);
   // Local working copies
   const [edges, setEdges] = useState(initialEdges);
   const [phases, setPhases] = useState(initialPhases);
@@ -483,6 +492,25 @@ export function PhaseFlowEditor({
                         {phase}
                       </Text>
                     )}
+                    {(() => {
+                      const detail = detailsMap.get(phase);
+                      return detail ? (
+                        <>
+                          {detail.description && (
+                            <Text size="10px" c="dimmed" ta="center" lineClamp={2} maw={120}>
+                              {detail.description}
+                            </Text>
+                          )}
+                          {(detail.targetBpmRange || detail.targetEnergyRange) && (
+                            <Text size="10px" c="dimmed" ta="center">
+                              {detail.targetBpmRange && `${detail.targetBpmRange[0]}–${detail.targetBpmRange[1]} BPM`}
+                              {detail.targetBpmRange && detail.targetEnergyRange && ' · '}
+                              {detail.targetEnergyRange && `E${detail.targetEnergyRange[0]}–${detail.targetEnergyRange[1]}`}
+                            </Text>
+                          )}
+                        </>
+                      ) : null;
+                    })()}
                     <Badge size="sm" variant="light" color="gray">
                       {count} {count === 1 ? 'song' : 'songs'}
                     </Badge>

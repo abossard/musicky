@@ -1,5 +1,5 @@
 import { MP3Library, type MP3LibraryScan, type MP3EditHistory } from '../lib/mp3-library';
-import { saveBaseFolder, readBaseFolder, readPhases } from '../database/sqlite/queries/library-settings';
+import { saveBaseFolder, readBaseFolder, readPhaseNames } from '../database/sqlite/queries/library-settings';
 import { fetchHistory, markHistoryReverted } from '../database/sqlite/queries/mp3-history';
 import { getAllPendingEdits, updatePendingEditStatus, removePendingEdit, addPendingEdit, modifyPendingEdit, getPendingEditByFilePath } from '../database/sqlite/queries/mp3-edits';
 import { MP3MetadataManager } from '../lib/mp3-metadata';
@@ -147,7 +147,7 @@ export async function onUpdateFilePhases(filePath: string, phases: string[]): Pr
     const originalComment = existingPendingEdit ? existingPendingEdit.originalComment : (metadata.comment || '');
 
     // Parse existing hashtags and non-phase content from the original comment
-    const availablePhases = readPhases();
+    const availablePhases = readPhaseNames();
     const commentText = originalComment || '';
     const existingTags = commentText.match(/#\w+/g) || [];
     const nonPhaseTags = existingTags.filter(tag => !availablePhases.includes(tag.slice(1)));

@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
-  Group, Badge, Text, Box, ActionIcon, Tooltip, TextInput, Popover, ScrollArea,
+  Group, Badge, Text, Box, ActionIcon, Tooltip, TextInput, Popover, ScrollArea, Stack,
 } from '@mantine/core';
 import {
   IconArrowRight, IconPlus, IconPencil, IconWand, IconX, IconMaximize,
@@ -8,6 +8,7 @@ import {
 import {
   onAddPhaseEdge, onRemovePhaseEdge, onSuggestPhaseFlow,
 } from './MoodboardPage.telefunc';
+import type { SetPhase } from '../../lib/set-phase';
 
 import './PhaseFlowBar.css';
 
@@ -16,6 +17,7 @@ export interface PhaseFlowBarProps {
   phaseOrder: string[];
   phaseCounts?: Record<string, number>;
   activePhaseFilter?: string | null;
+  phaseDetails?: SetPhase[];
   onPhaseClick?: (phase: string) => void;
   onPhaseEdgesChanged?: () => void;
   onOpenEditor?: () => void;
@@ -26,6 +28,7 @@ export function PhaseFlowBar({
   phaseOrder,
   phaseCounts,
   activePhaseFilter,
+  phaseDetails = [],
   onPhaseClick,
   onPhaseEdgesChanged,
   onOpenEditor,
@@ -36,6 +39,13 @@ export function PhaseFlowBar({
   const [newPhaseName, setNewPhaseName] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusIndex, setFocusIndex] = useState(-1);
+
+  // Build lookup for phase details by name
+  const detailsMap = useMemo(() => {
+    const m = new Map<string, SetPhase>();
+    for (const d of phaseDetails) m.set(d.name, d);
+    return m;
+  }, [phaseDetails]);
 
   // Build a set of connected pairs for arrow rendering
   const connectedPairs = new Map<string, { id: number; weight: number }>();
@@ -147,9 +157,32 @@ export function PhaseFlowBar({
               <Group key={phase} gap={4} wrap="nowrap" className="phase-flow-node-group">
                 {/* Phase pill */}
                 <Tooltip
-                  label={editMode && edgeSource ? `Connect ${edgeSource} → ${phase}` : phase}
+                  label={
+                    editMode && edgeSource
+                      ? `Connect ${edgeSource} → ${phase}`
+                      : (() => {
+                          const detail = detailsMap.get(phase);
+                          if (!detail || (!detail.description && !detail.targetBpmRange && !detail.targetEnergyRange)) {
+                            return phase;
+                          }
+                          return (
+                            <Stack gap={2}>
+                              <Text size="xs" fw={600} tt="capitalize">{phase}</Text>
+                              {detail.description && <Text size="xs">{detail.description}</Text>}
+                              {detail.targetBpmRange && (
+                                <Text size="xs" c="dimmed">BPM: {detail.targetBpmRange[0]}–{detail.targetBpmRange[1]}</Text>
+                              )}
+                              {detail.targetEnergyRange && (
+                                <Text size="xs" c="dimmed">Energy: {detail.targetEnergyRange[0]}–{detail.targetEnergyRange[1]}</Text>
+                              )}
+                            </Stack>
+                          );
+                        })()
+                  }
                   position="bottom"
                   withArrow
+                  multiline
+                  maw={250}
                 >
                   <Box className="phase-flow-pill-wrapper">
                     <Badge

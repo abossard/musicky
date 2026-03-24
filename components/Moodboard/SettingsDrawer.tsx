@@ -19,6 +19,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { onGetPhases, onSetPhases, onGetKeepPlayHead, onSetKeepPlayHead } from '../Settings.telefunc';
 import { onGetBaseFolder, onSetBaseFolder, onScanLibrary } from './MoodboardPage.telefunc';
 import { showSuccess, showError } from '../../lib/notifications';
+import type { SetPhase } from '../../lib/set-phase';
+import { stringToSetPhase } from '../../lib/set-phase';
 import './SettingsDrawer.css';
 
 export interface SettingsDrawerProps {
@@ -70,7 +72,7 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
   const [scanError, setScanError] = useState<string | null>(null);
 
   // Phases
-  const [phases, setPhases] = useState<string[]>([]);
+  const [phases, setPhases] = useState<SetPhase[]>([]);
   const [newPhase, setNewPhase] = useState('');
   const [savingPhases, setSavingPhases] = useState(false);
 
@@ -139,7 +141,7 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
   };
 
   // ---- Phases ----
-  const persistPhases = async (next: string[]) => {
+  const persistPhases = async (next: SetPhase[]) => {
     setSavingPhases(true);
     try {
       await onSetPhases(next);
@@ -153,15 +155,15 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
 
   const handleAddPhase = () => {
     const trimmed = newPhase.trim();
-    if (!trimmed || phases.includes(trimmed)) return;
-    const next = [...phases, trimmed];
+    if (!trimmed || phases.some(p => p.name === trimmed)) return;
+    const next = [...phases, stringToSetPhase(trimmed)];
     setPhases(next);
     setNewPhase('');
     persistPhases(next);
   };
 
   const handleRemovePhase = (p: string) => {
-    const next = phases.filter(x => x !== p);
+    const next = phases.filter(x => x.name !== p);
     setPhases(next);
     persistPhases(next);
   };
@@ -169,8 +171,8 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIdx = phases.indexOf(active.id as string);
-    const newIdx = phases.indexOf(over.id as string);
+    const oldIdx = phases.findIndex(p => p.id === active.id);
+    const newIdx = phases.findIndex(p => p.id === over.id);
     if (oldIdx === -1 || newIdx === -1) return;
     const next = arrayMove(phases, oldIdx, newIdx);
     setPhases(next);
@@ -263,10 +265,10 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
           <Text size="sm" c="dimmed" fs="italic">No phases configured yet.</Text>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={phases} strategy={verticalListSortingStrategy}>
+            <SortableContext items={phases.map(p => p.id)} strategy={verticalListSortingStrategy}>
               <ul className="phase-list">
                 {phases.map(p => (
-                  <SortablePhaseRow key={p} id={p} phase={p} onRemove={handleRemovePhase} disabled={savingPhases} />
+                  <SortablePhaseRow key={p.id} id={p.id} phase={p.name} onRemove={handleRemovePhase} disabled={savingPhases} />
                 ))}
               </ul>
             </SortableContext>
@@ -288,7 +290,7 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
             variant="light"
             color="violet"
             onClick={handleAddPhase}
-            disabled={!newPhase.trim() || phases.includes(newPhase.trim()) || savingPhases}
+            disabled={!newPhase.trim() || phases.some(p => p.name === newPhase.trim()) || savingPhases}
             title="Add phase"
           >
             <IconPlus size={14} />

@@ -7,6 +7,9 @@ import {
   setKeepPlayHead,
   getKeepPlayHead
 } from '../schema/library-settings.js';
+import { type SetPhase, migratePhases, stringToSetPhase } from '../../../lib/set-phase.js';
+
+const DEFAULT_PHASES: SetPhase[] = ['starter', 'buildup', 'peak', 'release', 'feature'].map(stringToSetPhase);
 
 export function saveBaseFolder(folder: string): void {
   const stmt = db().prepare(setBaseFolder);
@@ -19,22 +22,29 @@ export function readBaseFolder(): string | null {
   return row ? (row.base_folder as string | null) : null;
 }
 
-export function savePhases(phases: string[]): void {
+export function savePhases(phases: SetPhase[]): void {
   const stmt = db().prepare(setPhases);
   stmt.run(JSON.stringify(phases));
 }
 
-export function readPhases(): string[] {
+export function readPhases(): SetPhase[] {
   const stmt = db().prepare(getPhases);
   const row = stmt.get() as any;
   if (!row || row.phases == null) {
-    return ['starter', 'buildup', 'peak', 'release', 'feature'];
+    return DEFAULT_PHASES;
   }
   try {
-    return JSON.parse(row.phases) as string[];
+    const parsed = JSON.parse(row.phases);
+    const result = migratePhases(parsed);
+    return result.length > 0 ? result : DEFAULT_PHASES;
   } catch {
-    return ['starter', 'buildup', 'peak', 'release', 'feature'];
+    return DEFAULT_PHASES;
   }
+}
+
+/** Helper: read phases as plain name strings (for callers that only need names) */
+export function readPhaseNames(): string[] {
+  return readPhases().map(p => p.name);
 }
 
 export function saveKeepPlayHead(enabled: boolean): void {

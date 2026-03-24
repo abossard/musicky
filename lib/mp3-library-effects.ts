@@ -26,7 +26,7 @@ export const useDataLoader = (dispatch: React.Dispatch<MP3LibraryAction>) => {
       dispatch({
         type: 'SET_DATA',
         mp3Files: scanResult.files,
-        phases: availablePhases,
+        phases: availablePhases.map(p => p.name),
         pendingEdits: edits
       });
     } catch (err) {
