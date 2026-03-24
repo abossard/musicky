@@ -27,6 +27,8 @@ import { TagPalette } from './TagPalette';
 import type { ViewMode } from './moodboard-constants';
 import { EDGE_STYLE_OPTIONS, DEFAULT_BUNDLE_CONFIG, type BundleConfig } from './moodboard-constants';
 import { computeBundles } from '../../lib/edge-bundling';
+import { getCompatibleCamelotKeys } from '../../lib/camelot';
+import type { SongNodeData, HarmonyHighlight } from './nodes/SongNode';
 
 const nodeTypes: NodeTypes = {
   song: SongNode as any,
@@ -56,6 +58,7 @@ interface MoodboardCanvasProps {
   onHoverPlaySong: (filePath: string) => void;
   onNodesUpdate: (nodes: Node[]) => void;
   onAddSong?: (filePath: string, x: number, y: number) => void;
+  onSelectedSongKeyChange?: (key: string | null) => void;
   scrollToNodeRef?: React.MutableRefObject<((nodeId: string) => void) | null>;
 }
 
@@ -106,6 +109,7 @@ export function MoodboardCanvas({
   viewport, onViewportChange,
   onConnect, onNodeDelete, onEdgeDelete, onEdgeWeightChange, onEdgeTypeChange,
   onSearchOpen, onAddTag, onPlaySong, onHoverPlaySong, onNodesUpdate, onAddSong,
+  onSelectedSongKeyChange,
   scrollToNodeRef,
 }: MoodboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -229,14 +233,57 @@ export function MoodboardCanvas({
     [nodes, edges, activeFilterTags],
   );
 
+  // Compute harmony highlights based on the selected song's Camelot key
+  const harmonyMap = useMemo<Map<string, HarmonyHighlight>>(() => {
+    const map = new Map<string, HarmonyHighlight>();
+    if (selectedNodeIds.length !== 1) return map;
+
+    const selectedNode = nodes.find(n => n.id === selectedNodeIds[0]);
+    if (!selectedNode || selectedNode.type !== 'song') return map;
+
+    const selectedKey = (selectedNode.data as unknown as SongNodeData).camelotKey;
+    if (!selectedKey) return map;
+
+    const compatibleKeys = new Set(getCompatibleCamelotKeys(selectedKey));
+
+    for (const n of nodes) {
+      if (n.type !== 'song') continue;
+      if (n.id === selectedNode.id) {
+        map.set(n.id, 'selected');
+        continue;
+      }
+      const key = (n.data as unknown as SongNodeData).camelotKey;
+      if (!key) continue;
+      map.set(n.id, compatibleKeys.has(key) ? 'compatible' : 'incompatible');
+    }
+    return map;
+  }, [selectedNodeIds, nodes]);
+
+  // Notify parent about the selected song's Camelot key for library filtering
+  useEffect(() => {
+    if (!onSelectedSongKeyChange) return;
+    if (selectedNodeIds.length !== 1) {
+      onSelectedSongKeyChange(null);
+      return;
+    }
+    const selectedNode = nodes.find(n => n.id === selectedNodeIds[0]);
+    if (!selectedNode || selectedNode.type !== 'song') {
+      onSelectedSongKeyChange(null);
+      return;
+    }
+    const key = (selectedNode.data as unknown as SongNodeData).camelotKey ?? null;
+    onSelectedSongKeyChange(key);
+  }, [selectedNodeIds, nodes, onSelectedSongKeyChange]);
+
   const { filteredNodes, filteredEdges } = useMemo(() => {
     const fn = injectCallbacks(nodes, onPlaySong, onHoverPlaySong).map(n => {
       const fs = nodeStates.get(n.id) ?? 'normal';
+      const hh = harmonyMap.get(n.id) ?? null;
       if (n.type === 'tag') {
         const isActive = activeFilterTags.has(n.id);
         return { ...n, data: { ...n.data, onFilterToggle: toggleFilter, isFilterActive: isActive, filterState: fs } };
       }
-      return { ...n, data: { ...n.data, filterState: fs } };
+      return { ...n, data: { ...n.data, filterState: fs, harmonyHighlight: hh } };
     });
 
     // Compute bundles for high fan-out edges
@@ -252,7 +299,7 @@ export function MoodboardCanvas({
       };
     });
     return { filteredNodes: fn, filteredEdges: fe };
-  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, onHoverPlaySong, toggleFilter, edgeStyle, smartNodePadding, smartGridRatio, bundleConfig, selectedEdgeId]);
+  }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, onHoverPlaySong, toggleFilter, edgeStyle, smartNodePadding, smartGridRatio, bundleConfig, selectedEdgeId, harmonyMap]);
 
   // Container view: transform flat nodes into grouped nodes when viewMode !== 'free'
   const { viewNodes, viewEdges } = useMemo(() => {

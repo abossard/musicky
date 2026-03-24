@@ -72,6 +72,11 @@ interface LibrarySong {
   duration: number;
   fileSize: number;
   artworkUrl: string | null;
+  key?: string;
+  camelotKey?: string;
+  bpm?: number;
+  energyLevel?: number;
+  label?: string;
 }
 
 interface SongTagInfo {
@@ -127,7 +132,7 @@ interface PlaylistWithItems {
 }
 
 interface MoodboardState {
-  songs: { filePath: string; title: string; artist: string; x: number; y: number; tags: SongTagInfo[] }[];
+  songs: { filePath: string; title: string; artist: string; x: number; y: number; tags: SongTagInfo[]; key?: string; camelotKey?: string; bpm?: number; energyLevel?: number }[];
   connections: { id: number; sourcePath: string; targetPath: string; type: string; weight: number }[];
   positions: { nodeId: string; x: number; y: number }[];
   tags: { label: string; category: string; x: number; y: number }[];
@@ -151,6 +156,11 @@ interface SongMetadata {
   duration: number;
   genre: string[];
   artworkDataUrl: string | null;
+  key?: string;
+  camelotKey?: string;
+  bpm?: number;
+  energyLevel?: number;
+  label?: string;
 }
 
 interface DiscoveredConnection {
@@ -179,6 +189,11 @@ function cacheToLibrarySong(c: MP3CacheItem): LibrarySong {
     duration: c.duration ?? 0,
     fileSize: c.file_size ?? 0,
     artworkUrl: artworkUrl(c.file_path),
+    key: c.key ?? undefined,
+    camelotKey: c.camelot_key ?? undefined,
+    bpm: c.bpm ?? undefined,
+    energyLevel: c.energy_level ?? undefined,
+    label: c.label ?? undefined,
   };
 }
 
@@ -415,6 +430,11 @@ export async function onGetLibrarySongs(): Promise<LibrarySong[]> {
     duration: r.duration ?? 0,
     fileSize: 0,
     artworkUrl: artworkUrl(r.file_path),
+    key: r.key ?? undefined,
+    camelotKey: r.camelot_key ?? undefined,
+    bpm: r.bpm ?? undefined,
+    energyLevel: r.energy_level ?? undefined,
+    label: r.label ?? undefined,
   }));
 }
 
@@ -428,6 +448,11 @@ export async function onSearchSongs(query: string, limit = 30): Promise<LibraryS
     duration: r.duration ?? 0,
     fileSize: 0,
     artworkUrl: artworkUrl(r.file_path),
+    key: r.key ?? undefined,
+    camelotKey: r.camelot_key ?? undefined,
+    bpm: r.bpm ?? undefined,
+    energyLevel: r.energy_level ?? undefined,
+    label: r.label ?? undefined,
   }));
 }
 
@@ -715,6 +740,10 @@ export async function onLoadMoodboardState(): Promise<MoodboardState> {
       x: pos.x,
       y: pos.y,
       tags,
+      key: cached?.key ?? undefined,
+      camelotKey: cached?.camelot_key ?? undefined,
+      bpm: cached?.bpm ?? undefined,
+      energyLevel: cached?.energy_level ?? undefined,
     });
   }
 
@@ -781,6 +810,11 @@ export async function onGetSongMetadata(filePath: string): Promise<SongMetadata 
       duration: meta.duration ?? 0,
       genre: meta.genre ?? [],
       artworkDataUrl: meta.artworkDataUrl ?? null,
+      key: meta.key ?? undefined,
+      camelotKey: meta.camelotKey ?? undefined,
+      bpm: meta.bpm ?? undefined,
+      energyLevel: meta.energyLevel ?? undefined,
+      label: meta.label ?? undefined,
     };
   } catch {
     return null;

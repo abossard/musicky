@@ -35,6 +35,74 @@ test.describe('Mixed In Key Metadata', () => {
     await expect(detailDrawer).toBeVisible();
   });
 
+  test('library panel shows Camelot key badge on songs', async ({ moodboardPage }) => {
+    const firstSong = moodboardPage.librarySongItems.first();
+    const keyBadge = firstSong.locator('[data-testid="song-key-badge"]');
+    await expect(keyBadge).toBeVisible();
+    const keyText = await keyBadge.textContent();
+    expect(keyText).toMatch(/^\d{1,2}[AB]$/);
+  });
+
+  test('library panel shows BPM on songs', async ({ moodboardPage }) => {
+    const firstSong = moodboardPage.librarySongItems.first();
+    const bpmText = firstSong.locator('[data-testid="song-bpm"]');
+    await expect(bpmText).toBeVisible();
+    const bpm = await bpmText.textContent();
+    expect(Number(bpm)).toBeGreaterThan(60);
+    expect(Number(bpm)).toBeLessThan(200);
+  });
+
+  test('song detail panel shows Analysis section', async ({ moodboardPage }) => {
+    await moodboardPage.librarySongItems.first().click();
+    const drawer = moodboardPage.songDetailDrawer;
+    await expect(drawer).toBeVisible({ timeout: 10000 });
+
+    // Analysis divider should be visible
+    await expect(drawer.getByText(/analysis/i)).toBeVisible();
+
+    // Analysis section with key data
+    const analysisSection = drawer.locator('[data-testid="song-analysis-section"]');
+    await expect(analysisSection).toBeVisible();
+
+    // Key badge should show a valid Camelot code
+    const keyBadge = drawer.locator('[data-testid="song-detail-key-badge"]');
+    await expect(keyBadge).toBeVisible();
+    const keyText = await keyBadge.textContent();
+    expect(keyText).toMatch(/^\d{1,2}[AB]$/);
+  });
+
+  test('song detail panel shows energy level', async ({ moodboardPage }) => {
+    await moodboardPage.librarySongItems.first().click();
+    const drawer = moodboardPage.songDetailDrawer;
+    await expect(drawer).toBeVisible({ timeout: 10000 });
+
+    const energyRow = drawer.locator('[data-testid="song-detail-energy"]');
+    await expect(energyRow).toBeVisible();
+    // Row text is "Energy <number>"; extract the number
+    const rowText = await energyRow.textContent();
+    const match = rowText?.match(/(\d{1,2})/);
+    expect(match).not.toBeNull();
+    const num = parseInt(match![1]);
+    expect(num).toBeGreaterThanOrEqual(1);
+    expect(num).toBeLessThanOrEqual(10);
+  });
+
+  test('song detail panel shows BPM', async ({ moodboardPage }) => {
+    await moodboardPage.librarySongItems.first().click();
+    const drawer = moodboardPage.songDetailDrawer;
+    await expect(drawer).toBeVisible({ timeout: 10000 });
+
+    const bpmRow = drawer.locator('[data-testid="song-detail-bpm"]');
+    await expect(bpmRow).toBeVisible();
+    // Row text is "BPM <number>"; extract the number
+    const rowText = await bpmRow.textContent();
+    const match = rowText?.match(/(\d{2,3})/);
+    expect(match).not.toBeNull();
+    const bpm = Number(match![1]);
+    expect(bpm).toBeGreaterThan(60);
+    expect(bpm).toBeLessThan(200);
+  });
+
   test('scanning library preserves MIK metadata in cache', async ({ moodboardPage }) => {
     // The global-setup already wrote MIK tags (TKEY, TBPM, TXXX:EnergyLevel)
     // to test MP3s and pre-populated the cache with key, bpm, energy_level

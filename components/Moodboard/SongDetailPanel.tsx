@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Stack, Text, Image, Badge, Button, TextInput, Group, Divider,
-  Skeleton, ScrollArea, ActionIcon, Tooltip, Box,
+  Skeleton, ScrollArea, ActionIcon, Tooltip, Box, Progress,
 } from '@mantine/core';
 import {
   IconPlayerPlay, IconX, IconPlus, IconLink, IconMusic,
@@ -11,6 +11,7 @@ import {
   onGetSongMetadata, onGetSongTags, onGetSongConnections,
   onAddSongTag, onRemoveSongTag, onFindSimilarSongs,
 } from './MoodboardPage.telefunc';
+import { getCamelotColor } from '../../lib/camelot';
 import { showSuccess } from '../../lib/notifications';
 
 import './SongDetailPanel.css';
@@ -30,6 +31,11 @@ interface SongMeta {
   duration: number;
   genre: string[];
   artworkDataUrl: string | null;
+  key?: string;
+  camelotKey?: string;
+  bpm?: number;
+  energyLevel?: number;
+  label?: string;
 }
 
 interface TagInfo {
@@ -244,6 +250,63 @@ export function SongDetailPanel({ filePath, onSongSelect, onPlay, onTagsChanged 
           >
             Play
           </Button>
+        )}
+
+        {/* Analysis Section (MIK) */}
+        {(metadata.key || metadata.camelotKey || metadata.bpm || metadata.energyLevel) && (
+          <>
+            <Divider label="Analysis" labelPosition="left" />
+            <Stack gap={8} data-testid="song-analysis-section">
+              {(metadata.key || metadata.camelotKey) && (
+                <Group gap="xs" data-testid="song-detail-key">
+                  <Text size="xs" c="dimmed" w={50}>Key</Text>
+                  {metadata.camelotKey && (
+                    <Badge
+                      data-testid="song-detail-key-badge"
+                      size="sm"
+                      variant="filled"
+                      style={{
+                        backgroundColor: getCamelotColor(metadata.camelotKey),
+                        color: '#fff',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {metadata.camelotKey}
+                    </Badge>
+                  )}
+                  {metadata.key && (
+                    <Text size="xs" c="dimmed">({metadata.key})</Text>
+                  )}
+                </Group>
+              )}
+              {metadata.bpm && (
+                <Group gap="xs" data-testid="song-detail-bpm">
+                  <Text size="xs" c="dimmed" w={50}>BPM</Text>
+                  <Text size="sm" fw={600}>{Math.round(metadata.bpm)}</Text>
+                </Group>
+              )}
+              {metadata.energyLevel && (
+                <Group gap="xs" data-testid="song-detail-energy">
+                  <Text size="xs" c="dimmed" w={50}>Energy</Text>
+                  <Text size="sm" fw={700} style={{ color: `hsl(${(metadata.energyLevel / 10) * 120}, 80%, 50%)` }}>
+                    {metadata.energyLevel}
+                  </Text>
+                  <Progress
+                    value={metadata.energyLevel * 10}
+                    size="sm"
+                    style={{ flex: 1 }}
+                    color={`hsl(${(metadata.energyLevel / 10) * 120}, 80%, 50%)`}
+                  />
+                </Group>
+              )}
+              {metadata.label && (
+                <Group gap="xs" data-testid="song-detail-label">
+                  <Text size="xs" c="dimmed" w={50}>Label</Text>
+                  <Text size="xs">{metadata.label}</Text>
+                </Group>
+              )}
+            </Stack>
+          </>
         )}
 
         {/* Tags Section */}

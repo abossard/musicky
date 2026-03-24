@@ -8,6 +8,7 @@ import { getSmartEdge, svgDrawSmoothLinePath, pathfindingAStarDiagonal } from '@
 import { getFloatingEdgeParams } from './floating-edge-utils';
 import { EDGE_COLORS } from '../moodboard-constants';
 import type { BundleInfo } from '../../../lib/edge-bundling';
+import { areKeysCompatible } from '../../../lib/camelot';
 
 export type EdgeType = 'genre' | 'phase' | 'mood' | 'similarity' | 'topic' | 'custom';
 
@@ -52,7 +53,23 @@ function WeightedEdge({
   const smartGrid = edgeData?.smartGridRatio ?? 10;
   const bundleInfo = edgeData?.bundleInfo;
   const strokeWidth = 1.5 + weight * 3.5;
-  const color = EDGE_COLORS[edgeType] || EDGE_COLORS.custom;
+  const baseColor = EDGE_COLORS[edgeType] || EDGE_COLORS.custom;
+
+  // Override color for song-to-song edges based on harmonic compatibility
+  let color = baseColor;
+  if (sourceNode && targetNode) {
+    const srcData = sourceNode.internals?.userNode?.data as Record<string, unknown> | undefined;
+    const tgtData = targetNode.internals?.userNode?.data as Record<string, unknown> | undefined;
+    const srcType = srcData?.type as string | undefined;
+    const tgtType = tgtData?.type as string | undefined;
+    if (srcType === 'song' && tgtType === 'song') {
+      const srcKey = srcData?.camelotKey as string | undefined;
+      const tgtKey = tgtData?.camelotKey as string | undefined;
+      if (srcKey && tgtKey) {
+        color = areKeysCompatible(srcKey, tgtKey) ? '#40c057' : '#e8590c';
+      }
+    }
+  }
 
   // Compute edge path based on selected style
   let edgePath: string;

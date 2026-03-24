@@ -2,8 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Box, Tooltip, Text, ActionIcon, Badge } from '@mantine/core';
 import { IconPlayerPlay, IconPlayerPause } from '@tabler/icons-react';
+import { getCamelotColor } from '../../../lib/camelot';
 
 export type FilterState = 'normal' | 'primary' | 'secondary' | 'hidden';
+
+export type HarmonyHighlight = 'compatible' | 'incompatible' | 'selected' | null;
 
 export interface SongNodeData {
   type: 'song';
@@ -15,7 +18,11 @@ export interface SongNodeData {
   artworkUrl: string;
   isPlaying?: boolean;
   filterState?: FilterState;
+  harmonyHighlight?: HarmonyHighlight;
   phases?: string[];
+  camelotKey?: string;
+  bpm?: number;
+  energyLevel?: number;
   onPlayToggle?: (filePath: string) => void;
   onHoverPlay?: (filePath: string) => void;
 }
@@ -58,8 +65,10 @@ function SongNode({ data, selected }: NodeProps) {
   const [shiftHoverTriggered, setShiftHoverTriggered] = useState(false);
   const songData = data as unknown as SongNodeData;
   const filterState = songData.filterState ?? 'normal';
+  const harmonyHighlight = songData.harmonyHighlight ?? null;
   const isHidden = filterState === 'hidden';
   const isSecondary = filterState === 'secondary';
+  const isHarmonyActive = harmonyHighlight !== null;
   const showHandles = hovered || selected;
 
   const triggerHoverPlay = () => {
@@ -138,8 +147,14 @@ function SongNode({ data, selected }: NodeProps) {
         style={{
           position: 'relative',
           transition: 'all 0.3s ease',
-          opacity: isHidden ? 0.08 : isSecondary ? 0.5 : 1,
-          filter: isSecondary ? 'grayscale(0.8) brightness(0.7)' : isHidden ? 'grayscale(1) brightness(0.3)' : 'none',
+          opacity: isHidden ? 0.08
+            : isSecondary ? 0.5
+            : (isHarmonyActive && harmonyHighlight === 'incompatible') ? 0.35
+            : 1,
+          filter: isSecondary ? 'grayscale(0.8) brightness(0.7)'
+            : isHidden ? 'grayscale(1) brightness(0.3)'
+            : (isHarmonyActive && harmonyHighlight === 'incompatible') ? 'grayscale(0.6) brightness(0.7)'
+            : 'none',
           transform: isHidden ? 'scale(0.8)' : hovered ? 'scale(1.02)' : 'none',
           overflow: 'visible',
         }}
@@ -158,14 +173,18 @@ function SongNode({ data, selected }: NodeProps) {
               ? '3px solid var(--mantine-color-green-5)'
               : selected
                 ? '3px solid var(--mantine-color-violet-5)'
-                : '2px solid var(--mantine-color-dark-4)',
+                : harmonyHighlight === 'compatible'
+                  ? '2px solid var(--mantine-color-teal-5)'
+                  : '2px solid var(--mantine-color-dark-4)',
             boxShadow: songData.isPlaying
               ? '0 0 16px var(--mantine-color-green-5)'
               : selected
                 ? '0 0 12px var(--mantine-color-violet-5)'
-                : hovered
-                  ? '0 0 10px rgba(112, 72, 232, 0.3)'
-                  : '0 2px 8px rgba(0,0,0,0.3)',
+                : harmonyHighlight === 'compatible'
+                  ? '0 0 14px var(--mantine-color-teal-5)'
+                  : hovered
+                    ? '0 0 10px rgba(112, 72, 232, 0.3)'
+                    : '0 2px 8px rgba(0,0,0,0.3)',
             cursor: 'grab',
             transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
           }}
@@ -252,6 +271,75 @@ function SongNode({ data, selected }: NodeProps) {
                   {phase}
                 </Badge>
               ))}
+            </Box>
+          )}
+
+          {/* MIK badges (Camelot key, BPM, energy) */}
+          {(songData.camelotKey || songData.bpm || songData.energyLevel) && (
+            <Box
+              style={{
+                position: 'absolute',
+                top: 3,
+                right: 3,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                zIndex: 5,
+                pointerEvents: 'none',
+                alignItems: 'flex-end',
+              }}
+            >
+              {songData.camelotKey && (
+                <Badge
+                  data-testid="song-key-badge"
+                  size="xs"
+                  variant="filled"
+                  style={{
+                    fontSize: 9,
+                    padding: '0 4px',
+                    height: 16,
+                    backgroundColor: getCamelotColor(songData.camelotKey),
+                    color: '#fff',
+                    fontWeight: 700,
+                  }}
+                >
+                  {songData.camelotKey}
+                </Badge>
+              )}
+              {songData.bpm && (
+                <Text
+                  data-testid="song-bpm"
+                  size="9px"
+                  fw={700}
+                  c="white"
+                  style={{
+                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                    lineHeight: 1,
+                  }}
+                >
+                  {Math.round(songData.bpm)}
+                </Text>
+              )}
+              {songData.energyLevel && (
+                <Box
+                  data-testid="song-energy-level"
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: '50%',
+                    backgroundColor: `hsl(${(songData.energyLevel / 10) * 120}, 80%, 50%)`,
+                    border: '1.5px solid rgba(255,255,255,0.8)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 8,
+                    fontWeight: 700,
+                    color: '#fff',
+                    lineHeight: 1,
+                  }}
+                >
+                  {songData.energyLevel}
+                </Box>
+              )}
             </Box>
           )}
         </Box>

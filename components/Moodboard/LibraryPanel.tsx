@@ -3,8 +3,9 @@ import {
   TextInput, Select, ScrollArea, Box, Group, Stack, Text, Badge, Skeleton,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconSearch, IconMusic } from '@tabler/icons-react';
+import { IconSearch, IconMusic, IconFilter } from '@tabler/icons-react';
 import { onGetLibrarySongs, onSearchSongs, onGetAllTags } from './MoodboardPage.telefunc';
+import { getCamelotColor, getCompatibleCamelotKeys } from '../../lib/camelot';
 
 import './LibraryPanel.css';
 
@@ -13,6 +14,7 @@ export interface LibraryPanelProps {
   onSongDoubleClick?: (filePath: string) => void;
   onSongDragStart?: (filePath: string) => void;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  selectedCanvasKey?: string | null;
 }
 
 interface LibrarySong {
@@ -23,6 +25,11 @@ interface LibrarySong {
   duration: number;
   fileSize: number;
   artworkUrl: string | null;
+  key?: string;
+  camelotKey?: string;
+  bpm?: number;
+  energyLevel?: number;
+  label?: string;
 }
 
 interface SongTagInfo {
@@ -38,7 +45,7 @@ interface TagInfo {
   count: number;
 }
 
-export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart, searchInputRef: externalSearchRef }: LibraryPanelProps) {
+export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart, searchInputRef: externalSearchRef, selectedCanvasKey }: LibraryPanelProps) {
   const [songs, setSongs] = useState<LibrarySong[]>([]);
   const [tags, setTags] = useState<TagInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +56,9 @@ export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart,
   const [phaseFilter, setPhaseFilter] = useState<string | null>(null);
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
   const [moodFilter, setMoodFilter] = useState<string | null>(null);
+
+  // Harmonic compatibility filter
+  const [compatibleFilterActive, setCompatibleFilterActive] = useState(false);
 
   // Keyboard navigation
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -107,18 +117,43 @@ export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart,
     }
   }, [debouncedSearch, loading]);
 
-  // Client-side filtering by tag categories
+  // Compute compatible Camelot keys based on canvas selection
+  const compatibleKeys = useMemo(() => {
+    if (!selectedCanvasKey || !compatibleFilterActive) return null;
+    return new Set(getCompatibleCamelotKeys(selectedCanvasKey));
+  }, [selectedCanvasKey, compatibleFilterActive]);
+
+  // Reset compatible filter when canvas selection is cleared
+  useEffect(() => {
+    if (!selectedCanvasKey) setCompatibleFilterActive(false);
+  }, [selectedCanvasKey]);
+
+  // Client-side filtering by tag categories and harmonic compatibility
   const filteredSongs = useMemo(() => {
-    if (!phaseFilter && !genreFilter && !moodFilter) return songs;
-    return songs.filter(song => {
-      const st = songTagsMap.get(song.filePath);
-      if (!st) return !phaseFilter && !genreFilter && !moodFilter;
-      if (phaseFilter && !st.some(t => t.category === 'phase' && t.label === phaseFilter)) return false;
-      if (genreFilter && !st.some(t => t.category === 'genre' && t.label === genreFilter)) return false;
-      if (moodFilter && !st.some(t => t.category === 'mood' && t.label === moodFilter)) return false;
-      return true;
-    });
-  }, [songs, phaseFilter, genreFilter, moodFilter, songTagsMap]);
+    let result = songs;
+
+    // Tag-based filters
+    if (phaseFilter || genreFilter || moodFilter) {
+      result = result.filter(song => {
+        const st = songTagsMap.get(song.filePath);
+        if (!st) return !phaseFilter && !genreFilter && !moodFilter;
+        if (phaseFilter && !st.some(t => t.category === 'phase' && t.label === phaseFilter)) return false;
+        if (genreFilter && !st.some(t => t.category === 'genre' && t.label === genreFilter)) return false;
+        if (moodFilter && !st.some(t => t.category === 'mood' && t.label === moodFilter)) return false;
+        return true;
+      });
+    }
+
+    // Harmonic compatibility filter
+    if (compatibleKeys) {
+      result = result.filter(song => {
+        if (!song.camelotKey) return false;
+        return compatibleKeys.has(song.camelotKey);
+      });
+    }
+
+    return result;
+  }, [songs, phaseFilter, genreFilter, moodFilter, songTagsMap, compatibleKeys]);
 
   // Lazily load tags for songs when filters are active
   useEffect(() => {
@@ -308,6 +343,45 @@ export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart,
         </Box>
       )}
 
+      {/* Harmonic compatibility filter */}
+      {selectedCanvasKey && (
+        <Box className="library-panel-filters" style={{ paddingTop: 2, paddingBottom: 4 }}>
+          <Group
+            gap={6}
+            data-testid="library-compatible-filter"
+            onClick={() => setCompatibleFilterActive(v => !v)}
+            style={{
+              cursor: 'pointer',
+              padding: '4px 6px',
+              borderRadius: 4,
+              background: compatibleFilterActive ? 'rgba(32, 201, 151, 0.15)' : 'transparent',
+              border: `1px solid ${compatibleFilterActive ? 'var(--mantine-color-teal-7)' : 'var(--mantine-color-dark-4)'}`,
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <IconFilter size={12} color={compatibleFilterActive ? 'var(--mantine-color-teal-5)' : 'var(--mantine-color-dark-2)'} />
+            <Text size="xs" fw={500} c={compatibleFilterActive ? 'teal' : 'dimmed'}>
+              Compatible Keys
+            </Text>
+            <Badge
+              size="xs"
+              variant="filled"
+              style={{
+                backgroundColor: getCamelotColor(selectedCanvasKey),
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 9,
+                padding: '0 4px',
+                height: 16,
+                marginLeft: 'auto',
+              }}
+            >
+              {selectedCanvasKey}
+            </Badge>
+          </Group>
+        </Box>
+      )}
+
       {/* Song List */}
       <ScrollArea className="library-song-list" type="auto" data-testid="library-song-list">
         {filteredSongs.length === 0 ? (
@@ -353,6 +427,29 @@ export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart,
                   <Text size="xs" c="dimmed" truncate="end" style={{ flex: 1 }}>
                     {song.artist || 'Unknown Artist'}
                   </Text>
+                  {song.camelotKey && (
+                    <Badge
+                      size="xs"
+                      variant="filled"
+                      data-testid="song-key-badge"
+                      style={{
+                        flexShrink: 0,
+                        fontSize: 9,
+                        padding: '0 4px',
+                        height: 16,
+                        backgroundColor: getCamelotColor(song.camelotKey),
+                        color: '#fff',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {song.camelotKey}
+                    </Badge>
+                  )}
+                  {song.bpm && (
+                    <Text size="xs" c="dimmed" data-testid="song-bpm" style={{ flexShrink: 0, fontSize: 10 }}>
+                      {Math.round(song.bpm)}
+                    </Text>
+                  )}
                   {song.duration > 0 && (
                     <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
                       {formatDuration(song.duration)}

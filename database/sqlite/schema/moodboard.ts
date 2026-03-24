@@ -47,3 +47,17 @@ client.exec(`
 client.exec(`CREATE INDEX IF NOT EXISTS idx_moodboard_nodes_board ON moodboard_nodes(board_id);`);
 client.exec(`CREATE INDEX IF NOT EXISTS idx_moodboard_edges_board ON moodboard_edges(board_id);`);
 client.exec(`CREATE INDEX IF NOT EXISTS idx_moodboard_nodes_song ON moodboard_nodes(board_id, song_path);`);
+
+client.exec(`
+  CREATE TABLE IF NOT EXISTS moodboard_revisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    board_id INTEGER NOT NULL,
+    revision_number INTEGER NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (board_id) REFERENCES moodboards(id) ON DELETE CASCADE,
+    UNIQUE(board_id, revision_number)
+  );
+`);
+client.exec(`CREATE INDEX IF NOT EXISTS idx_revisions_board ON moodboard_revisions(board_id, revision_number);`);

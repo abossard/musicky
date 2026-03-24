@@ -64,6 +64,7 @@ export function MoodboardPage() {
   // Board state
   const [searchOpened, setSearchOpened] = useState(false);
   const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
+  const [selectedCanvasKey, setSelectedCanvasKey] = useState<string | null>(null);
 
   // Phase data (from unified API)
   const [phaseEdges, setPhaseEdges] = useState<PhaseEdgeInfo[]>([]);
@@ -403,6 +404,7 @@ export function MoodboardPage() {
               onSongSelect={handleSongSelect}
               onSongDoubleClick={handlePlaySong}
               searchInputRef={librarySearchRef}
+              selectedCanvasKey={selectedCanvasKey}
             />
           </Box>
         )}
@@ -432,6 +434,7 @@ export function MoodboardPage() {
               onHoverPlaySong={handleHoverPlaySong}
               onNodesUpdate={(newNodes) => moodboard.setNodes(newNodes)}
               onAddSong={handleDropSong}
+              onSelectedSongKeyChange={setSelectedCanvasKey}
               scrollToNodeRef={scrollToNodeRef}
             />
           </ReactFlowProvider>

@@ -68,6 +68,9 @@ export function useMoodboardState(currentPlayingPath?: string | null) {
           artist: s.artist || 'Unknown Artist',
           artworkUrl: `/artwork/${encodeURIComponent(s.filePath)}`,
           isPlaying: s.filePath === currentPlayingPath,
+          camelotKey: s.camelotKey,
+          bpm: s.bpm,
+          energyLevel: s.energyLevel,
         } satisfies SongNodeData as any,
       }));
 
@@ -205,6 +208,9 @@ export function useMoodboardState(currentPlayingPath?: string | null) {
         artist: meta?.artist || 'Unknown Artist',
         artworkUrl: `/artwork/${encodeURIComponent(songPath)}`,
         isPlaying: false,
+        camelotKey: meta?.camelotKey,
+        bpm: meta?.bpm,
+        energyLevel: meta?.energyLevel,
       } satisfies SongNodeData as any,
     };
     setNodes(nds => [...nds, newNode]);
@@ -357,5 +363,6 @@ export function useMoodboardState(currentPlayingPath?: string | null) {
     onViewportChange: handleViewportChange,
     addSong, addTag, removeNode, connectNodes, removeEdge, setEdgeWeight, setEdgeType,
     checkSongOnBoard, searchSongs: searchSongsForBoard, setNodes, saveNow,
+    reload: loadState,
   };
 }

@@ -2,7 +2,9 @@ import {
   createMoodboard, getMoodboards, getMoodboardById, updateMoodboardViewport, deleteMoodboard,
   getNodes, upsertNode, deleteNode, isSongOnBoard, bulkUpdatePositions,
   getEdges, upsertEdge, updateEdgeWeight, updateEdgeType, deleteEdge, saveBoardState,
+  buildSnapshot, createRevision, getRevisions, getRevisionSnapshot, restoreRevision, getRevisionCount,
   type Moodboard, type MoodboardNodeRow, type MoodboardEdgeRow,
+  type MoodboardRevisionSummary,
 } from '../../database/sqlite/queries/moodboard';
 import { searchMP3Cache, getMP3CacheByPath } from '../../database/sqlite/queries/dj-sets';
 
@@ -45,6 +47,8 @@ export async function onSaveBoard(
   nodePositions: { id: string; x: number; y: number }[],
   viewportJson: string
 ): Promise<void> {
+  const snapshot = buildSnapshot(boardId);
+  createRevision(boardId, JSON.stringify(snapshot));
   saveBoardState(boardId, nodePositions, viewportJson);
 }
 
@@ -146,4 +150,18 @@ export async function onIsSongOnBoard(boardId: number, songPath: string): Promis
 
 export async function onGetSongMetadata(filePath: string) {
   return getMP3CacheByPath(filePath);
+}
+
+// --- Revision operations ---
+
+export async function onGetRevisions(boardId: number): Promise<MoodboardRevisionSummary[]> {
+  return getRevisions(boardId);
+}
+
+export async function onRestoreRevision(boardId: number, revisionId: number): Promise<void> {
+  restoreRevision(boardId, revisionId);
+}
+
+export async function onGetRevisionCount(boardId: number): Promise<number> {
+  return getRevisionCount(boardId);
 }
