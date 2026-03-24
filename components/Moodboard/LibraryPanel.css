@@ -7,6 +7,7 @@
   border-right: 1px solid var(--mantine-color-dark-5);
   background: var(--mantine-color-dark-7);
   overflow: hidden;
+  padding-bottom: 56px; /* Space for fixed audio player bar */
 }
 
 .library-panel-header {
