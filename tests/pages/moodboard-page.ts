@@ -72,6 +72,11 @@ export class MoodboardPage {
   readonly reviewApproveAllButton: Locator;
   readonly reviewRejectAllButton: Locator;
 
+  // Revision History
+  readonly revisionBadge: Locator;
+  readonly revisionBrowser: Locator;
+  readonly revisionRestoreButtons: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -139,6 +144,11 @@ export class MoodboardPage {
     this.reviewDrawer = page.getByRole('dialog', { name: 'Review Changes' });
     this.reviewApproveAllButton = page.locator('[data-testid="review-approve-all"]');
     this.reviewRejectAllButton = page.locator('[data-testid="review-reject-all"]');
+
+    // Revision History
+    this.revisionBadge = page.locator('[data-testid="revision-badge"]');
+    this.revisionBrowser = page.getByRole('dialog', { name: 'Revision History' });
+    this.revisionRestoreButtons = page.locator('[data-testid="revision-restore"]');
   }
 
   // --- Navigation ---
@@ -283,6 +293,26 @@ export class MoodboardPage {
 
   async expectReviewDrawerVisible() {
     await expect(this.reviewDrawer).toBeVisible();
+  }
+
+  // --- Revisions ---
+
+  async openRevisionBrowser() {
+    await this.revisionBadge.click();
+    await expect(this.revisionBrowser).toBeVisible({ timeout: 10000 });
+  }
+
+  async closeRevisionBrowser() {
+    await this.page.keyboard.press('Escape');
+    await expect(this.revisionBrowser).not.toBeVisible();
+  }
+
+  async expectRevisionBrowserVisible() {
+    await expect(this.revisionBrowser).toBeVisible();
+  }
+
+  async expectRevisionBrowserHidden() {
+    await expect(this.revisionBrowser).not.toBeVisible();
   }
 
   async expectSongDetailVisible() {

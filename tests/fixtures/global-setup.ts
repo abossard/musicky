@@ -145,7 +145,21 @@ async function globalSetup() {
   // Clear stale moodboard data so tests start fresh
   db.prepare('DELETE FROM moodboard_edges').run();
   db.prepare('DELETE FROM moodboard_nodes').run();
+  db.exec(`CREATE TABLE IF NOT EXISTS moodboard_revisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    board_id INTEGER NOT NULL,
+    revision_number INTEGER NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (board_id) REFERENCES moodboards(id) ON DELETE CASCADE,
+    UNIQUE(board_id, revision_number)
+  )`);
+  db.prepare('DELETE FROM moodboard_revisions').run();
   db.prepare('DELETE FROM moodboards').run();
+
+  // Seed a default moodboard (ID 1) so revision history and other board-dependent features work
+  db.prepare('INSERT INTO moodboards (id, name) VALUES (1, ?)').run('Default');
 
   // Ensure new schema tables exist (may not if migrations haven't run yet)
   db.exec(`CREATE TABLE IF NOT EXISTS song_tags (
