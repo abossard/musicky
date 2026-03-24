@@ -28,6 +28,11 @@ export interface MP3CacheItem {
   duration?: number;
   file_size?: number;
   last_modified?: string;
+  key?: string;
+  camelot_key?: string;
+  bpm?: number;
+  energy_level?: number;
+  label?: string;
 }
 
 export interface MP3SearchResult {
@@ -37,6 +42,11 @@ export interface MP3SearchResult {
   title?: string;
   album?: string;
   duration?: number;
+  key?: string;
+  camelot_key?: string;
+  bpm?: number;
+  energy_level?: number;
+  label?: string;
 }
 
 // DJ Sets operations
@@ -96,7 +106,12 @@ export function insertMP3Cache(item: MP3CacheItem): void {
     item.album || null,
     item.duration || null,
     item.file_size || null,
-    item.last_modified || null
+    item.last_modified || null,
+    item.key || null,
+    item.camelot_key || null,
+    item.bpm || null,
+    item.energy_level || null,
+    item.label || null
   );
 }
 

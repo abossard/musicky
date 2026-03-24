@@ -6,6 +6,24 @@ import sqlite from 'better-sqlite3';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/** Camelot key conversion for test setup (subset of lib/camelot.ts) */
+const MINOR_TO_CAMELOT: Record<string, string> = {
+  'Ab': '1A', 'G#': '1A', 'Eb': '2A', 'D#': '2A', 'Bb': '3A', 'A#': '3A',
+  'F': '4A', 'C': '5A', 'G': '6A', 'D': '7A', 'A': '8A', 'E': '9A',
+  'B': '10A', 'F#': '11A', 'Gb': '11A', 'C#': '12A', 'Db': '12A',
+};
+const MAJOR_TO_CAMELOT: Record<string, string> = {
+  'B': '1B', 'F#': '2B', 'Gb': '2B', 'C#': '3B', 'Db': '3B', 'Ab': '4B', 'G#': '4B',
+  'Eb': '5B', 'D#': '5B', 'Bb': '6B', 'A#': '6B', 'F': '7B', 'C': '8B',
+  'G': '9B', 'D': '10B', 'A': '11B', 'E': '12B',
+};
+function testStandardToCamelot(key: string): string | null {
+  if (!key) return null;
+  const minor = key.endsWith('m');
+  const root = minor ? key.slice(0, -1) : key;
+  return minor ? (MINOR_TO_CAMELOT[root] ?? null) : (MAJOR_TO_CAMELOT[root] ?? null);
+}
+
 /**
  * Playwright global setup: configure the test music folder and pre-populate
  * the MP3 cache so song search works immediately in tests.
@@ -27,11 +45,19 @@ async function globalSetup() {
     db.prepare('INSERT INTO library_settings (base_folder) VALUES (?)').run(testMusicFolder);
   }
 
+  // Ensure mp3_file_cache has MIK columns (migrate existing databases)
+  const cols = db.pragma('table_info(mp3_file_cache)').map((c: any) => c.name as string);
+  if (!cols.includes('key')) db.exec('ALTER TABLE mp3_file_cache ADD COLUMN key TEXT');
+  if (!cols.includes('camelot_key')) db.exec('ALTER TABLE mp3_file_cache ADD COLUMN camelot_key TEXT');
+  if (!cols.includes('bpm')) db.exec('ALTER TABLE mp3_file_cache ADD COLUMN bpm REAL');
+  if (!cols.includes('energy_level')) db.exec('ALTER TABLE mp3_file_cache ADD COLUMN energy_level INTEGER');
+  if (!cols.includes('label')) db.exec('ALTER TABLE mp3_file_cache ADD COLUMN label TEXT');
+
   // Pre-populate the MP3 cache by scanning test-music recursively
   db.prepare('DELETE FROM mp3_file_cache').run();
 
   const insertStmt = db.prepare(
-    'INSERT OR REPLACE INTO mp3_file_cache (file_path, filename, artist, title, album, duration, file_size) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT OR REPLACE INTO mp3_file_cache (file_path, filename, artist, title, album, duration, file_size, key, camelot_key, bpm, energy_level, label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
 
   // Recursively find all MP3 files
@@ -60,15 +86,61 @@ async function globalSetup() {
     return { artist: '', title: name };
   }
 
+  // Assign test MIK data based on file index for variety
+  const testKeys = ['Am', 'Cm', 'Gm', 'Dm', 'F', 'C', 'Em', 'Bm', 'F#m', 'A#m', 'Ebm', 'G#'];
+  const testBpms = [120, 122, 124, 125, 126, 128, 130, 132, 118, 115, 127, 129];
+  const testEnergies = [3, 4, 5, 6, 6, 7, 7, 8, 8, 9, 5, 6];
+
+  // Write TKEY + TXXX:EnergyLevel + TBPM to test MP3s using node-id3
+  let NodeID3: any;
+  try {
+    NodeID3 = await import('node-id3').then(m => m.default || m);
+  } catch {
+    console.warn('[test-setup] node-id3 not available, skipping MIK tag writes');
+  }
+
   const insertAll = db.transaction(() => {
-    for (const filePath of mp3Files) {
+    for (let i = 0; i < mp3Files.length; i++) {
+      const filePath = mp3Files[i];
       const filename = path.basename(filePath);
       const fileSize = fs.statSync(filePath).size;
       const parsed = parseFilename(filename);
-      insertStmt.run(filePath, filename, parsed.artist || null, parsed.title || null, null, null, fileSize);
+      const key = testKeys[i % testKeys.length];
+      const camelotKey = testStandardToCamelot(key);
+      const bpm = testBpms[i % testBpms.length];
+      const energy = testEnergies[i % testEnergies.length];
+
+      insertStmt.run(
+        filePath, filename, parsed.artist || null, parsed.title || null,
+        null, null, fileSize, key, camelotKey, bpm, energy, null
+      );
     }
   });
   insertAll();
+
+  // Write MIK-style tags to actual test MP3 files (outside DB transaction)
+  if (NodeID3) {
+    let written = 0;
+    for (let i = 0; i < mp3Files.length; i++) {
+      const filePath = mp3Files[i];
+      const key = testKeys[i % testKeys.length];
+      const bpm = testBpms[i % testBpms.length];
+      const energy = testEnergies[i % testEnergies.length];
+      try {
+        NodeID3.update({
+          initialKey: key,
+          bpm: String(bpm),
+          userDefinedText: [
+            { description: 'EnergyLevel', value: String(energy) },
+          ],
+        }, filePath);
+        written++;
+      } catch (e: any) {
+        console.warn(`[test-setup] Failed to write MIK tags to ${path.basename(filePath)}: ${e.message}`);
+      }
+    }
+    console.log(`[test-setup] Wrote MIK tags to ${written}/${mp3Files.length} files`);
+  }
 
   // Clear stale moodboard data so tests start fresh
   db.prepare('DELETE FROM moodboard_edges').run();

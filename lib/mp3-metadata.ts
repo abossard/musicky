@@ -3,6 +3,7 @@ import * as mm from 'music-metadata';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { artworkCache } from './artwork-cache';
+import { standardToCamelot } from './camelot';
 
 // Try dynamic import for node-id3 to handle CommonJS/ESM issues
 const getNodeID3 = async () => {
@@ -71,6 +72,11 @@ export interface MP3Metadata {
   artwork?: AlbumArtwork;
   artworkDataUrl?: string; // Base64 data URL for frontend display
   muspiTag?: MusickTagData; // Musicky-managed TXXX tag data
+  key?: string;            // Musical key from TKEY (standard notation, e.g. "Gm", "C#m")
+  camelotKey?: string;     // Camelot notation converted from key (e.g. "6A", "12A")
+  bpm?: number;            // BPM from TBPM frame
+  energyLevel?: number;    // Energy level (1-10) from TXXX:EnergyLevel (Mixed In Key)
+  label?: string;          // Record label from TXXX:LABEL
 }
 
 export interface PendingEdit {
@@ -100,6 +106,9 @@ export class MP3MetadataManager {
       // Extract Musicky TXXX tags from native ID3v2 frames
       const muspiTag = this.extractMusickTags(metadata);
 
+      // Extract Mixed In Key / Beatport attributes
+      const { energyLevel, label } = this.extractTxxxAttributes(metadata);
+
       const result: MP3Metadata = {
         filePath,
         title: metadata.common.title,
@@ -116,6 +125,11 @@ export class MP3MetadataManager {
         format: metadata.format.container,
         fileSize: stats.size,
         muspiTag: muspiTag || undefined,
+        key: metadata.common.key || undefined,
+        camelotKey: metadata.common.key ? (standardToCamelot(metadata.common.key) ?? undefined) : undefined,
+        bpm: metadata.common.bpm || undefined,
+        energyLevel,
+        label,
       };
       
       // Try to get artwork from cache first
@@ -281,6 +295,40 @@ export class MP3MetadataManager {
     }
 
     return Object.keys(tagData).length > 0 ? tagData : null;
+  }
+
+  /**
+   * Extract Mixed In Key and store metadata from TXXX frames.
+   * - TXXX:EnergyLevel → energy level (1-10), written by Mixed In Key
+   * - TXXX:LABEL → record label, written by Beatport/stores
+   */
+  private extractTxxxAttributes(metadata: mm.IAudioMetadata): {
+    energyLevel?: number;
+    label?: string;
+  } {
+    const nativeFrames = metadata.native['ID3v2.4'] || metadata.native['ID3v2.3'] || metadata.native['ID3v2.2'];
+    if (!nativeFrames) return {};
+
+    let energyLevel: number | undefined;
+    let label: string | undefined;
+
+    for (const frame of nativeFrames) {
+      const val = typeof frame.value === 'string' ? frame.value : '';
+      switch (frame.id) {
+        case 'TXXX:EnergyLevel': {
+          const parsed = parseInt(val, 10);
+          if (!isNaN(parsed) && parsed >= 1 && parsed <= 10) {
+            energyLevel = parsed;
+          }
+          break;
+        }
+        case 'TXXX:LABEL':
+          if (val.trim()) label = val.trim();
+          break;
+      }
+    }
+
+    return { energyLevel, label };
   }
 
   /**

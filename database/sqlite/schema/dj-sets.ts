@@ -44,9 +44,22 @@ client.exec(`
     duration INTEGER,
     file_size INTEGER,
     last_modified DATETIME,
-    indexed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    indexed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    key TEXT,
+    camelot_key TEXT,
+    bpm REAL,
+    energy_level INTEGER,
+    label TEXT
   );
 `);
+
+// Add new columns if they don't exist (for existing databases)
+const cacheColumns = (client.pragma('table_info(mp3_file_cache)') as { name: string }[]).map(c => c.name);
+if (!cacheColumns.includes('key')) client.exec('ALTER TABLE mp3_file_cache ADD COLUMN key TEXT');
+if (!cacheColumns.includes('camelot_key')) client.exec('ALTER TABLE mp3_file_cache ADD COLUMN camelot_key TEXT');
+if (!cacheColumns.includes('bpm')) client.exec('ALTER TABLE mp3_file_cache ADD COLUMN bpm REAL');
+if (!cacheColumns.includes('energy_level')) client.exec('ALTER TABLE mp3_file_cache ADD COLUMN energy_level INTEGER');
+if (!cacheColumns.includes('label')) client.exec('ALTER TABLE mp3_file_cache ADD COLUMN label TEXT');
 
 // Create indexes for performance
 client.exec(`
@@ -118,12 +131,12 @@ export const reorderSetItems = `
 // SQL queries for MP3 file cache
 export const insertMP3Cache = `
   INSERT OR REPLACE INTO mp3_file_cache 
-  (file_path, filename, artist, title, album, duration, file_size, last_modified)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+  (file_path, filename, artist, title, album, duration, file_size, last_modified, key, camelot_key, bpm, energy_level, label)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 `;
 
 export const searchMP3Cache = `
-  SELECT file_path, filename, artist, title, album, duration
+  SELECT file_path, filename, artist, title, album, duration, key, camelot_key, bpm, energy_level, label
   FROM mp3_file_cache
   WHERE (artist LIKE ? OR title LIKE ? OR filename LIKE ?)
   ORDER BY 
@@ -137,7 +150,7 @@ export const searchMP3Cache = `
 `;
 
 export const getMP3CacheByPath = `
-  SELECT file_path, filename, artist, title, album, duration, last_modified
+  SELECT file_path, filename, artist, title, album, duration, last_modified, key, camelot_key, bpm, energy_level, label
   FROM mp3_file_cache
   WHERE file_path = ?;
 `;

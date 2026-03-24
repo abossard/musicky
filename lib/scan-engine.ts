@@ -20,6 +20,11 @@ export interface ScannedSong {
   artist?: string;
   album?: string;
   duration?: number;
+  key?: string;
+  camelotKey?: string;
+  bpm?: number;
+  energyLevel?: number;
+  label?: string;
   tags: { label: string; category: 'genre' | 'phase' | 'mood' | 'topic' | 'custom' }[];
   relatedSongs: { title: string; artist: string; type: string; weight: number }[];
 }
@@ -87,6 +92,11 @@ export async function scanSingleFile(
     artist: meta.artist,
     album: meta.album,
     duration: meta.duration,
+    key: meta.key,
+    camelotKey: meta.camelotKey,
+    bpm: meta.bpm,
+    energyLevel: meta.energyLevel,
+    label: meta.label,
     tags,
     relatedSongs,
   };
