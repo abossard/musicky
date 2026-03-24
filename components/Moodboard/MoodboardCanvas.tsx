@@ -62,6 +62,7 @@ interface MoodboardCanvasProps {
   onSelectedSongKeyChange?: (key: string | null) => void;
   scrollToNodeRef?: React.MutableRefObject<((nodeId: string) => void) | null>;
   onMergeTags?: (keepNodeId: string, removeNodeId: string) => void;
+  onReassignSongTag?: (filePath: string, newTagLabel: string, category: string) => void;
 }
 
 function injectCallbacks(
@@ -112,7 +113,7 @@ export function MoodboardCanvas({
   onConnect, onNodeDelete, onEdgeDelete, onEdgeWeightChange, onEdgeTypeChange,
   onSearchOpen, onAddTag, onPlaySong, onHoverPlaySong, onNodesUpdate, onAddSong,
   onSongSelect, onSelectedSongKeyChange,
-  scrollToNodeRef, onMergeTags,
+  scrollToNodeRef, onMergeTags, onReassignSongTag,
 }: MoodboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pendingConnectionRef = useRef<PendingConnection | null>(null);
@@ -128,6 +129,7 @@ export function MoodboardCanvas({
   const [smartNodePadding, setSmartNodePadding] = useState(15);
   const [smartGridRatio, setSmartGridRatio] = useState(10);
   const [bundleConfig, setBundleConfig] = useState<BundleConfig>(DEFAULT_BUNDLE_CONFIG);
+  const [dragOverContainerId, setDragOverContainerId] = useState<string | null>(null);
 
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
@@ -318,7 +320,7 @@ export function MoodboardCanvas({
       return { viewNodes: filteredNodes, viewEdges: filteredEdges };
     }
 
-    // Inject callbacks into the pure result
+    // Inject callbacks and drop-target state into the pure result
     const vn = containerResult.viewNodes.map(n => {
       if (n.type === 'song') {
         return {
@@ -333,11 +335,14 @@ export function MoodboardCanvas({
       if (n.type === 'tag') {
         return { ...n, data: { ...n.data, onFilterToggle: toggleFilter, isFilterActive: false } };
       }
+      if (n.type === 'container') {
+        return { ...n, data: { ...n.data, isDropTarget: n.id === dragOverContainerId } };
+      }
       return n;
     });
 
     return { viewNodes: vn, viewEdges: containerResult.viewEdges };
-  }, [viewMode, filteredNodes, filteredEdges, nodes, edges, onPlaySong, onHoverPlaySong, toggleFilter]);
+  }, [viewMode, filteredNodes, filteredEdges, nodes, edges, onPlaySong, onHoverPlaySong, toggleFilter, dragOverContainerId]);
 
   const handleConnect = useCallback(async (connection: Connection) => {
     await createEdge(connection);
@@ -468,6 +473,67 @@ export function MoodboardCanvas({
     }
   }, [onSongSelect]);
 
+  // Container drag: track which container a song hovers over during drag
+  const handleNodeDrag = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (viewMode === 'free' || node.type !== 'song') {
+      if (dragOverContainerId) setDragOverContainerId(null);
+      return;
+    }
+
+    const containerNodes = viewNodes.filter(n => n.type === 'container');
+    const songCenterX = node.position.x + 75;
+    const songCenterY = node.position.y + 75;
+
+    let hoveredId: string | null = null;
+    for (const container of containerNodes) {
+      const cData = container.data as any;
+      const cx = container.position.x;
+      const cy = container.position.y;
+      if (songCenterX >= cx && songCenterX <= cx + (cData.width || 400) &&
+          songCenterY >= cy && songCenterY <= cy + (cData.height || 300)) {
+        hoveredId = container.id;
+        break;
+      }
+    }
+    setDragOverContainerId(hoveredId);
+  }, [viewMode, viewNodes, dragOverContainerId]);
+
+  // Container drag: reassign tag on drop
+  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (viewMode === 'free' || node.type !== 'song') {
+      setDragOverContainerId(null);
+      return;
+    }
+
+    const category = viewMode as string;
+    const songFilePath = (node.data as any)?.filePath;
+    if (!songFilePath) {
+      setDragOverContainerId(null);
+      return;
+    }
+
+    const containerNodes = viewNodes.filter(n => n.type === 'container');
+    const songCenterX = node.position.x + 75;
+    const songCenterY = node.position.y + 75;
+
+    for (const container of containerNodes) {
+      const cData = container.data as any;
+      const cx = container.position.x;
+      const cy = container.position.y;
+      const cw = cData.width || 400;
+      const ch = cData.height || 300;
+
+      if (songCenterX >= cx && songCenterX <= cx + cw &&
+          songCenterY >= cy && songCenterY <= cy + ch) {
+        const targetLabel = cData.label;
+        if (targetLabel === 'Uncategorized') break;
+        onReassignSongTag?.(songFilePath, targetLabel, category);
+        break;
+      }
+    }
+    setDragOverContainerId(null);
+  }, [viewMode, viewNodes, onReassignSongTag]);
+
   const handleDragOver = useCallback((event: React.DragEvent) => {
     if (event.dataTransfer.types.includes('application/x-moodboard-song')) {
       event.preventDefault();
@@ -522,6 +588,8 @@ export function MoodboardCanvas({
         onPaneClick={handlePaneClick}
         onNodeContextMenu={handleNodeContextMenu}
         onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeDrag={handleNodeDrag}
+        onNodeDragStop={handleNodeDragStop}
         connectionLineComponent={connectionLineComponent}
         defaultViewport={viewport}
         onMoveEnd={(_event, vp) => onViewportChange(vp)}

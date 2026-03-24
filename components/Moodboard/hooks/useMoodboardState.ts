@@ -483,12 +483,61 @@ export function useMoodboardState(currentPlayingPath?: string | null) {
     }));
   };
 
+  const reassignSongTag = useCallback(async (filePath: string, newTagLabel: string, category: string) => {
+    const songNodeId = `song:${filePath}`;
+
+    // Find current tag edge of this category for this song
+    const currentTagEdge = edges.find(e => {
+      const connectsSong = e.source === songNodeId || e.target === songNodeId;
+      if (!connectsSong) return false;
+      const otherNodeId = e.source === songNodeId ? e.target : e.source;
+      const otherNode = nodes.find(n => n.id === otherNodeId);
+      return otherNode?.type === 'tag' && (otherNode.data as any)?.category === category;
+    });
+
+    if (currentTagEdge) {
+      const oldTagNodeId = currentTagEdge.source === songNodeId ? currentTagEdge.target : currentTagEdge.source;
+      const oldTagData = nodes.find(n => n.id === oldTagNodeId)?.data as any;
+      if (oldTagData?.label === newTagLabel) return; // Already in this container
+      await onRemoveSongTag(filePath, oldTagData.label, category);
+    }
+
+    await onAddSongTag(filePath, newTagLabel, category);
+
+    setEdges(eds => {
+      // Remove old edge for this category
+      const filtered = eds.filter(e => {
+        if (e.source !== songNodeId && e.target !== songNodeId) return true;
+        const otherNodeId = e.source === songNodeId ? e.target : e.source;
+        const otherNode = nodes.find(n => n.id === otherNodeId);
+        return !(otherNode?.type === 'tag' && (otherNode.data as any)?.category === category);
+      });
+
+      // Add new edge
+      const newTagNodeId = `tag:${category}:${newTagLabel}`;
+      filtered.push({
+        id: `tag-edge:${filePath}:${category}:${newTagLabel}`,
+        source: songNodeId,
+        target: newTagNodeId,
+        type: 'weighted',
+        data: {
+          edgeType: category as EdgeType,
+          weight: 1,
+          directed: false,
+        } satisfies MoodboardEdgeData as any,
+      });
+
+      return filtered;
+    });
+  }, [edges, nodes, setEdges]);
+
   return {
     nodes, edges, viewport, loading, saveStatus,
     onNodesChange: handleNodesChange,
     onEdgesChange,
     onViewportChange: handleViewportChange,
     addSong, addTag, removeNode, connectNodes, removeEdge, setEdgeWeight, setEdgeType, mergeTags,
+    reassignSongTag,
     checkSongOnBoard, searchSongs: searchSongsForBoard, setNodes, saveNow,
     reload: loadState,
   };

@@ -271,6 +271,7 @@ export function MoodboardPage() {
               onSelectedSongKeyChange={setSelectedCanvasKey}
               scrollToNodeRef={scrollToNodeRef}
               onMergeTags={moodboard.mergeTags}
+              onReassignSongTag={moodboard.reassignSongTag}
             />
           </ReactFlowProvider>
 

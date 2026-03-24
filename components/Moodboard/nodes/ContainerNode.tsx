@@ -11,6 +11,7 @@ export interface ContainerNodeData {
   childCount: number;
   width: number;
   height: number;
+  isDropTarget?: boolean;
 }
 
 function ContainerNode({ data }: NodeProps) {
@@ -26,7 +27,11 @@ function ContainerNode({ data }: NodeProps) {
       borderRadius: 16,
       border: `4px solid ${borderColor}`,
       backgroundColor: '#1e1f25',
-      boxShadow: `0 0 30px ${borderColor}55`,
+      boxShadow: d.isDropTarget
+        ? `0 0 30px ${borderColor}, 0 0 60px ${borderColor}55`
+        : `0 0 30px ${borderColor}55`,
+      transform: d.isDropTarget ? 'scale(1.02)' : undefined,
+      transition: 'box-shadow 0.2s ease, transform 0.2s ease',
       overflow: 'hidden',
     }}>
       <Group
