@@ -73,6 +73,8 @@ export function transformToContainerView(
       id: def.id,
       type: 'container',
       position: { x: containerX, y: containerY },
+      draggable: false,
+      selectable: false,
       data: {
         label: (def.tag.data as any)?.label || 'Tag',
         category: (def.tag.data as any)?.category || category,
@@ -108,6 +110,7 @@ export function transformToContainerView(
       allChildNodes.push({
         ...song,
         position: { x: cp.x + PADDING + col * SONG_TILE, y: cp.y + HEADER + PADDING + row * SONG_TILE },
+        draggable: true,
         data: { ...song.data, filterState: 'normal' },
         zIndex: 200,
       });
