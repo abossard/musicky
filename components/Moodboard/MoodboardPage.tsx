@@ -329,7 +329,7 @@ export function MoodboardPage() {
         <SettingsDrawer
           onClose={() => setSettingsDrawerOpen(false)}
           onScanComplete={() => {}}
-          onPhasesChanged={() => {}}
+
         />
       </Drawer>
 

@@ -1,13 +1,4 @@
-import { savePhases, readPhases, saveKeepPlayHead, readKeepPlayHead } from '../database/sqlite/queries/library-settings';
-import type { SetPhase } from '../lib/set-phase';
-
-export async function onGetPhases(): Promise<SetPhase[]> {
-  return readPhases();
-}
-
-export async function onSetPhases(phases: SetPhase[]): Promise<void> {
-  savePhases(phases);
-}
+import { saveKeepPlayHead, readKeepPlayHead } from '../database/sqlite/queries/library-settings';
 
 export async function onGetKeepPlayHead(): Promise<boolean> {
   return readKeepPlayHead();

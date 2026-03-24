@@ -1,55 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
-  Stack, Group, TextInput, Button, ActionIcon, Switch,
+  Stack, Group, TextInput, Button, Switch,
   Divider, Text, Badge, Loader, Alert,
 } from '@mantine/core';
 import {
-  IconFolderOpen, IconRefresh, IconPlus, IconTrash, IconGripVertical,
+  IconFolderOpen, IconRefresh,
 } from '@tabler/icons-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor,
-  useSensor, useSensors, type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove, SortableContext, sortableKeyboardCoordinates,
-  verticalListSortingStrategy, useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
-import { onGetPhases, onSetPhases, onGetKeepPlayHead, onSetKeepPlayHead } from '../Settings.telefunc';
+import { onGetKeepPlayHead, onSetKeepPlayHead } from '../Settings.telefunc';
 import { onGetBaseFolder, onSetBaseFolder, onScanLibrary } from './MoodboardPage.telefunc';
 import { showSuccess, showError } from '../../lib/notifications';
-import type { SetPhase } from '../../lib/set-phase';
-import { stringToSetPhase } from '../../lib/set-phase';
 import './SettingsDrawer.css';
 
 export interface SettingsDrawerProps {
   onClose?: () => void;
   onScanComplete?: () => void;
-  onPhasesChanged?: () => void;
-}
-
-// ---------- Sortable phase row ----------
-function SortablePhaseRow({
-  id, phase, onRemove, disabled,
-}: {
-  id: string; phase: string; onRemove: (p: string) => void; disabled?: boolean;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
-  const style = transform ? { transform: CSS.Transform.toString(transform), transition } : {};
-
-  return (
-    // eslint-disable-next-line react/forbid-dom-props
-    <li ref={setNodeRef} style={style} className={`phase-item ${isDragging ? 'dragging' : ''}`} {...attributes}>
-      <span className="phase-drag-handle" {...listeners} title="Drag to reorder">
-        <IconGripVertical size={16} />
-      </span>
-      <span className="phase-name">{phase}</span>
-      <ActionIcon size="sm" variant="subtle" color="red" onClick={() => onRemove(phase)} disabled={disabled} title={`Remove ${phase}`}>
-        <IconTrash size={14} />
-      </ActionIcon>
-    </li>
-  );
 }
 
 // ---------- Main component ----------
@@ -60,7 +25,7 @@ interface ScanResult {
   removedFiles: number;
 }
 
-export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChanged }: SettingsDrawerProps) {
+export function SettingsDrawer({ onClose: _onClose, onScanComplete }: SettingsDrawerProps) {
   // Base folder
   const [baseFolder, setBaseFolder] = useState<string | null>(null);
   const [folderInput, setFolderInput] = useState('');
@@ -71,33 +36,21 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  // Phases
-  const [phases, setPhases] = useState<SetPhase[]>([]);
-  const [newPhase, setNewPhase] = useState('');
-  const [savingPhases, setSavingPhases] = useState(false);
-
   // Playback
   const [keepPlayHead, setKeepPlayHead] = useState(false);
 
   // General
   const [loading, setLoading] = useState(true);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
   // Load all settings on mount
   useEffect(() => {
     Promise.all([
       onGetBaseFolder(),
-      onGetPhases(),
       onGetKeepPlayHead(),
     ])
-      .then(([folder, ph, kph]) => {
+      .then(([folder, kph]) => {
         setBaseFolder(folder);
         setFolderInput(folder ?? '');
-        setPhases(ph);
         setKeepPlayHead(kph);
       })
       .catch(console.error)
@@ -138,45 +91,6 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
     } finally {
       setScanning(false);
     }
-  };
-
-  // ---- Phases ----
-  const persistPhases = async (next: SetPhase[]) => {
-    setSavingPhases(true);
-    try {
-      await onSetPhases(next);
-      onPhasesChanged?.();
-    } catch (err) {
-      console.error('Failed to save phases:', err);
-    } finally {
-      setSavingPhases(false);
-    }
-  };
-
-  const handleAddPhase = () => {
-    const trimmed = newPhase.trim();
-    if (!trimmed || phases.some(p => p.name === trimmed)) return;
-    const next = [...phases, stringToSetPhase(trimmed)];
-    setPhases(next);
-    setNewPhase('');
-    persistPhases(next);
-  };
-
-  const handleRemovePhase = (p: string) => {
-    const next = phases.filter(x => x.name !== p);
-    setPhases(next);
-    persistPhases(next);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIdx = phases.findIndex(p => p.id === active.id);
-    const newIdx = phases.findIndex(p => p.id === over.id);
-    if (oldIdx === -1 || newIdx === -1) return;
-    const next = arrayMove(phases, oldIdx, newIdx);
-    setPhases(next);
-    persistPhases(next);
   };
 
   // ---- Playback ----
@@ -254,48 +168,6 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete, onPhasesChan
             {scanResult.removedFiles > 0 && <Badge size="sm" color="red" variant="light">{scanResult.removedFiles} removed</Badge>}
           </Group>
         )}
-      </Stack>
-
-      {/* ── Phase Management ── */}
-      <Stack gap="xs">
-        <Text className="section-title" c="dimmed">Phase Management</Text>
-        <Divider />
-
-        {phases.length === 0 ? (
-          <Text size="sm" c="dimmed" fs="italic">No phases configured yet.</Text>
-        ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={phases.map(p => p.id)} strategy={verticalListSortingStrategy}>
-              <ul className="phase-list">
-                {phases.map(p => (
-                  <SortablePhaseRow key={p.id} id={p.id} phase={p.name} onRemove={handleRemovePhase} disabled={savingPhases} />
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
-        )}
-
-        <Group gap="xs">
-          <TextInput
-            flex={1}
-            size="xs"
-            placeholder="New phase name…"
-            value={newPhase}
-            onChange={e => setNewPhase(e.currentTarget.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAddPhase()}
-            disabled={savingPhases}
-          />
-          <ActionIcon
-            size="input-xs"
-            variant="light"
-            color="violet"
-            onClick={handleAddPhase}
-            disabled={!newPhase.trim() || phases.some(p => p.name === newPhase.trim()) || savingPhases}
-            title="Add phase"
-          >
-            <IconPlus size={14} />
-          </ActionIcon>
-        </Group>
       </Stack>
 
       {/* ── Playback ── */}

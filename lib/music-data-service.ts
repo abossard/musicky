@@ -131,8 +131,7 @@ export class MusicDataService {
     
     this.setLoading('phases', true);
     try {
-      const { onGetPhases } = await import('../components/Settings.telefunc');
-      this.cache.phases = (await onGetPhases()).map(p => p.name);
+      this.cache.phases = [];
     } finally {
       this.setLoading('phases', false);
     }

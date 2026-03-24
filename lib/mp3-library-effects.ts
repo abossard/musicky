@@ -8,7 +8,7 @@ import {
   onRejectPendingEdit,
   onGetSingleMP3File
 } from '../components/MP3Library.telefunc';
-import { onGetPhases, onGetKeepPlayHead } from '../components/Settings.telefunc';
+import { onGetKeepPlayHead } from '../components/Settings.telefunc';
 import { getEffectiveComment, extractPhases, togglePhase } from './mp3-data-utils';
 
 export const useDataLoader = (dispatch: React.Dispatch<MP3LibraryAction>) => {
@@ -17,16 +17,15 @@ export const useDataLoader = (dispatch: React.Dispatch<MP3LibraryAction>) => {
       dispatch({ type: 'SET_LOADING', loading: true });
       dispatch({ type: 'SET_ERROR', error: null });
       
-      const [scanResult, availablePhases, edits] = await Promise.all([
+      const [scanResult, edits] = await Promise.all([
         onGetAllMP3Files(),
-        onGetPhases(),
         onGetPendingEdits()
       ]);
       
       dispatch({
         type: 'SET_DATA',
         mp3Files: scanResult.files,
-        phases: availablePhases.map(p => p.name),
+        phases: [],
         pendingEdits: edits
       });
     } catch (err) {
