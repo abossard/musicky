@@ -288,33 +288,9 @@ export function MoodboardPage() {
                 <IconLayoutSidebar size={14} />
               </ActionIcon>
             </Tooltip>
-            <Tooltip label={playlistPanelOpen ? 'Hide Playlist (⌘P)' : 'Show Playlist (⌘P)'} position="bottom">
-              <ActionIcon size="sm" variant={playlistPanelOpen ? 'filled' : 'subtle'} color="violet"
-                onClick={() => setPlaylistPanelOpen(v => !v)} data-testid="toolbar-toggle-playlist">
-                <IconPlaylist size={14} />
-              </ActionIcon>
-            </Tooltip>
             <Tooltip label="Settings (⌘,)" position="bottom">
               <ActionIcon size="sm" variant="subtle" onClick={() => setSettingsDrawerOpen(true)} data-testid="toolbar-settings">
                 <IconSettings size={14} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Revision History" position="bottom">
-              <ActionIcon size="sm" variant="subtle" onClick={() => setRevisionBrowserOpen(true)} data-testid="revision-badge">
-                <Group gap={2} wrap="nowrap">
-                  <IconHistory size={14} />
-                  {revisionCount > 0 && <Text size="xs" c="dimmed" span>v{revisionCount}</Text>}
-                </Group>
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Review Changes" position="bottom">
-              <ActionIcon size="sm" variant="subtle" onClick={() => setReviewDrawerOpen(true)} data-testid="toolbar-review">
-                <IconChecklist size={14} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label={isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)'} position="bottom">
-              <ActionIcon size="sm" variant="subtle" onClick={toggleFullscreen}>
-                {isFullscreen ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
               </ActionIcon>
             </Tooltip>
           </Group>
