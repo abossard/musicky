@@ -4,9 +4,13 @@ import {
   generateImportDiff,
   generateBulkExportDiff,
   generateBulkImportDiff,
+  generateBulkVDJExportDiff,
+  getMoodboardTagsForSong,
+  getMoodboardRelatedSongs,
   type FileDiffSummary,
   type TagDiff,
 } from '../lib/tag-sync-engine';
+import { DEFAULT_VDJ_OPTIONS } from '../lib/mp3-metadata';
 import {
   addTagEdit,
   getPendingTagEdits,
@@ -762,6 +766,62 @@ export async function onGetConflicts(filePaths?: string[]): Promise<ConflictInfo
   }
 
   return conflicts;
+}
+
+// ─── VDJ Export: Moodboard → Standard ID3 Frames (TCON, COMM, TIT1) ──────
+
+/**
+ * Preview VDJ export: generate diffs showing what TCON, COMM, TIT1 would change.
+ */
+export async function onPreviewVDJExport(): Promise<FileDiffSummary[]> {
+  return generateBulkVDJExportDiff();
+}
+
+/**
+ * Apply VDJ export: write VDJ-compatible tags (TCON, COMM, TIT1, µ: TXXX) to files.
+ */
+export async function onApplyVDJExport(filePaths: string[]): Promise<{
+  success: number;
+  failed: number;
+  errors: string[];
+}> {
+  let success = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const filePath of filePaths) {
+    try {
+      const moodboardTags = getMoodboardTagsForSong(filePath);
+      const relatedSongs = getMoodboardRelatedSongs(filePath);
+
+      // Read existing metadata for energy/key (preserved from file)
+      const metadata = await mp3Manager.readMetadata(filePath);
+
+      await mp3Manager.writeVDJTags(filePath, {
+        genres: moodboardTags.genres,
+        phases: moodboardTags.phases,
+        moods: moodboardTags.moods,
+        tags: moodboardTags.custom,
+        energyLevel: metadata.energyLevel,
+        camelotKey: metadata.camelotKey,
+        relatedSongs: relatedSongs.map(r => ({ artist: r.artist, title: r.title })),
+      }, DEFAULT_VDJ_OPTIONS);
+
+      // Log each written field to history
+      const fieldsWritten = ['genre', 'comment', 'grouping'];
+      for (const field of fieldsWritten) {
+        addTagHistory(filePath, field, '', '(VDJ export)', 'export');
+      }
+
+      success++;
+    } catch (err) {
+      failed++;
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      errors.push(`${filePath}: ${msg}`);
+    }
+  }
+
+  return { success, failed, errors };
 }
 
 /**

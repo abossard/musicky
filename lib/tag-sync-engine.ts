@@ -1,4 +1,4 @@
-import { MP3MetadataManager, type MP3Metadata, type MusickTagData, type MusickRelatedSong, MUSICK_TAG_PREFIX } from './mp3-metadata';
+import { MP3MetadataManager, type MP3Metadata, type MusickTagData, type MusickRelatedSong, MUSICK_TAG_PREFIX, DEFAULT_VDJ_OPTIONS } from './mp3-metadata';
 import { getNodes, getEdges, type MoodboardNodeRow, type MoodboardEdgeRow } from '../database/sqlite/queries/moodboard';
 import { db } from '../database/sqlite/db';
 
@@ -29,7 +29,7 @@ const mp3Manager = new MP3MetadataManager();
  * Gather all tag-category labels attached to a song across all moodboards.
  * Returns categorized tags from moodboard edges (song→tag connections).
  */
-function getMoodboardTagsForSong(songPath: string): {
+export function getMoodboardTagsForSong(songPath: string): {
   genres: string[];
   phases: string[];
   moods: string[];
@@ -92,7 +92,7 @@ function getMoodboardTagsForSong(songPath: string): {
 /**
  * Get related songs from moodboard edges (song↔song connections).
  */
-function getMoodboardRelatedSongs(songPath: string): MusickRelatedSong[] {
+export function getMoodboardRelatedSongs(songPath: string): MusickRelatedSong[] {
   const related: MusickRelatedSong[] = [];
 
   const songNodes = db().prepare(
@@ -326,4 +326,155 @@ function extractPhasesFromComment(comment?: string): string[] {
   const matches = comment.match(/#(\w+)/g);
   if (!matches) return [];
   return matches.map(m => m.slice(1).toLowerCase());
+}
+
+// ─── VDJ Export Diff ──────────────────────────────────────────────────────
+
+/**
+ * Build the structured comment string that writeVDJTags would produce.
+ * Mirrors the logic in MP3MetadataManager.writeVDJTags() for 'structured' format.
+ */
+function buildVDJComment(data: {
+  phases?: string[];
+  energyLevel?: number;
+  camelotKey?: string;
+  moods?: string[];
+  relatedSongs?: { artist: string; title: string }[];
+  tags?: string[];
+}): string {
+  const parts: string[] = [];
+  if (data.phases?.length)        parts.push(`[Phase:${data.phases.join(',')}]`);
+  if (data.energyLevel != null)   parts.push(`[Energy:${data.energyLevel}]`);
+  if (data.camelotKey)            parts.push(`[Key:${data.camelotKey}]`);
+  if (data.moods?.length)         parts.push(`[Mood:${data.moods.join(',')}]`);
+  if (data.relatedSongs?.length) {
+    const rel = data.relatedSongs.map(s => `${s.artist} - ${s.title}`).join(', ');
+    parts.push(`[Related:${rel}]`);
+  }
+  if (data.tags?.length)          parts.push(`[Tags:${data.tags.join(',')}]`);
+  return parts.join(' ');
+}
+
+/**
+ * Build the grouping string that writeVDJTags would produce.
+ * Mirrors the TIT1 format: `E{energy} // {moods} // {phases} // {key}`
+ */
+function buildVDJGrouping(data: {
+  energyLevel?: number;
+  moods?: string[];
+  phases?: string[];
+  camelotKey?: string;
+}): string {
+  const groupParts: string[] = [];
+  if (data.energyLevel != null) groupParts.push(`E${data.energyLevel}`);
+  if (data.moods?.length)       groupParts.push(data.moods.join(','));
+  if (data.phases?.length)      groupParts.push(data.phases.join(','));
+  if (data.camelotKey)          groupParts.push(data.camelotKey);
+  return groupParts.join(' // ');
+}
+
+/**
+ * Generate VDJ-specific export diffs for a single file.
+ * Compares what writeVDJTags() would write (TCON, COMM, TIT1)
+ * against what's currently in the file.
+ */
+export async function generateVDJExportDiff(filePath: string): Promise<TagDiff[]> {
+  const metadata = await mp3Manager.readMetadata(filePath);
+  const moodboardTags = getMoodboardTagsForSong(filePath);
+  const relatedSongs = getMoodboardRelatedSongs(filePath);
+  const diffs: TagDiff[] = [];
+
+  const opts = DEFAULT_VDJ_OPTIONS;
+
+  // Prepare the data that writeVDJTags would receive
+  const vdjData = {
+    genres: moodboardTags.genres,
+    phases: moodboardTags.phases,
+    moods: moodboardTags.moods,
+    tags: moodboardTags.custom,
+    energyLevel: metadata.energyLevel,
+    camelotKey: metadata.camelotKey,
+    relatedSongs: relatedSongs.map(r => ({ artist: r.artist, title: r.title })),
+  };
+
+  // 1. Genre (TCON) — semicolon-separated
+  if (opts.writeGenre && vdjData.genres.length > 0) {
+    const proposedGenre = vdjData.genres.join('; ');
+    const currentGenre = metadata.genre?.join('; ') || '';
+    if (currentGenre !== proposedGenre) {
+      diffs.push({
+        filePath,
+        fieldName: 'genre',
+        currentValue: currentGenre,
+        proposedValue: proposedGenre,
+        direction: 'export',
+      });
+    }
+  }
+
+  // 2. Comment (COMM) — structured format (without existing-comment preservation in diff)
+  if (opts.writeComment) {
+    const proposedComment = buildVDJComment(vdjData);
+    if (proposedComment) {
+      const currentComment = metadata.comment || '';
+      if (currentComment !== proposedComment) {
+        diffs.push({
+          filePath,
+          fieldName: 'comment',
+          currentValue: currentComment,
+          proposedValue: proposedComment,
+          direction: 'export',
+        });
+      }
+    }
+  }
+
+  // 3. Grouping (TIT1) — quick-scan format
+  if (opts.writeGrouping) {
+    const proposedGrouping = buildVDJGrouping(vdjData);
+    if (proposedGrouping) {
+      const currentGrouping = metadata.grouping || '';
+      if (currentGrouping !== proposedGrouping) {
+        diffs.push({
+          filePath,
+          fieldName: 'grouping',
+          currentValue: currentGrouping,
+          proposedValue: proposedGrouping,
+          direction: 'export',
+        });
+      }
+    }
+  }
+
+  return diffs;
+}
+
+/**
+ * Generate VDJ export diffs for all songs present on any moodboard.
+ */
+export async function generateBulkVDJExportDiff(): Promise<FileDiffSummary[]> {
+  const songRows = db().prepare(
+    "SELECT DISTINCT song_path FROM moodboard_nodes WHERE node_type = 'song' AND song_path IS NOT NULL"
+  ).all() as { song_path: string }[];
+
+  const summaries: FileDiffSummary[] = [];
+
+  for (const row of songRows) {
+    try {
+      const diffs = await generateVDJExportDiff(row.song_path);
+      if (diffs.length > 0) {
+        const meta = await mp3Manager.readMetadata(row.song_path);
+        summaries.push({
+          filePath: row.song_path,
+          title: meta.title,
+          artist: meta.artist,
+          diffs,
+        });
+      }
+    } catch (err) {
+      console.warn(`[TagSync] Failed to generate VDJ export diff for ${row.song_path}:`, err);
+    }
+  }
+
+  return summaries;
 }

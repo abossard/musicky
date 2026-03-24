@@ -77,7 +77,31 @@ export interface MP3Metadata {
   bpm?: number;            // BPM from TBPM frame
   energyLevel?: number;    // Energy level (1-10) from TXXX:EnergyLevel (Mixed In Key)
   label?: string;          // Record label from TXXX:LABEL
+  grouping?: string;       // TIT1 / Content Group Description (VDJ grouping)
 }
+
+/** Options controlling which standard ID3 frames are written for VDJ compatibility */
+export interface VDJExportOptions {
+  writeGenre: boolean;        // Write TCON with semicolons
+  writeComment: boolean;      // Write structured COMM
+  writeGrouping: boolean;     // Write TIT1 with energy/mood/phase
+  writeMusickTags: boolean;   // Write µ: TXXX frames (always recommended)
+  preserveExistingComment: boolean;  // Prepend to existing COMM (default: true)
+  preserveKey: boolean;       // Don't touch TKEY (default: true)
+  preserveEnergy: boolean;    // Don't touch TXXX:EnergyLevel (default: true)
+  commentFormat: 'structured' | 'minimal';
+}
+
+export const DEFAULT_VDJ_OPTIONS: VDJExportOptions = {
+  writeGenre: true,
+  writeComment: true,
+  writeGrouping: true,
+  writeMusickTags: true,
+  preserveExistingComment: true,
+  preserveKey: true,
+  preserveEnergy: true,
+  commentFormat: 'structured',
+};
 
 export interface PendingEdit {
   id: number;
@@ -130,6 +154,7 @@ export class MP3MetadataManager {
         bpm: metadata.common.bpm || undefined,
         energyLevel,
         label,
+        grouping: metadata.common.grouping || undefined,
       };
       
       // Try to get artwork from cache first
@@ -397,6 +422,135 @@ export class MP3MetadataManager {
     } catch (error) {
       const errorMsg = `Failed to write Musicky tags: ${error instanceof Error ? error.message : 'Unknown error'}`;
       console.error(`[MP3Manager] Error in writeTags:`, error);
+      throw new Error(errorMsg);
+    }
+  }
+
+  /**
+   * Write VDJ-compatible ID3 tags (TCON, COMM, TIT1) alongside Musicky TXXX frames.
+   * Never overwrites TKEY, TBPM, or TXXX:EnergyLevel.
+   */
+  async writeVDJTags(
+    filePath: string,
+    data: {
+      genres?: string[];
+      phases?: string[];
+      moods?: string[];
+      energyLevel?: number;
+      camelotKey?: string;
+      relatedSongs?: { artist: string; title: string }[];
+      tags?: string[];
+    },
+    options: VDJExportOptions = DEFAULT_VDJ_OPTIONS
+  ): Promise<void> {
+    try {
+      await fs.access(filePath);
+      const NodeID3 = await getNodeID3();
+
+      // Read existing tags to preserve data we must not overwrite
+      const existingTags = NodeID3.read(filePath, { noRaw: true }) || {};
+
+      const updatePayload: any = {};
+
+      // 1. TCON (Genre) — semicolon-separated for VDJ
+      if (options.writeGenre && data.genres && data.genres.length > 0) {
+        updatePayload.genre = data.genres.join('; ');
+      }
+
+      // 2. COMM (Comment) — structured or minimal
+      if (options.writeComment) {
+        const parts: string[] = [];
+
+        if (options.commentFormat === 'structured') {
+          if (data.phases?.length)  parts.push(`[Phase:${data.phases.join(',')}]`);
+          if (data.energyLevel != null) parts.push(`[Energy:${data.energyLevel}]`);
+          if (data.camelotKey)      parts.push(`[Key:${data.camelotKey}]`);
+          if (data.moods?.length)   parts.push(`[Mood:${data.moods.join(',')}]`);
+          if (data.relatedSongs?.length) {
+            const rel = data.relatedSongs.map(s => `${s.artist} - ${s.title}`).join(', ');
+            parts.push(`[Related:${rel}]`);
+          }
+          if (data.tags?.length)    parts.push(`[Tags:${data.tags.join(',')}]`);
+        } else {
+          // minimal
+          if (data.phases?.length)      parts.push(`Phase:${data.phases[0]}`);
+          if (data.energyLevel != null) parts.push(`E:${data.energyLevel}`);
+          if (data.camelotKey)          parts.push(`Key:${data.camelotKey}`);
+        }
+
+        if (parts.length > 0) {
+          let commentText = parts.join(' ');
+
+          if (options.preserveExistingComment) {
+            let existing = '';
+            if (existingTags.comment) {
+              const c = existingTags.comment;
+              existing = typeof c === 'string' ? c : (c.text ?? '');
+            }
+            if (existing) {
+              commentText = `${commentText} | ${existing}`;
+            }
+          }
+
+          updatePayload.comment = { language: 'eng', text: commentText };
+        }
+      }
+
+      // 3. TIT1 (Grouping / Content Group) — quick-scan format
+      if (options.writeGrouping) {
+        const groupParts: string[] = [];
+        if (data.energyLevel != null) groupParts.push(`E${data.energyLevel}`);
+        if (data.moods?.length)       groupParts.push(data.moods.join(','));
+        if (data.phases?.length)      groupParts.push(data.phases.join(','));
+        if (data.camelotKey)          groupParts.push(data.camelotKey);
+
+        if (groupParts.length > 0) {
+          updatePayload.contentGroupDescription = groupParts.join(' // ');
+        }
+      }
+
+      // 4. µ: TXXX frames via existing writeTags()
+      if (options.writeMusickTags) {
+        // Delegate to writeTags which handles TXXX preservation
+        await this.writeTags(filePath, {
+          genres: data.genres,
+          phases: data.phases,
+          moods: data.moods,
+          tags: data.tags,
+          related: data.relatedSongs?.map(s => ({
+            title: s.title,
+            artist: s.artist,
+            type: 'similarity',
+            weight: 1.0,
+          })),
+        });
+      }
+
+      // Build TXXX preservation for the VDJ payload (keep all existing TXXX intact)
+      if (existingTags.userDefinedText) {
+        const arr = Array.isArray(existingTags.userDefinedText)
+          ? existingTags.userDefinedText
+          : [existingTags.userDefinedText];
+        updatePayload.userDefinedText = arr;
+      }
+
+      // Safety: never include TKEY or TBPM in the update
+      delete updatePayload.initialKey;
+      delete updatePayload.bpm;
+
+      // Only call update if we have standard frames to write
+      const hasStandardFrames = updatePayload.genre || updatePayload.comment || updatePayload.contentGroupDescription;
+      if (hasStandardFrames) {
+        const success = NodeID3.update(updatePayload, filePath);
+        if (!success) {
+          throw new Error('NodeID3.update returned false — failed to write VDJ tags');
+        }
+      }
+
+      console.log(`[MP3Manager] Successfully wrote VDJ tags to: ${filePath}`);
+    } catch (error) {
+      const errorMsg = `Failed to write VDJ tags: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`[MP3Manager] Error in writeVDJTags:`, error);
       throw new Error(errorMsg);
     }
   }
