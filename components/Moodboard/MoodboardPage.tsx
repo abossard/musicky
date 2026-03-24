@@ -189,6 +189,16 @@ export function MoodboardPage() {
     moodboard.addTag(label, category, color, -200 + tagCount * 50, tagCount * 80);
   }, [moodboard]);
 
+  const handleAddAllSongs = useCallback(async (filePaths: string[]) => {
+    const cols = Math.ceil(Math.sqrt(filePaths.length));
+    const spacing = 220;
+    for (let i = 0; i < filePaths.length; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      await moodboard.addSong(filePaths[i], col * spacing, row * spacing);
+    }
+  }, [moodboard]);
+
   const handleSongSelect = useCallback((filePath: string) => {
     setSelectedSong(filePath);
     setDetailDrawerOpen(true);
@@ -236,6 +246,7 @@ export function MoodboardPage() {
             <LibraryPanel
               onSongSelect={handleSongSelect}
               onSongDoubleClick={handlePlaySong}
+              onAddAllSongs={handleAddAllSongs}
               searchInputRef={librarySearchRef}
               selectedCanvasKey={selectedCanvasKey}
             />

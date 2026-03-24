@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   TextInput, Select, ScrollArea, Box, Group, Stack, Text, Badge, Skeleton,
+  ActionIcon, Tooltip,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconSearch, IconMusic, IconFilter } from '@tabler/icons-react';
+import { IconSearch, IconMusic, IconFilter, IconPlus } from '@tabler/icons-react';
 import { onGetLibrarySongs, onSearchSongs, onGetAllTags } from './MoodboardPage.telefunc';
 import { getCamelotColor, getCompatibleCamelotKeys } from '../../lib/camelot';
 
@@ -13,6 +14,7 @@ export interface LibraryPanelProps {
   onSongSelect: (filePath: string) => void;
   onSongDoubleClick?: (filePath: string) => void;
   onSongDragStart?: (filePath: string) => void;
+  onAddAllSongs?: (filePaths: string[]) => void;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   selectedCanvasKey?: string | null;
 }
@@ -45,7 +47,7 @@ interface TagInfo {
   count: number;
 }
 
-export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart, searchInputRef: externalSearchRef, selectedCanvasKey }: LibraryPanelProps) {
+export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart, onAddAllSongs, searchInputRef: externalSearchRef, selectedCanvasKey }: LibraryPanelProps) {
   const [songs, setSongs] = useState<LibrarySong[]>([]);
   const [tags, setTags] = useState<TagInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -470,8 +472,21 @@ export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart,
       </ScrollArea>
 
       {/* Footer */}
-      <Box className="library-panel-footer">
+      <Box className="library-panel-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text size="xs" c="dimmed">{filteredSongs.length} songs</Text>
+        {onAddAllSongs && filteredSongs.length > 0 && (
+          <Tooltip label={`Add ${filteredSongs.length} songs to moodboard`} position="top">
+            <ActionIcon
+              size="sm"
+              variant="light"
+              color="violet"
+              onClick={() => onAddAllSongs(filteredSongs.map(s => s.filePath))}
+              data-testid="library-add-all"
+            >
+              <IconPlus size={14} />
+            </ActionIcon>
+          </Tooltip>
+        )}
       </Box>
     </Box>
   );
