@@ -296,6 +296,11 @@ export function MoodboardPage() {
                 <IconSettings size={14} />
               </ActionIcon>
             </Tooltip>
+            <Tooltip label="Export Tags to Files" position="bottom">
+              <ActionIcon size="sm" variant="subtle" onClick={() => setReviewDrawerOpen(true)} data-testid="toolbar-review">
+                <IconChecklist size={14} />
+              </ActionIcon>
+            </Tooltip>
           </Group>
         </Box>
       </Box>
