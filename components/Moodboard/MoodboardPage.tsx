@@ -10,7 +10,6 @@ import {
   IconLoader2,
   IconMaximize,
   IconMinimize,
-  IconHome,
   IconHistory,
 } from '@tabler/icons-react';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -20,18 +19,14 @@ import { MoodboardSearch } from './MoodboardSearch';
 import { GlobalSearch } from './GlobalSearch';
 import { useMoodboardState } from './hooks/useMoodboardState';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
-import { onLoadMoodboardState, onGetPhaseEdges, onGetPhaseOrder, onGetPhasesWithCounts } from './MoodboardPage.telefunc';
-import { onGetPhases } from '../Settings.telefunc';
+import { onLoadMoodboardState } from './MoodboardPage.telefunc';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
 
-import { PhaseFlowBar } from './PhaseFlowBar';
-import { PhaseFlowEditor } from './PhaseFlowEditor';
 import { LibraryPanel } from './LibraryPanel';
 import { PlaylistPanel } from './PlaylistPanel';
 import { SongDetailPanel } from './SongDetailPanel';
 import { SettingsDrawer } from './SettingsDrawer';
 import { ReviewPanel } from './ReviewPanel';
-import { AudioPlayerBar } from './AudioPlayerBar';
 import { ShortcutHelpModal } from './ShortcutHelpModal';
 import { RevisionBrowser } from './RevisionBrowser';
 
@@ -41,16 +36,8 @@ import type { MP3Metadata } from '../../lib/mp3-metadata';
 import type { TagCategory } from './moodboard-constants';
 import type { Connection } from '@xyflow/react';
 import type { EdgeType } from './edges/WeightedEdge';
-import type { SetPhase } from '../../lib/set-phase';
 
 import './MoodboardPage.css';
-
-interface PhaseEdgeInfo {
-  id: number;
-  fromPhase: string;
-  toPhase: string;
-  weight: number;
-}
 
 export function MoodboardPage() {
   // Panel visibility
@@ -65,14 +52,6 @@ export function MoodboardPage() {
   const [searchOpened, setSearchOpened] = useState(false);
   const [globalSearchOpened, setGlobalSearchOpened] = useState(false);
   const [selectedCanvasKey, setSelectedCanvasKey] = useState<string | null>(null);
-
-  // Phase data (from unified API)
-  const [phaseEdges, setPhaseEdges] = useState<PhaseEdgeInfo[]>([]);
-  const [phaseOrder, setPhaseOrder] = useState<string[]>([]);
-  const [phaseCounts, setPhaseCounts] = useState<Record<string, number>>({});
-  const [phaseDetails, setPhaseDetails] = useState<SetPhase[]>([]);
-  const [activePhaseFilter, setActivePhaseFilter] = useState<string | null>(null);
-  const [phaseEditorOpen, setPhaseEditorOpen] = useState(false);
 
   // Loading
   const [loading, setLoading] = useState(true);
@@ -155,41 +134,12 @@ export function MoodboardPage() {
     playlistOpen: playlistPanelOpen,
   });
 
-  // Load phase data on mount via unified API
+  // Load data on mount
   useEffect(() => {
-    Promise.all([
-      onLoadMoodboardState(),
-      onGetPhasesWithCounts(),
-      onGetPhases(),
-    ]).then(([state, counts, details]) => {
-      setPhaseEdges(state.phaseEdges);
-      setPhaseOrder(state.phaseOrder);
-      const countMap: Record<string, number> = {};
-      for (const c of counts) countMap[c.phase] = c.count;
-      setPhaseCounts(countMap);
-      setPhaseDetails(details);
+    onLoadMoodboardState().then(() => {
       setLoading(false);
     });
     onGetRevisionCount(1).then(setRevisionCount).catch(() => {});
-  }, []);
-
-  const refreshPhaseData = useCallback(async () => {
-    const [edges, order, counts, details] = await Promise.all([
-      onGetPhaseEdges(),
-      onGetPhaseOrder(),
-      onGetPhasesWithCounts(),
-      onGetPhases(),
-    ]);
-    setPhaseEdges(edges);
-    setPhaseOrder(order);
-    const countMap: Record<string, number> = {};
-    for (const c of counts) countMap[c.phase] = c.count;
-    setPhaseCounts(countMap);
-    setPhaseDetails(details);
-  }, []);
-
-  const handlePhaseFilterClick = useCallback((phase: string) => {
-    setActivePhaseFilter((prev) => (prev === phase ? null : phase));
   }, []);
 
   const getTrackMetadata = useCallback((filePath: string): MP3Metadata => {
@@ -273,124 +223,6 @@ export function MoodboardPage() {
 
   return (
     <Box className="moodboard-page">
-      {/* Compact header bar */}
-      <Group className="moodboard-header" gap={4}>
-        <Tooltip label="Home" position="bottom">
-          <ActionIcon component="a" href="/" size="sm" variant="subtle" c="dimmed">
-            <IconHome size={14} />
-          </ActionIcon>
-        </Tooltip>
-        <Text size="xs" fw={600} c="dimmed">Musicky</Text>
-
-        <Box style={{ flex: 1 }} />
-
-        {/* Save status indicator */}
-        <Transition mounted={moodboard.saveStatus !== 'idle'} transition="fade" duration={300}>
-          {(styles) => (
-            <Group gap={4} style={styles} className="save-indicator">
-              {moodboard.saveStatus === 'saving' && (
-                <>
-                  <IconLoader2 size={12} className="save-spinner" />
-                  <Text size="xs" c="dimmed">Saving…</Text>
-                </>
-              )}
-              {moodboard.saveStatus === 'saved' && (
-                <>
-                  <IconCheck size={12} color="var(--mantine-color-green-5)" />
-                  <Text size="xs" c="green.5">Saved</Text>
-                </>
-              )}
-            </Group>
-          )}
-        </Transition>
-
-        <Tooltip label={libraryPanelOpen ? 'Hide Library (⌘L)' : 'Show Library (⌘L)'} position="bottom">
-          <ActionIcon
-            size="sm"
-            variant={libraryPanelOpen ? 'filled' : 'subtle'}
-            color="violet"
-            onClick={() => setLibraryPanelOpen(v => !v)}
-            data-testid="toolbar-toggle-library"
-          >
-            <IconLayoutSidebar size={14} />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label={playlistPanelOpen ? 'Hide Playlist (⌘P)' : 'Show Playlist (⌘P)'} position="bottom">
-          <ActionIcon
-            size="sm"
-            variant={playlistPanelOpen ? 'filled' : 'subtle'}
-            color="violet"
-            onClick={() => setPlaylistPanelOpen(v => !v)}
-            data-testid="toolbar-toggle-playlist"
-          >
-            <IconPlaylist size={14} />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label="Settings (⌘,)" position="bottom">
-          <ActionIcon
-            size="sm"
-            variant="subtle"
-            onClick={() => setSettingsDrawerOpen(true)}
-            data-testid="toolbar-settings"
-          >
-            <IconSettings size={14} />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label="Revision History" position="bottom">
-          <ActionIcon
-            size="sm"
-            variant="subtle"
-            onClick={() => setRevisionBrowserOpen(true)}
-            data-testid="revision-badge"
-          >
-            <Group gap={2} wrap="nowrap">
-              <IconHistory size={14} />
-              {revisionCount > 0 && (
-                <Text size="xs" c="dimmed" span>v{revisionCount}</Text>
-              )}
-            </Group>
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label="Review Changes" position="bottom">
-          <ActionIcon
-            size="sm"
-            variant="subtle"
-            onClick={() => setReviewDrawerOpen(true)}
-            data-testid="toolbar-review"
-          >
-            <IconChecklist size={14} />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label={isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)'} position="bottom">
-          <ActionIcon size="sm" variant="subtle" onClick={toggleFullscreen}>
-            {isFullscreen ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
-          </ActionIcon>
-        </Tooltip>
-      </Group>
-
-      {/* Phase Flow Bar */}
-      <PhaseFlowBar
-        phaseEdges={phaseEdges}
-        phaseOrder={phaseOrder}
-        phaseCounts={phaseCounts}
-        activePhaseFilter={activePhaseFilter}
-        phaseDetails={phaseDetails}
-        onPhaseClick={handlePhaseFilterClick}
-        onPhaseEdgesChanged={refreshPhaseData}
-        onOpenEditor={() => setPhaseEditorOpen(true)}
-      />
-
-      {/* Phase Flow Editor Modal */}
-      <PhaseFlowEditor
-        opened={phaseEditorOpen}
-        onClose={() => setPhaseEditorOpen(false)}
-        phaseEdges={phaseEdges}
-        phases={phaseOrder}
-        phaseCounts={phaseCounts}
-        phaseDetails={phaseDetails}
-        onSave={refreshPhaseData}
-      />
-
       {/* Main content area */}
       <Box className="moodboard-main">
         {/* Left: Library Panel (collapsible) */}
@@ -438,6 +270,54 @@ export function MoodboardPage() {
               scrollToNodeRef={scrollToNodeRef}
             />
           </ReactFlowProvider>
+
+          {/* Floating toolbar (absolute over canvas) */}
+          <Group gap={4} className="moodboard-floating-toolbar">
+            <Transition mounted={moodboard.saveStatus !== 'idle'} transition="fade" duration={300}>
+              {(styles) => (
+                <Group gap={4} style={styles}>
+                  {moodboard.saveStatus === 'saving' && <IconLoader2 size={12} className="save-spinner" />}
+                  {moodboard.saveStatus === 'saved' && <IconCheck size={12} color="var(--mantine-color-green-5)" />}
+                </Group>
+              )}
+            </Transition>
+
+            <Tooltip label={libraryPanelOpen ? 'Hide Library (⌘L)' : 'Show Library (⌘L)'} position="bottom">
+              <ActionIcon size="sm" variant={libraryPanelOpen ? 'filled' : 'subtle'} color="violet"
+                onClick={() => setLibraryPanelOpen(v => !v)} data-testid="toolbar-toggle-library">
+                <IconLayoutSidebar size={14} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label={playlistPanelOpen ? 'Hide Playlist (⌘P)' : 'Show Playlist (⌘P)'} position="bottom">
+              <ActionIcon size="sm" variant={playlistPanelOpen ? 'filled' : 'subtle'} color="violet"
+                onClick={() => setPlaylistPanelOpen(v => !v)} data-testid="toolbar-toggle-playlist">
+                <IconPlaylist size={14} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Settings (⌘,)" position="bottom">
+              <ActionIcon size="sm" variant="subtle" onClick={() => setSettingsDrawerOpen(true)} data-testid="toolbar-settings">
+                <IconSettings size={14} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Revision History" position="bottom">
+              <ActionIcon size="sm" variant="subtle" onClick={() => setRevisionBrowserOpen(true)} data-testid="revision-badge">
+                <Group gap={2} wrap="nowrap">
+                  <IconHistory size={14} />
+                  {revisionCount > 0 && <Text size="xs" c="dimmed" span>v{revisionCount}</Text>}
+                </Group>
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Review Changes" position="bottom">
+              <ActionIcon size="sm" variant="subtle" onClick={() => setReviewDrawerOpen(true)} data-testid="toolbar-review">
+                <IconChecklist size={14} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label={isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)'} position="bottom">
+              <ActionIcon size="sm" variant="subtle" onClick={toggleFullscreen}>
+                {isFullscreen ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Box>
       </Box>
 
@@ -461,17 +341,20 @@ export function MoodboardPage() {
         />
       </Box>}
 
-      {/* Bottom: Audio Player Bar */}
-      <AudioPlayerBar
-        currentTrack={audioQueue.currentTrack}
-        isPlaying={audioQueue.isPlaying}
-        volume={audioQueue.volume}
-        onPlayStateChange={audioQueue.setIsPlaying}
-        onVolumeChange={audioQueue.setVolume}
-        onTimeUpdate={audioQueue.setCurrentTime}
-        onEnded={() => audioQueue.setIsPlaying(false)}
-        onTogglePlayPause={audioQueue.togglePlayPause}
-      />
+      {/* Settings Drawer */}
+      <Drawer
+        opened={settingsDrawerOpen}
+        onClose={() => setSettingsDrawerOpen(false)}
+        position="right"
+        size="md"
+        title="Settings"
+      >
+        <SettingsDrawer
+          onClose={() => setSettingsDrawerOpen(false)}
+          onScanComplete={() => {}}
+          onPhasesChanged={() => {}}
+        />
+      </Drawer>
 
       {/* Right Drawer: Song Detail */}
       <Drawer
@@ -485,29 +368,6 @@ export function MoodboardPage() {
           filePath={selectedSong}
           onSongSelect={handleSongSelect}
           onPlay={handlePlaySong}
-        />
-      </Drawer>
-
-      {/* Settings Drawer */}
-      <Drawer
-        opened={settingsDrawerOpen}
-        onClose={() => setSettingsDrawerOpen(false)}
-        position="right"
-        size="md"
-        title="Settings"
-      >
-        <SettingsDrawer
-          onClose={() => setSettingsDrawerOpen(false)}
-          onScanComplete={() => {
-            // Reload phase data after library scan
-            onLoadMoodboardState().then(state => {
-              setPhaseEdges(state.phaseEdges);
-              setPhaseOrder(state.phaseOrder);
-            });
-          }}
-          onPhasesChanged={() => {
-            onGetPhaseOrder().then(setPhaseOrder);
-          }}
         />
       </Drawer>
 

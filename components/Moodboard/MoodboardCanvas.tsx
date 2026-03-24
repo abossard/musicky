@@ -534,7 +534,7 @@ export function MoodboardCanvas({
 
         {/* Toolbar panel */}
         <Panel position="top-left">
-          <Group gap={4} style={{ background: 'rgba(37,38,43,0.9)', padding: '4px 8px', borderRadius: 6, border: '1px solid #373A40', backdropFilter: 'blur(8px)' }}>
+          <Group gap={4} style={{ background: 'rgba(30,30,30,0.95)', padding: '4px 8px', borderRadius: 6, border: '1px solid #373A40' }}>
             <Tooltip label="Add song (Ctrl+K)">
               <ActionIcon variant="light" color="violet" onClick={onSearchOpen} aria-label="Search songs">
                 <IconSearch size={18} />
@@ -579,7 +579,7 @@ export function MoodboardCanvas({
 
         {/* Edge settings — top-right */}
         <Panel position="top-right">
-          <Box style={{ background: 'rgba(37,38,43,0.95)', padding: '8px 12px', borderRadius: 6, border: '1px solid #373A40', backdropFilter: 'blur(8px)', minWidth: 190 }}>
+          <Box style={{ background: 'rgba(30,30,30,0.95)', padding: '8px 12px', borderRadius: 6, border: '1px solid #373A40', minWidth: 190 }}>
             {/* Smart edge settings */}
             {edgeStyle === 'smart' && (<>
               <Text size="xs" fw={600} c="dimmed" mb={4}>Smart Edge</Text>
@@ -616,7 +616,7 @@ export function MoodboardCanvas({
         {/* Filter bar — shows when filters are active */}
         {activeFilterTags.size > 0 && (
           <Panel position="bottom-center">
-            <Group gap={6} style={{ background: 'rgba(37,38,43,0.95)', padding: '6px 12px', borderRadius: 8, border: '1px solid #373A40', backdropFilter: 'blur(8px)' }}>
+            <Group gap={6} style={{ background: 'rgba(30,30,30,0.95)', padding: '6px 12px', borderRadius: 8, border: '1px solid #373A40' }}>
               <Text size="xs" c="dimmed" fw={600}>Filter:</Text>
               {nodes.filter(n => n.type === 'tag' && activeFilterTags.has(n.id)).map(n => {
                 const td = n.data as any;
