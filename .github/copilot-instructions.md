@@ -1,109 +1,114 @@
 # Copilot Instructions for Musicky
 
-## Build, Test, and Lint
+## Project summary
+
+Musicky is a local-first DJ music management app. The current product is centered on the moodboard experience: users search a local library, audition tracks, edit metadata, assign phases, and arrange songs visually with graph connections.
+
+When working in this repository, optimize for:
+
+- **fast local workflows**
+- **safe metadata handling**
+- **responsive canvas interactions**
+- **clear separation between UI, RPC, and persistence**
+
+## Core skills to apply
+
+### 1. Music metadata workflow awareness
+
+- Prefer reviewable changes over automatic metadata rewrites
+- Preserve existing tags unless the feature explicitly replaces them
+- Treat metadata automation as assistive, not authoritative
+- Keep edit history and pending-edit flows intact
+
+### 2. Moodboard-first product thinking
+
+- `/moodboard` is the main application surface
+- Changes that affect search, playback, tags, playlists, or review flows should fit naturally into the moodboard workflow
+- Avoid designs that make the visual planning flow secondary
+
+### 3. Local-first performance discipline
+
+- Assume users may work with large local libraries
+- Prefer incremental data loading and targeted refreshes
+- Avoid expensive repeated scans or overly chatty RPC patterns
+- Keep UI interactions lightweight, especially on the moodboard canvas
+
+### 4. Human-in-the-loop automation
+
+- Future AI features should produce suggestions, queues, or review items
+- Do not introduce silent bulk metadata updates
+- Make it easy for users to inspect and confirm automated proposals
+
+## Build, test, and lint
 
 ```bash
 npm run dev              # Start dev server (Fastify + Vite HMR on port 3000)
-npm run build            # Production build (vike build)
+npm run build            # Production build
 npm run preview          # Preview production build
-npm run lint             # ESLint (flat config, TypeScript)
+npm run lint             # ESLint
 npm run sqlite:migrate   # Create/update SQLite tables
+npm run test:e2e         # Playwright end-to-end tests
 ```
 
-### Testing (Playwright E2E)
-
-```bash
-npm run test:e2e                          # Headless, all 5 browser projects
-npm run test:e2e:headed                   # With browser UI
-npm run test:e2e:ui                       # Playwright interactive UI
-npx playwright test tests/some.spec.ts    # Single test file
-npx playwright test -g "test name"        # Single test by name
-npx playwright test --project=chromium    # Single browser
-```
-
-Tests run against `http://localhost:3000` (auto-started via `npm run dev`). The CI pipeline only runs `tsc` type-checking — no test execution.
+Tests run against `http://localhost:3000`.
 
 ## Architecture
 
-**Stack:** Vike (SSR framework) + React 19 + Fastify 5 + Telefunc (RPC) + SQLite (better-sqlite3) + Mantine v8
+**Stack:** Vike + React 19 + Fastify 5 + Telefunc + SQLite + Mantine + React Flow
 
-### Request Flow
+### Request flow
 
-```
-Browser → Fastify server (fastify-entry.ts)
-  ├─ POST /_telefunc  → telefunc-handler.ts → *.telefunc.ts functions → SQLite queries
-  ├─ GET /audio/*     → HTTP Range streaming (supports seeking)
-  └─ GET /*           → vike-handler.ts → SSR page rendering
-```
-
-The server entry (`fastify-entry.ts`) wires up Vite dev middleware, static file serving, audio streaming with Range request support, Telefunc RPC, and Vike SSR as a catch-all.
-
-### Database Layer
-
-- **Singleton:** `database/sqlite/db.ts` creates one `better-sqlite3` instance
-- **Schemas:** `database/sqlite/schema/*.ts` — run via `npm run sqlite:migrate`
-- **Queries:** `database/sqlite/queries/*.ts` — typed functions using prepared statements
-- **Transactions:** Use `client.transaction()` for batch operations (see `reorderSetItems` in dj-sets queries)
-- Requires `DATABASE_URL` in `.env`
-
-### Telefunc RPC
-
-Client-server calls go through colocated `.telefunc.ts` files — no REST API layer.
-
-```
-components/DJSets.telefunc.ts      → RPC for DJSets.tsx
-components/MP3Library.telefunc.ts  → RPC for MP3Library.tsx
-api/file-browser.telefunc.ts       → Shared file browser RPCs
+```text
+Browser -> Fastify server (fastify-entry.ts)
+  -> POST /_telefunc -> *.telefunc.ts -> SQLite queries / file operations
+  -> GET /audio/* -> streamed audio responses
+  -> GET /* -> Vike SSR
 ```
 
-Telefunc functions are called directly from React components (typically in `useEffect` on mount).
+### Main feature areas
 
-### State Management
-
-- **Simple state:** `useState` + `useEffect` with Telefunc calls
-- **Complex state:** Custom reducers (`lib/mp3-library-state.ts` pattern — typed actions + reducer + `useReducer`)
-- **Shared state:** React Context (`contexts/StatusContext.tsx`, `contexts/DJSetContext.tsx`)
-- **Async helpers:** `hooks/useAsyncState.ts` provides `execute`/`loading`/`error` pattern
+- `components/Moodboard/` - canvas, panels, search, review, playback bar, phase flow editor
+- `components/MP3MetadataViewer.tsx`, `TagSync.tsx`, `PendingEditsManager.tsx` - metadata workflows
+- `components/Settings.tsx` - phase order and playback settings
+- `hooks/useAudioQueue.ts` - playback queue logic
+- `database/sqlite/queries/` - persistence layer
 
 ## Conventions
 
-### Telefunc Functions
+### Telefunc
 
-- **Always prefix with `on`:** `onGetDJSets`, `onCreateDJSet`, `onSetBaseFolder`
-- **Always `async`** even for synchronous DB calls
-- **Colocate** with the component that uses them: `Component.telefunc.ts` next to `Component.tsx`
-- Import database queries directly — the DB singleton handles connection
-
-### Pages (Vike)
-
-- File-based routing: `pages/<name>/+Page.tsx`
-- Optional per-page files: `+config.ts`, `+data.ts`, `+Head.tsx`
-- Global layout in `layouts/LayoutDefault.tsx` (Mantine AppShell with responsive sidebar)
-
-### Components
-
-- Colocate related files: `Component.tsx` + `Component.css` + `Component.telefunc.ts`
-- Use Mantine components (AppShell, Stack, Group, DataTable from mantine-datatable)
-- Use `data-testid` attributes for Playwright test selectors
-- Wrap pages that need DJ Set features in `<DJSetProvider>`
-
-### Styling
-
-- **Primary:** Mantine components and utilities (dark theme, `primaryColor: "violet"`)
-- **Custom styles:** Plain CSS files colocated with components (not CSS Modules, not Tailwind)
-- **CSS-in-JS:** `@compiled/react` is configured — the `css` prop is allowed on React elements
-- PostCSS with `postcss-preset-mantine` for Mantine CSS variables
-
-### ESLint
-
-- Flat config (`eslint.config.ts`), TypeScript-ESLint + React plugin
-- Unused vars are warnings; prefix intentionally unused params with `_`
-- Namespaces are allowed (`@typescript-eslint/no-namespace` is off)
-- The `css` prop is whitelisted in `react/no-unknown-property`
+- Prefix Telefunc functions with `on`
+- Keep them `async`
+- Colocate feature RPC files with the component when practical
+- Let Telefunc handlers call query helpers directly instead of embedding SQL in UI code
 
 ### Database
 
-- Add new tables in `database/sqlite/schema/` and register in `all.ts`
-- Add query functions in `database/sqlite/queries/` with typed interfaces
-- Use `better-sqlite3` prepared statements (synchronous API)
-- Include indexes for frequently queried columns
+- Add schema changes in `database/sqlite/schema/`
+- Register new schema modules in `database/sqlite/schema/all.ts`
+- Add typed helpers in `database/sqlite/queries/`
+- Use prepared statements and transactions where appropriate
+
+### UI
+
+- Prefer Mantine components first
+- Keep related files colocated
+- Use plain CSS files already established in the repo
+- Add `data-testid` attributes for important interactive elements
+
+## Long-term plan
+
+### Lightweight Electron app
+
+When introducing architecture or abstractions, favor choices that can later support a lightweight Electron shell without rewriting core product logic. Shared business logic, persistence, and metadata features should stay portable.
+
+### Copilot SDK integration
+
+Future AI work should focus on metadata assistance:
+
+- suggest metadata completions
+- recommend phases/tags
+- detect inconsistencies and duplicates
+- prepare review queues for user approval
+
+Design new automation so it can plug into a review-first workflow instead of bypassing it.
