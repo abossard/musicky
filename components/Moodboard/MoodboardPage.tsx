@@ -267,8 +267,10 @@ export function MoodboardPage() {
               onHoverPlaySong={handleHoverPlaySong}
               onNodesUpdate={(newNodes) => moodboard.setNodes(newNodes)}
               onAddSong={handleDropSong}
+              onSongSelect={handleSongSelect}
               onSelectedSongKeyChange={setSelectedCanvasKey}
               scrollToNodeRef={scrollToNodeRef}
+              onMergeTags={moodboard.mergeTags}
             />
           </ReactFlowProvider>
 

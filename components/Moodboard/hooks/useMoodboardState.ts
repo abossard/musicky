@@ -9,7 +9,7 @@ import {
   onAddSongConnection, onRemoveSongConnection, onUpdateConnectionWeight,
   onAddSongTag, onRemoveSongTag,
   onRemoveCanvasNode, onIsSongOnCanvas,
-  onSearchSongs, onGetSongMetadata,
+  onSearchSongs, onGetSongMetadata, onGetSongTags,
 } from '../MoodboardPage.telefunc';
 import type { SongNodeData } from '../nodes/SongNode';
 import type { TagNodeData, TagCategory } from '../nodes/TagNode';
@@ -192,12 +192,14 @@ export function useMoodboardState(currentPlayingPath?: string | null) {
   const addSong = async (songPath: string, posX: number, posY: number) => {
     const nodeId = `song:${songPath}`;
 
-    // Save position to DB
-    await onSaveNodePositions([{ nodeId, x: posX, y: posY }]);
+    // Save song position to DB, fetch metadata + tags in parallel
+    const [, meta, tags] = await Promise.all([
+      onSaveNodePositions([{ nodeId, x: posX, y: posY }]),
+      onGetSongMetadata(songPath),
+      onGetSongTags(songPath),
+    ]);
 
-    // Get metadata from cache
-    const meta = await onGetSongMetadata(songPath);
-    const newNode: Node = {
+    const newSongNode: Node = {
       id: nodeId,
       type: 'song',
       position: { x: posX, y: posY },
@@ -213,8 +215,66 @@ export function useMoodboardState(currentPlayingPath?: string | null) {
         energyLevel: meta?.energyLevel,
       } satisfies SongNodeData as any,
     };
-    setNodes(nds => [...nds, newNode]);
-    return null; // success
+
+    if (tags.length === 0) {
+      setNodes(nds => [...nds, newSongNode]);
+      return null;
+    }
+
+    // Build candidate tag nodes positioned in a circle around the song
+    const angleStep = (2 * Math.PI) / tags.length;
+    const radius = 200;
+    const tagNodeCandidates: Node[] = tags.map((tag, i) => ({
+      id: `tag:${tag.category}:${tag.label}`,
+      type: 'tag' as const,
+      position: {
+        x: posX + radius * Math.cos(angleStep * i),
+        y: posY + radius * Math.sin(angleStep * i),
+      },
+      data: {
+        type: 'tag',
+        label: tag.label,
+        category: tag.category as TagCategory,
+        color: CATEGORY_DEFAULT_COLORS[tag.category] || 'gray',
+        songCount: 1,
+      } satisfies TagNodeData as any,
+    }));
+
+    // Add song node + only new tag nodes (skip tags already on canvas)
+    let newTagPositions: { nodeId: string; x: number; y: number }[] = [];
+    setNodes(currentNodes => {
+      const existingIds = new Set(currentNodes.map(n => n.id));
+      const newTags = tagNodeCandidates.filter(n => !existingIds.has(n.id));
+      newTagPositions = newTags.map(n => ({ nodeId: n.id, x: n.position.x, y: n.position.y }));
+      return [...currentNodes, newSongNode, ...newTags];
+    });
+
+    // Create edges from song to each tag (both existing and new tag nodes)
+    const newEdges: Edge[] = tags.map(tag => ({
+      id: `tag-edge:${songPath}:${tag.category}:${tag.label}`,
+      source: nodeId,
+      target: `tag:${tag.category}:${tag.label}`,
+      type: 'weighted',
+      data: {
+        edgeType: tag.category as EdgeType,
+        weight: 1,
+        directed: false,
+      } satisfies MoodboardEdgeData as any,
+    }));
+    setEdges(eds => {
+      let updated = eds;
+      for (const edge of newEdges) {
+        updated = addEdge(edge, updated);
+      }
+      return updated;
+    });
+
+    // Persist new tag node positions (fire-and-forget)
+    if (newTagPositions.length > 0) {
+      onSaveNodePositions(newTagPositions).catch(console.error);
+    }
+
+    return null;
   };
 
   const addTag = async (label: string, category: TagCategory, color: string, posX: number, posY: number) => {
@@ -239,6 +299,73 @@ export function useMoodboardState(currentPlayingPath?: string | null) {
     setNodes(nds => nds.filter(n => n.id !== nodeId));
     setEdges(eds => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
   };
+
+  const mergeTags = useCallback(async (keepNodeId: string, removeNodeId: string) => {
+    const keepNode = nodes.find(n => n.id === keepNodeId);
+    const removeNode_ = nodes.find(n => n.id === removeNodeId);
+    if (!keepNode || !removeNode_ || keepNode.type !== 'tag' || removeNode_.type !== 'tag') return;
+
+    const keepData = keepNode.data as unknown as TagNodeData;
+    const removeData = removeNode_.data as unknown as TagNodeData;
+    if (keepData.category !== removeData.category) return;
+
+    const edgesToTransfer = edges.filter(
+      e => e.source === removeNodeId || e.target === removeNodeId,
+    );
+
+    const newEdges: Edge[] = [];
+    for (const edge of edgesToTransfer) {
+      const newSource = edge.source === removeNodeId ? keepNodeId : edge.source;
+      const newTarget = edge.target === removeNodeId ? keepNodeId : edge.target;
+
+      if (newSource === newTarget) continue;
+      const exists = edges.some(
+        e => (e.source === newSource && e.target === newTarget) ||
+             (e.source === newTarget && e.target === newSource),
+      );
+      if (exists) continue;
+
+      // Persist tag-edge transfers to DB
+      if (edge.id.startsWith('tag-edge:')) {
+        const songNodeId = edge.source === removeNodeId ? edge.target : edge.source;
+        const songNode = nodes.find(n => n.id === songNodeId);
+        if (songNode?.type === 'song') {
+          const filePath = (songNode.data as unknown as SongNodeData).filePath;
+          await onAddSongTag(filePath, keepData.label, keepData.category);
+        }
+      }
+
+      const newEdgeId = edge.id.startsWith('tag-edge:')
+        ? edge.id.replace(
+            `${removeData.category}:${removeData.label}`,
+            `${keepData.category}:${keepData.label}`,
+          )
+        : `visual:${newSource}:${newTarget}`;
+      newEdges.push({ ...edge, id: newEdgeId, source: newSource, target: newTarget });
+    }
+
+    // Remove old tag associations from DB
+    for (const edge of edgesToTransfer) {
+      if (edge.id.startsWith('tag-edge:')) {
+        const songNodeId = edge.source === removeNodeId ? edge.target : edge.source;
+        const songNode = nodes.find(n => n.id === songNodeId);
+        if (songNode?.type === 'song') {
+          const filePath = (songNode.data as unknown as SongNodeData).filePath;
+          await onRemoveSongTag(filePath, removeData.label, removeData.category);
+        }
+      }
+    }
+
+    // Update React state: add new edges, remove old edges, remove the node
+    setEdges(eds => [
+      ...eds.filter(e => e.source !== removeNodeId && e.target !== removeNodeId),
+      ...newEdges,
+    ]);
+    setNodes(nds => nds.filter(n => n.id !== removeNodeId));
+
+    // Remove the merged node from canvas DB
+    await onRemoveCanvasNode(removeNodeId);
+  }, [nodes, edges, setEdges, setNodes]);
 
   const connectNodes = async (connection: Connection, edgeType: EdgeType = 'custom', weight: number = 0.7): Promise<Edge | null> => {
     if (!connection.source || !connection.target) return null;
@@ -361,7 +488,7 @@ export function useMoodboardState(currentPlayingPath?: string | null) {
     onNodesChange: handleNodesChange,
     onEdgesChange,
     onViewportChange: handleViewportChange,
-    addSong, addTag, removeNode, connectNodes, removeEdge, setEdgeWeight, setEdgeType,
+    addSong, addTag, removeNode, connectNodes, removeEdge, setEdgeWeight, setEdgeType, mergeTags,
     checkSongOnBoard, searchSongs: searchSongsForBoard, setNodes, saveNow,
     reload: loadState,
   };

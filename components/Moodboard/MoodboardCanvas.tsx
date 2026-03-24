@@ -11,8 +11,8 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './Moodboard.css';
-import { Box, ActionIcon, Group, Tooltip, Text, Badge, SegmentedControl, Slider, Switch } from '@mantine/core';
-import { IconTrash, IconSearch, IconLayoutDistributeHorizontal, IconGridDots } from '@tabler/icons-react';
+import { Box, ActionIcon, Group, Tooltip, Text, Badge, SegmentedControl, Slider, Switch, Button } from '@mantine/core';
+import { IconTrash, IconSearch, IconLayoutDistributeHorizontal, IconGridDots, IconArrowMergeRight } from '@tabler/icons-react';
 import { EdgeWeightEditor } from './EdgeWeightEditor';
 import { MoodboardConnectionLine } from './edges/MoodboardConnectionLine';
 import SongNode from './nodes/SongNode';
@@ -58,8 +58,10 @@ interface MoodboardCanvasProps {
   onHoverPlaySong: (filePath: string) => void;
   onNodesUpdate: (nodes: Node[]) => void;
   onAddSong?: (filePath: string, x: number, y: number) => void;
+  onSongSelect?: (filePath: string) => void;
   onSelectedSongKeyChange?: (key: string | null) => void;
   scrollToNodeRef?: React.MutableRefObject<((nodeId: string) => void) | null>;
+  onMergeTags?: (keepNodeId: string, removeNodeId: string) => void;
 }
 
 function injectCallbacks(
@@ -109,8 +111,8 @@ export function MoodboardCanvas({
   viewport, onViewportChange,
   onConnect, onNodeDelete, onEdgeDelete, onEdgeWeightChange, onEdgeTypeChange,
   onSearchOpen, onAddTag, onPlaySong, onHoverPlaySong, onNodesUpdate, onAddSong,
-  onSelectedSongKeyChange,
-  scrollToNodeRef,
+  onSongSelect, onSelectedSongKeyChange,
+  scrollToNodeRef, onMergeTags,
 }: MoodboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pendingConnectionRef = useRef<PendingConnection | null>(null);
@@ -258,6 +260,14 @@ export function MoodboardCanvas({
     }
     return map;
   }, [selectedNodeIds, nodes]);
+
+  // Check if exactly 2 tag nodes of the same category are selected (merge-eligible)
+  const canMerge = useMemo(() => {
+    if (selectedNodeIds.length !== 2 || !onMergeTags) return false;
+    const [a, b] = selectedNodeIds.map(id => nodes.find(n => n.id === id));
+    if (!a || !b || a.type !== 'tag' || b.type !== 'tag') return false;
+    return (a.data as any).category === (b.data as any).category;
+  }, [selectedNodeIds, nodes, onMergeTags]);
 
   // Notify parent about the selected song's Camelot key for library filtering
   useEffect(() => {
@@ -448,10 +458,15 @@ export function MoodboardCanvas({
     />
   ), [edgeStyle, smartGridRatio, smartNodePadding]);
 
-  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, _node: Node) => {
     event.preventDefault();
-    onNodeDelete(node.id);
-  }, [onNodeDelete]);
+  }, []);
+
+  const handleNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (node.type === 'song' && node.data?.filePath) {
+      onSongSelect?.(node.data.filePath);
+    }
+  }, [onSongSelect]);
 
   const handleDragOver = useCallback((event: React.DragEvent) => {
     if (event.dataTransfer.types.includes('application/x-moodboard-song')) {
@@ -506,6 +521,7 @@ export function MoodboardCanvas({
         onEdgesDelete={handleEdgesDelete}
         onPaneClick={handlePaneClick}
         onNodeContextMenu={handleNodeContextMenu}
+        onNodeDoubleClick={handleNodeDoubleClick}
         connectionLineComponent={connectionLineComponent}
         defaultViewport={viewport}
         onMoveEnd={(_event, vp) => onViewportChange(vp)}
@@ -576,6 +592,23 @@ export function MoodboardCanvas({
             </Tooltip>
           </Group>
         </Panel>
+
+        {/* Merge tags button — shown when 2 tags of same category are selected */}
+        {canMerge && (
+          <Panel position="top-center">
+            <Button
+              size="xs"
+              variant="filled"
+              color="cyan"
+              leftSection={<IconArrowMergeRight size={14} />}
+              data-testid="merge-tags-btn"
+              onClick={() => onMergeTags?.(selectedNodeIds[0], selectedNodeIds[1])}
+              style={{ background: 'rgba(30,30,30,0.95)', border: '1px solid #373A40' }}
+            >
+              Merge Tags
+            </Button>
+          </Panel>
+        )}
 
         {/* Edge settings — top-right */}
         <Panel position="top-right">
