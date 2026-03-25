@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Stack, Text, Image, Badge, Button, TextInput, Group, Divider,
-  Skeleton, ScrollArea, ActionIcon, Tooltip, Box, Progress,
+  Skeleton, ScrollArea, ActionIcon, Tooltip, Box, Progress, Loader,
 } from '@mantine/core';
 import {
   IconPlayerPlay, IconX, IconPlus, IconLink, IconMusic,
-  IconArrowRight, IconArrowLeft, IconSearch,
+  IconArrowRight, IconArrowLeft, IconSearch, IconSparkles,
 } from '@tabler/icons-react';
 import {
   onGetSongMetadata, onGetSongTags, onGetSongConnections,
   onAddSongTag, onRemoveSongTag, onFindSimilarSongs,
+  onGetTagSuggestions,
 } from './MoodboardPage.telefunc';
 import { getCamelotColor } from '../../lib/camelot';
 import { showSuccess } from '../../lib/notifications';
@@ -97,6 +98,9 @@ export function SongDetailPanel({ filePath, onSongSelect, onPlay, onTagsChanged 
   const [addingCategory, setAddingCategory] = useState<string | null>(null);
   const [newTagValue, setNewTagValue] = useState('');
 
+  // AI suggestion state
+  const [suggestions, setSuggestions] = useState<{ genres: string[]; moods: string[]; phases: string[] } | null>(null);
+  const [suggestingTags, setSuggestingTags] = useState(false);
   const loadData = useCallback(async (path: string) => {
     setLoading(true);
     setMetadata(null);
@@ -153,6 +157,32 @@ export function SongDetailPanel({ filePath, onSongSelect, onPlay, onTagsChanged 
     if (!filePath) return;
     await onRemoveSongTag(filePath, label, category);
     await refreshTags();
+  }, [filePath, refreshTags]);
+
+  const handleSuggestTags = useCallback(async () => {
+    if (!filePath) return;
+    setSuggestingTags(true);
+    setSuggestions(null);
+    try {
+      const result = await onGetTagSuggestions(filePath);
+      setSuggestions(result);
+    } catch (e) {
+      console.error('Failed to get AI suggestions:', e);
+    } finally {
+      setSuggestingTags(false);
+    }
+  }, [filePath]);
+
+  const handleAcceptSuggestion = useCallback(async (label: string, category: string) => {
+    if (!filePath) return;
+    await onAddSongTag(filePath, label, category);
+    await refreshTags();
+    // Remove accepted suggestion from the list
+    setSuggestions(prev => {
+      if (!prev) return prev;
+      const key = category === 'genre' ? 'genres' : category === 'mood' ? 'moods' : 'phases';
+      return { ...prev, [key]: prev[key].filter(s => s !== label) };
+    });
   }, [filePath, refreshTags]);
 
   const handleFindMore = useCallback(async () => {
@@ -310,7 +340,44 @@ export function SongDetailPanel({ filePath, onSongSelect, onPlay, onTagsChanged 
         )}
 
         {/* Tags Section */}
-        <Divider label="Tags" labelPosition="left" />
+        <Divider label={
+          <Group gap={8}>
+            <Text size="xs" fw={700}>Tags</Text>
+            <Tooltip label="Get AI tag suggestions" position="right">
+              <ActionIcon
+                size="xs"
+                variant="subtle"
+                color="violet"
+                onClick={handleSuggestTags}
+                loading={suggestingTags}
+                data-testid="suggest-tags-btn"
+              >
+                <IconSparkles size={12} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        } labelPosition="left" />
+
+        {/* AI Suggestions */}
+        {suggestions && (Object.values(suggestions).some(arr => arr.length > 0)) && (
+          <Box style={{ background: 'rgba(124,58,237,0.08)', borderRadius: 8, padding: '8px 10px' }}>
+            <Text size="xs" c="violet" fw={600} mb={4}>✨ AI Suggestions — click to add</Text>
+            <Group gap={4} wrap="wrap">
+              {suggestions.genres.map(s => (
+                <Badge key={`sg-${s}`} size="sm" variant="outline" color="cyan" style={{ cursor: 'pointer' }}
+                  onClick={() => handleAcceptSuggestion(s, 'genre')}>{s}</Badge>
+              ))}
+              {suggestions.moods.map(s => (
+                <Badge key={`sm-${s}`} size="sm" variant="outline" color="pink" style={{ cursor: 'pointer' }}
+                  onClick={() => handleAcceptSuggestion(s, 'mood')}>{s}</Badge>
+              ))}
+              {suggestions.phases.map(s => (
+                <Badge key={`sp-${s}`} size="sm" variant="outline" color="violet" style={{ cursor: 'pointer' }}
+                  onClick={() => handleAcceptSuggestion(s, 'phase')}>{s}</Badge>
+              ))}
+            </Group>
+          </Box>
+        )}
 
         <Stack gap="sm">
           {TAG_CATEGORIES.map(category => {

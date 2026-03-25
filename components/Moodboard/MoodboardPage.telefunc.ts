@@ -856,3 +856,34 @@ export async function onDiscoverHiddenConnections(): Promise<{
 
   return { connections: result, count: result.length };
 }
+
+// ============================================================================
+// AI Tag Suggestions
+// ============================================================================
+
+export async function onGetTagSuggestions(filePath: string): Promise<{
+  genres: string[];
+  moods: string[];
+  phases: string[];
+}> {
+  const { suggestTags } = await import('../../lib/ai-tagger');
+  const meta = await mp3Manager.readMetadata(filePath);
+  const tags = getTagsForSong(filePath).map(songTagToInfo);
+
+  // Gather known vocabulary from the moodboard for consistency
+  const allGenres = getAllTags('genre' as TagCategory).map(t => t.tag_label);
+  const allMoods = getAllTags('mood' as TagCategory).map(t => t.tag_label);
+  const allPhases = getAllTags('phase' as TagCategory).map(t => t.tag_label);
+
+  return suggestTags({
+    title: meta.title,
+    artist: meta.artist,
+    bpm: meta.bpm,
+    key: meta.camelotKey || meta.key,
+    energyLevel: meta.energyLevel,
+    existingGenres: tags.filter(t => t.category === 'genre').map(t => t.label),
+    existingMoods: tags.filter(t => t.category === 'mood').map(t => t.label),
+    existingPhases: tags.filter(t => t.category === 'phase').map(t => t.label),
+    knownTags: { genres: allGenres, moods: allMoods, phases: allPhases },
+  });
+}
