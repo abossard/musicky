@@ -9,9 +9,10 @@ interface TagPaletteProps {
   onToggleTag: (label: string, category: string) => void;
   genres: { label: string; count: number }[];
   moods: { label: string; count: number }[];
+  tagPending?: boolean;
 }
 
-function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag, genres, moods }: TagPaletteProps) {
+function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag, genres, moods, tagPending }: TagPaletteProps) {
   const [suggestions, setSuggestions] = useState<{ genres: string[]; moods: string[] } | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
@@ -53,7 +54,7 @@ function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag, genres,
         color={active ? color : isSuggested ? 'violet' : 'dark'}
         style={{
           cursor: selectedSong ? 'pointer' : 'default',
-          opacity: selectedSong ? 1 : 0.5,
+          opacity: selectedSong ? (tagPending ? 0.6 : 1) : 0.5,
           boxShadow: isSuggested && !active ? '0 0 8px rgba(124,58,237,0.3)' : undefined,
           transition: 'all 0.15s',
         }}
@@ -80,6 +81,7 @@ function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag, genres,
         <Text size="xs" fw={700} tt="uppercase" style={{ letterSpacing: 1, flex: 1 }}>
           Tags
         </Text>
+        {tagPending && <Loader size={10} color="violet" />}
         {selectedSong && (
           <Tooltip label="AI suggestions" position="left">
             <ActionIcon size="xs" variant="subtle" color="violet" onClick={handleSuggest} loading={loadingSuggestions}>

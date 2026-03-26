@@ -16,11 +16,7 @@ export interface TagSuggestions {
   phases: string[];
 }
 
-/**
- * Get AI-powered tag suggestions for a song based on its metadata.
- * Uses the Copilot SDK as a lightweight helper — simple prompt, JSON response.
- */
-export async function suggestTags(song: {
+interface SongMetadataInput {
   title?: string;
   artist?: string;
   bpm?: number;
@@ -30,9 +26,10 @@ export async function suggestTags(song: {
   existingMoods?: string[];
   existingPhases?: string[];
   knownTags?: { genres: string[]; moods: string[]; phases: string[] };
-}): Promise<TagSuggestions> {
-  const cl = await getClient();
+}
 
+/** Pure calculation: build the suggestion prompt from song metadata */
+export function buildSuggestionPrompt(song: SongMetadataInput): string {
   const existingInfo = [
     song.existingGenres?.length ? `Current genres: ${song.existingGenres.join(', ')}` : '',
     song.existingMoods?.length ? `Current moods: ${song.existingMoods.join(', ')}` : '',
@@ -45,7 +42,7 @@ export async function suggestTags(song: {
     song.knownTags.phases.length ? `Available phases in library: ${song.knownTags.phases.join(', ')}` : '',
   ].filter(Boolean).join('\n') : '';
 
-  const prompt = `You are a DJ music tagger. Given a song's metadata, suggest tags.
+  return `You are a DJ music tagger. Given a song's metadata, suggest tags.
 Return ONLY a JSON object with three arrays: genres, moods, phases.
 Each array should have 2-4 suggestions. Prefer tags from the available vocabulary when they fit.
 Do NOT repeat tags the song already has.
@@ -60,6 +57,28 @@ ${existingInfo ? `\n${existingInfo}` : ''}
 ${vocabularyHint ? `\n${vocabularyHint}` : ''}
 
 Respond with ONLY the JSON object, no markdown fences, no explanation.`;
+}
+
+/** Pure calculation: parse AI response text into tag suggestions */
+export function parseSuggestionResponse(text: string): TagSuggestions {
+  const jsonStr = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const parsed = JSON.parse(jsonStr);
+
+  return {
+    genres: Array.isArray(parsed.genres) ? parsed.genres.map((s: string) => s.toLowerCase().trim()).slice(0, 5) : [],
+    moods: Array.isArray(parsed.moods) ? parsed.moods.map((s: string) => s.toLowerCase().trim()).slice(0, 5) : [],
+    phases: Array.isArray(parsed.phases) ? parsed.phases.map((s: string) => s.toLowerCase().trim()).slice(0, 5) : [],
+  };
+}
+
+/**
+ * Get AI-powered tag suggestions for a song based on its metadata.
+ * Uses the Copilot SDK as a lightweight helper — simple prompt, JSON response.
+ */
+export async function suggestTags(song: SongMetadataInput): Promise<TagSuggestions> {
+  const cl = await getClient();
+
+  const prompt = buildSuggestionPrompt(song);
 
   // Deny all tool permissions — we only want text completion
   const session = await cl.createSession({
@@ -74,16 +93,7 @@ Respond with ONLY the JSON object, no markdown fences, no explanation.`;
   try {
     const response = await session.sendAndWait({ prompt }, 15000);
     const text = response?.data?.content || '';
-
-    // Parse JSON from response (strip markdown fences if present)
-    const jsonStr = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    const parsed = JSON.parse(jsonStr);
-
-    return {
-      genres: Array.isArray(parsed.genres) ? parsed.genres.map((s: string) => s.toLowerCase().trim()).slice(0, 5) : [],
-      moods: Array.isArray(parsed.moods) ? parsed.moods.map((s: string) => s.toLowerCase().trim()).slice(0, 5) : [],
-      phases: Array.isArray(parsed.phases) ? parsed.phases.map((s: string) => s.toLowerCase().trim()).slice(0, 5) : [],
-    };
+    return parseSuggestionResponse(text);
   } catch (error) {
     console.error('[AI Tagger] Failed to get suggestions:', error);
     return { genres: [], moods: [], phases: [] };

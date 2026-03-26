@@ -150,12 +150,44 @@ function normalizeList(arr?: string[]): string {
 }
 
 /**
+ * Pure calculation: compute tag diff between current and proposed tag values.
+ * Returns an array of field-level diffs where values differ and proposed is non-empty.
+ */
+export function computeTagDiff(
+  current: { genres: string[]; phases: string[]; moods: string[]; topics: string[]; tags: string[] },
+  proposed: { genres: string[]; phases: string[]; moods: string[]; topics: string[]; tags: string[] },
+): Array<{ field: string; currentValue: string; proposedValue: string }> {
+  const diffs: Array<{ field: string; currentValue: string; proposedValue: string }> = [];
+
+  const comparisons: { field: string; current: string[]; proposed: string[] }[] = [
+    { field: `${MUSICK_TAG_PREFIX}genres`, current: current.genres, proposed: proposed.genres },
+    { field: `${MUSICK_TAG_PREFIX}phases`, current: current.phases, proposed: proposed.phases },
+    { field: `${MUSICK_TAG_PREFIX}moods`, current: current.moods, proposed: proposed.moods },
+    { field: `${MUSICK_TAG_PREFIX}topics`, current: current.topics, proposed: proposed.topics },
+    { field: `${MUSICK_TAG_PREFIX}tags`, current: current.tags, proposed: proposed.tags },
+  ];
+
+  for (const comp of comparisons) {
+    const currentNorm = normalizeList(comp.current);
+    const proposedNorm = normalizeList(comp.proposed);
+    if (currentNorm !== proposedNorm && proposedNorm !== '') {
+      diffs.push({
+        field: comp.field,
+        currentValue: currentNorm,
+        proposedValue: proposedNorm,
+      });
+    }
+  }
+
+  return diffs;
+}
+
+/**
  * Generate export diffs for a single file: what needs to be written to the MP3.
  */
 export async function generateExportDiff(filePath: string): Promise<TagDiff[]> {
   const metadata = await mp3Manager.readMetadata(filePath);
   const existingTags = metadata.muspiTag || {};
-  const diffs: TagDiff[] = [];
 
   // Get dashboard state for this song
   const moodboardTags = getMoodboardTagsForSong(filePath);
@@ -165,28 +197,31 @@ export async function generateExportDiff(filePath: string): Promise<TagDiff[]> {
   const commentPhases = extractPhasesFromComment(metadata.comment);
   const allPhases = [...new Set([...moodboardTags.phases, ...commentPhases])].sort();
 
-  // Compare each field
-  const comparisons: { field: string; current: string[]; proposed: string[] }[] = [
-    { field: `${MUSICK_TAG_PREFIX}genres`, current: existingTags.genres || [], proposed: moodboardTags.genres },
-    { field: `${MUSICK_TAG_PREFIX}phases`, current: existingTags.phases || [], proposed: allPhases },
-    { field: `${MUSICK_TAG_PREFIX}moods`, current: existingTags.moods || [], proposed: moodboardTags.moods },
-    { field: `${MUSICK_TAG_PREFIX}topics`, current: existingTags.topics || [], proposed: moodboardTags.topics },
-    { field: `${MUSICK_TAG_PREFIX}tags`, current: existingTags.tags || [], proposed: moodboardTags.custom },
-  ];
+  // CALCULATION: compute tag field diffs
+  const tagDiffs = computeTagDiff(
+    {
+      genres: existingTags.genres || [],
+      phases: existingTags.phases || [],
+      moods: existingTags.moods || [],
+      topics: existingTags.topics || [],
+      tags: existingTags.tags || [],
+    },
+    {
+      genres: moodboardTags.genres,
+      phases: allPhases,
+      moods: moodboardTags.moods,
+      topics: moodboardTags.topics,
+      tags: moodboardTags.custom,
+    },
+  );
 
-  for (const comp of comparisons) {
-    const currentNorm = normalizeList(comp.current);
-    const proposedNorm = normalizeList(comp.proposed);
-    if (currentNorm !== proposedNorm && proposedNorm !== '') {
-      diffs.push({
-        filePath,
-        fieldName: comp.field,
-        currentValue: currentNorm,
-        proposedValue: proposedNorm,
-        direction: 'export',
-      });
-    }
-  }
+  const diffs: TagDiff[] = tagDiffs.map(d => ({
+    filePath,
+    fieldName: d.field,
+    currentValue: d.currentValue,
+    proposedValue: d.proposedValue,
+    direction: 'export' as const,
+  }));
 
   // Compare related songs
   const currentRelated = JSON.stringify((existingTags.related || []).sort((a, b) => `${a.title}${a.artist}`.localeCompare(`${b.title}${b.artist}`)));

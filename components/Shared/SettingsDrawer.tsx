@@ -8,7 +8,7 @@ import {
 } from '@tabler/icons-react';
 
 import { onGetKeepPlayHead, onSetKeepPlayHead } from '../Settings.telefunc';
-import { onGetBaseFolder, onSetBaseFolder, onScanLibrary } from './MoodboardPage.telefunc';
+import { onGetBaseFolder, onSetBaseFolder, onScanLibrary } from '../Moodboard/MoodboardPage.telefunc';
 import { showSuccess, showError } from '../../lib/notifications';
 import './SettingsDrawer.css';
 

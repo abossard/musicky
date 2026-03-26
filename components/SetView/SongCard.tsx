@@ -19,6 +19,9 @@ interface SongCardProps {
   song: SongCardData;
   isSelected: boolean;
   isPlaying: boolean;
+  isFocused?: boolean;
+  isInSelection?: boolean;
+  isLocked?: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -30,7 +33,14 @@ const TAG_COLORS: Record<string, string> = {
   mood: 'pink',
 };
 
-function SongCardInner({ song, isSelected, isPlaying, onClick, onDoubleClick, onDragStart, compact }: SongCardProps) {
+function SongCardInner({ song, isSelected, isPlaying, isFocused, isInSelection, isLocked, onClick, onDoubleClick, onDragStart, compact }: SongCardProps) {
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (isFocused && cardRef.current) {
+      cardRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [isFocused]);
   const keyColor = song.camelotKey ? getCamelotColor(song.camelotKey) : undefined;
   const energyColor = song.energyLevel
     ? song.energyLevel >= 8 ? 'red' : song.energyLevel >= 5 ? 'orange' : 'green'
@@ -38,6 +48,7 @@ function SongCardInner({ song, isSelected, isPlaying, onClick, onDoubleClick, on
 
   return (
     <Paper
+      ref={cardRef}
       p={compact ? 6 : 8}
       radius="sm"
       draggable
@@ -48,15 +59,25 @@ function SongCardInner({ song, isSelected, isPlaying, onClick, onDoubleClick, on
       }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
-      data-testid="set-song-card"
+      data-testid={isFocused ? 'song-card-focused' : 'set-song-card'}
       style={{
         cursor: 'grab',
-        border: isSelected ? '2px solid var(--mantine-color-violet-5)' : '1px solid var(--mantine-color-dark-4)',
-        background: isPlaying
-          ? 'rgba(64, 192, 87, 0.08)'
-          : isSelected
-            ? 'rgba(124, 58, 237, 0.08)'
-            : 'var(--mantine-color-dark-6)',
+        border: isFocused
+          ? '2px dashed var(--mantine-color-yellow-5)'
+          : isInSelection
+            ? '2px solid var(--mantine-color-blue-5)'
+            : isSelected
+              ? '2px solid var(--mantine-color-violet-5)'
+              : '1px solid var(--mantine-color-dark-4)',
+        background: isLocked && isInSelection
+          ? 'rgba(59, 130, 246, 0.12)'
+          : isPlaying
+            ? 'rgba(64, 192, 87, 0.08)'
+            : isInSelection
+              ? 'rgba(59, 130, 246, 0.06)'
+              : isSelected
+                ? 'rgba(124, 58, 237, 0.08)'
+                : 'var(--mantine-color-dark-6)',
         transition: 'border-color 0.15s, background 0.15s',
         userSelect: 'none',
       }}

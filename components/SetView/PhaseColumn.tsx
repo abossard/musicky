@@ -6,6 +6,9 @@ interface PhaseColumnProps {
   phase: string;
   songs: SongCardData[];
   selectedSong: string | null;
+  selectedSongs?: ReadonlySet<string>;
+  focusedSong?: string | null;
+  isLocked?: boolean;
   playingSong: string | null;
   groupBy: 'none' | 'genre' | 'mood';
   onSongClick: (filePath: string) => void;
@@ -20,7 +23,8 @@ const PHASE_COLORS: Record<string, string> = {
 };
 
 function PhaseColumnInner({
-  phase, songs, selectedSong, playingSong, groupBy,
+  phase, songs, selectedSong, selectedSongs, focusedSong, isLocked: columnLocked,
+  playingSong, groupBy,
   onSongClick, onSongDoubleClick, onDrop, color,
 }: PhaseColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -56,6 +60,9 @@ function PhaseColumnInner({
           song={song}
           isSelected={selectedSong === song.filePath}
           isPlaying={playingSong === song.filePath}
+          isFocused={focusedSong === song.filePath}
+          isInSelection={selectedSongs?.has(song.filePath) ?? false}
+          isLocked={columnLocked}
           onClick={() => onSongClick(song.filePath)}
           onDoubleClick={() => onSongDoubleClick(song.filePath)}
           onDragStart={() => {}}
@@ -99,6 +106,9 @@ function PhaseColumnInner({
                   song={song}
                   isSelected={selectedSong === song.filePath}
                   isPlaying={playingSong === song.filePath}
+                  isFocused={focusedSong === song.filePath}
+                  isInSelection={selectedSongs?.has(song.filePath) ?? false}
+                  isLocked={columnLocked}
                   onClick={() => onSongClick(song.filePath)}
                   onDoubleClick={() => onSongDoubleClick(song.filePath)}
                   onDragStart={() => {}}
@@ -118,6 +128,9 @@ function PhaseColumnInner({
                   song={song}
                   isSelected={selectedSong === song.filePath}
                   isPlaying={playingSong === song.filePath}
+                  isFocused={focusedSong === song.filePath}
+                  isInSelection={selectedSongs?.has(song.filePath) ?? false}
+                  isLocked={columnLocked}
                   onClick={() => onSongClick(song.filePath)}
                   onDoubleClick={() => onSongDoubleClick(song.filePath)}
                   onDragStart={() => {}}

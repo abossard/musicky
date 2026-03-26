@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { artworkCache } from './artwork-cache';
 import { standardToCamelot } from './camelot';
+import { extractMusickTagsFromFrames, extractMIKAttributes, extractCommentText } from './mp3-parsing';
 
 // Try dynamic import for node-id3 to handle CommonJS/ESM issues
 const getNodeID3 = async () => {
@@ -127,11 +128,10 @@ export class MP3MetadataManager {
       // Read metadata using music-metadata
       const metadata = await mm.parseFile(filePath);
       
-      // Extract Musicky TXXX tags from native ID3v2 frames
-      const muspiTag = this.extractMusickTags(metadata);
-
-      // Extract Mixed In Key / Beatport attributes
-      const { energyLevel, label } = this.extractTxxxAttributes(metadata);
+      // Extract native frames once, then use pure calculations
+      const nativeFrames = metadata.native['ID3v2.4'] || metadata.native['ID3v2.3'] || metadata.native['ID3v2.2'] || [];
+      const muspiTag = extractMusickTagsFromFrames(nativeFrames);
+      const { energyLevel, label } = extractMIKAttributes(nativeFrames);
 
       const result: MP3Metadata = {
         filePath,
@@ -142,7 +142,7 @@ export class MP3MetadataManager {
         year: metadata.common.year,
         genre: metadata.common.genre,
         track: metadata.common.track,
-        comment: this.extractCommentText(metadata.common.comment),
+        comment: extractCommentText(metadata.common.comment),
         duration: metadata.format.duration,
         bitrate: metadata.format.bitrate,
         sampleRate: metadata.format.sampleRate,
@@ -249,112 +249,7 @@ export class MP3MetadataManager {
     }
   }
   
-  /**
-   * Extract comment text from metadata comment objects
-   */
-  private extractCommentText(comments?: any[]): string | undefined {
-    if (!comments || !Array.isArray(comments) || comments.length === 0) {
-      return undefined;
-    }
-    
-    // Comments can be strings or objects with {language, descriptor, text}
-    const firstComment = comments[0];
-    if (typeof firstComment === 'string') {
-      return firstComment;
-    }
-    
-    // If it's an object, extract the text property
-    if (typeof firstComment === 'object' && firstComment.text) {
-      return firstComment.text;
-    }
-    
-    return undefined;
-  }
 
-  /**
-   * Extract Musicky µ: TXXX tags from music-metadata native frames.
-   * music-metadata encodes TXXX as id="TXXX:description" with value="text".
-   */
-  private extractMusickTags(metadata: mm.IAudioMetadata): MusickTagData | null {
-    const nativeFrames = metadata.native['ID3v2.4'] || metadata.native['ID3v2.3'] || metadata.native['ID3v2.2'];
-    if (!nativeFrames) return null;
-
-    // music-metadata uses "TXXX:description" as the frame id with a string value
-    const txxxPrefix = `TXXX:${MUSICK_TAG_PREFIX}`;
-    const txxxFrames = nativeFrames.filter(
-      (f: { id: string; value: any }) => f.id.startsWith(txxxPrefix)
-    );
-
-    if (txxxFrames.length === 0) return null;
-
-    const tagData: MusickTagData = {};
-    for (const frame of txxxFrames) {
-      // Extract the field name from "TXXX:µ:genres" → "genres"
-      const key = frame.id.slice(txxxPrefix.length) as MusickTagField;
-      // Value can be a string or an object with description+text
-      let val: string;
-      if (typeof frame.value === 'string') {
-        val = frame.value;
-      } else if (typeof frame.value === 'object' && frame.value) {
-        const obj = frame.value as Record<string, unknown>;
-        val = (obj.text as string) ?? (obj.value as string) ?? '';
-      } else {
-        continue;
-      }
-
-      switch (key) {
-        case 'genres':
-        case 'phases':
-        case 'moods':
-        case 'topics':
-        case 'tags':
-          tagData[key] = val.split(',').map((s: string) => s.trim()).filter(Boolean);
-          break;
-        case 'related':
-          try { tagData.related = JSON.parse(val); } catch { /* ignore malformed */ }
-          break;
-        case 'version':
-          tagData.version = parseInt(val, 10) || 1;
-          break;
-      }
-    }
-
-    return Object.keys(tagData).length > 0 ? tagData : null;
-  }
-
-  /**
-   * Extract Mixed In Key and store metadata from TXXX frames.
-   * - TXXX:EnergyLevel → energy level (1-10), written by Mixed In Key
-   * - TXXX:LABEL → record label, written by Beatport/stores
-   */
-  private extractTxxxAttributes(metadata: mm.IAudioMetadata): {
-    energyLevel?: number;
-    label?: string;
-  } {
-    const nativeFrames = metadata.native['ID3v2.4'] || metadata.native['ID3v2.3'] || metadata.native['ID3v2.2'];
-    if (!nativeFrames) return {};
-
-    let energyLevel: number | undefined;
-    let label: string | undefined;
-
-    for (const frame of nativeFrames) {
-      const val = typeof frame.value === 'string' ? frame.value : '';
-      switch (frame.id) {
-        case 'TXXX:EnergyLevel': {
-          const parsed = parseInt(val, 10);
-          if (!isNaN(parsed) && parsed >= 1 && parsed <= 10) {
-            energyLevel = parsed;
-          }
-          break;
-        }
-        case 'TXXX:LABEL':
-          if (val.trim()) label = val.trim();
-          break;
-      }
-    }
-
-    return { energyLevel, label };
-  }
 
   /**
    * Write Musicky TXXX tags to an MP3 file.
@@ -568,7 +463,8 @@ export class MP3MetadataManager {
    */
   async readMusickTags(filePath: string): Promise<MusickTagData | null> {
     const metadata = await mm.parseFile(filePath);
-    return this.extractMusickTags(metadata);
+    const nativeFrames = metadata.native['ID3v2.4'] || metadata.native['ID3v2.3'] || metadata.native['ID3v2.2'] || [];
+    return extractMusickTagsFromFrames(nativeFrames);
   }
 
   /**

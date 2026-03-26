@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconMusic, IconFilter, IconPlus } from '@tabler/icons-react';
-import { onGetLibrarySongs, onSearchSongs, onGetAllTags } from './MoodboardPage.telefunc';
+import { onGetLibrarySongs, onSearchSongs, onGetAllTags } from '../Moodboard/MoodboardPage.telefunc';
 import { getCamelotColor, getCompatibleCamelotKeys } from '../../lib/camelot';
 
 import './LibraryPanel.css';
@@ -164,7 +164,7 @@ export function LibraryPanel({ onSongSelect, onSongDoubleClick, onSongDragStart,
     if (untagged.length === 0) return;
 
     const loadTags = async () => {
-      const { onGetSongTags } = await import('./MoodboardPage.telefunc');
+      const { onGetSongTags } = await import('../Moodboard/MoodboardPage.telefunc');
       const chunk = untagged.slice(0, 100);
       const results = await Promise.all(
         chunk.map(s =>

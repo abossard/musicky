@@ -11,7 +11,7 @@ import {
   onGetSongMetadata, onGetSongTags, onGetSongConnections,
   onAddSongTag, onRemoveSongTag, onFindSimilarSongs,
   onGetTagSuggestions,
-} from './MoodboardPage.telefunc';
+} from '../Moodboard/MoodboardPage.telefunc';
 import { getCamelotColor } from '../../lib/camelot';
 import { showSuccess } from '../../lib/notifications';
 

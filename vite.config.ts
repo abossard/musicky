@@ -16,4 +16,8 @@ export default defineConfig({
   build: {
     target: "es2022",
   },
+  test: {
+    include: ["lib/__tests__/**/*.test.ts"],
+    exclude: ["tests/**", "node_modules/**"],
+  },
 });
