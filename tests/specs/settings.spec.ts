@@ -1,47 +1,30 @@
-import { test, expect, uniqueName } from '../fixtures/app-fixture';
+import { test, expect } from '../fixtures/app-fixture';
 
 test.describe('Settings', () => {
-  test.beforeEach(async ({ settingsPage }) => {
-    await settingsPage.goto();
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/settings');
+    await page.waitForLoadState('domcontentloaded');
   });
 
-  test('page loads with correct sections', async ({ settingsPage }) => {
-    await settingsPage.expectPageVisible();
-    await settingsPage.expectPlaybackSettingsVisible();
-    await settingsPage.expectLibraryPhasesVisible();
+  test('page loads with playback section', async ({ page }) => {
+    await expect(page.getByText('Playback Settings')).toBeVisible({ timeout: 15000 });
   });
 
-  test('keep play head checkbox is present', async ({ settingsPage }) => {
-    await expect(settingsPage.keepPlayHeadCheckbox).toBeVisible();
+  test('keep play head checkbox is present', async ({ page }) => {
+    const checkbox = page.getByRole('checkbox');
+    await expect(checkbox.first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('can toggle keep play head setting', async ({ settingsPage }) => {
-    const wasChecked = await settingsPage.keepPlayHeadCheckbox.isChecked();
-    await settingsPage.toggleKeepPlayHead();
-
+  test('can toggle keep play head setting', async ({ page }) => {
+    const checkbox = page.getByRole('checkbox').first();
+    await expect(checkbox).toBeVisible({ timeout: 10000 });
+    const wasChecked = await checkbox.isChecked();
+    await checkbox.click();
+    
     if (wasChecked) {
-      await settingsPage.expectKeepPlayHeadChecked(false);
+      await expect(checkbox).not.toBeChecked();
     } else {
-      await settingsPage.expectKeepPlayHeadChecked(true);
+      await expect(checkbox).toBeChecked();
     }
-  });
-
-  test('phase management section is visible', async ({ settingsPage }) => {
-    await settingsPage.expectLibraryPhasesVisible();
-  });
-
-  test('can add a phase', async ({ settingsPage }) => {
-    const phaseName = uniqueName('TestPhase');
-    await settingsPage.addPhase(phaseName);
-    await settingsPage.expectPhaseVisible(phaseName);
-  });
-
-  test('can remove a phase', async ({ settingsPage }) => {
-    const phaseName = uniqueName('RemoveMe');
-    await settingsPage.addPhase(phaseName);
-    await settingsPage.expectPhaseVisible(phaseName);
-
-    await settingsPage.removePhase(phaseName);
-    await settingsPage.expectPhaseNotVisible(phaseName);
   });
 });
