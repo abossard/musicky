@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, MiniMap, Controls, Background, BackgroundVariant, ConnectionMode,
-  useReactFlow,
+  useReactFlow, applyNodeChanges,
   type Node, type Edge, type Connection, type NodeTypes, type EdgeTypes,
   type OnNodesChange, type OnEdgesChange, type Viewport,
   Panel,
@@ -130,6 +130,8 @@ export function MoodboardCanvas({
   const [smartGridRatio, setSmartGridRatio] = useState(10);
   const [bundleConfig, setBundleConfig] = useState<BundleConfig>(DEFAULT_BUNDLE_CONFIG);
   const [dragOverContainerId, setDragOverContainerId] = useState<string | null>(null);
+  const [containerViewNodes, setContainerViewNodes] = useState<Node[] | null>(null);
+  const [containerViewEdges, setContainerViewEdges] = useState<Edge[] | null>(null);
 
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
@@ -319,11 +321,13 @@ export function MoodboardCanvas({
     return { filteredNodes: fn, filteredEdges: fe };
   }, [nodes, edges, nodeStates, edgeStates, activeFilterTags, onPlaySong, onHoverPlaySong, toggleFilter, edgeStyle, smartNodePadding, smartGridRatio, bundleConfig, selectedEdgeId, harmonyMap]);
 
-  // Container view: transform flat nodes into grouped nodes when viewMode !== 'free'
-  const { viewNodes, viewEdges } = useMemo(() => {
+  // Container view: recompute when viewMode, nodes, or edges change
+  useEffect(() => {
     const containerResult = transformToContainerView(nodes, edges, viewMode);
     if (!containerResult) {
-      return { viewNodes: filteredNodes, viewEdges: filteredEdges };
+      setContainerViewNodes(null);
+      setContainerViewEdges(null);
+      return;
     }
 
     // Inject callbacks and drop-target state into the pure result
@@ -331,6 +335,7 @@ export function MoodboardCanvas({
       if (n.type === 'song') {
         return {
           ...n,
+          draggable: true,
           data: {
             ...n.data,
             onPlayToggle: onPlaySong,
@@ -347,8 +352,23 @@ export function MoodboardCanvas({
       return n;
     });
 
-    return { viewNodes: vn, viewEdges: containerResult.viewEdges };
-  }, [viewMode, filteredNodes, filteredEdges, nodes, edges, onPlaySong, onHoverPlaySong, toggleFilter, dragOverContainerId]);
+    setContainerViewNodes(vn);
+    setContainerViewEdges(containerResult.viewEdges);
+  // Only recompute on structural changes, not on every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, nodes.length, edges.length, dragOverContainerId]);
+
+  // Handle onNodesChange for container view (allow position updates)
+  const handleNodesChange: OnNodesChange = useCallback((changes) => {
+    if (containerViewNodes) {
+      setContainerViewNodes((prev: Node[] | null) => prev ? applyNodeChanges(changes, prev) as Node[] : prev);
+    } else {
+      onNodesChange(changes);
+    }
+  }, [containerViewNodes, onNodesChange]);
+
+  const viewNodes = containerViewNodes || filteredNodes;
+  const viewEdges = containerViewEdges || filteredEdges;
 
   const handleConnect = useCallback(async (connection: Connection) => {
     await createEdge(connection);
@@ -583,7 +603,7 @@ export function MoodboardCanvas({
         edges={viewEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
         onConnectStart={handleConnectStart}
