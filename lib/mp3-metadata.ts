@@ -638,35 +638,59 @@ export class MP3MetadataManager {
    * Format: "#peak #techno #house #dark #energetic"
    * Preserves any existing non-hashtag text in the comment.
    */
+  /** Safe text fields that can be round-tripped through node-id3 without data corruption */
+  private static SAFE_ID3_FIELDS = [
+    'title', 'artist', 'album', 'genre', 'bpm', 'initialKey',
+    'trackNumber', 'year', 'ISRC', 'publisher', 'encodingTechnology', 'subtitle',
+    'recordingTime', 'releaseTime', 'originalReleaseTime', 'fileType', 'length',
+    'encodedBy', 'fileUrl', 'publisherUrl',
+  ];
+
   async writeHashtags(filePath: string, tags: string[]): Promise<void> {
     await fs.access(filePath);
     const NodeID3 = await getNodeID3();
 
-    // Read existing comment to preserve non-hashtag text
+    // Read ALL existing tags
+    const existing = NodeID3.read(filePath, { noRaw: true }) || {} as Record<string, any>;
+
+    // Build clean tags object with only safe fields (skips GEOB, broken popularimeter, etc.)
+    const safeTags: Record<string, any> = {};
+    for (const field of MP3MetadataManager.SAFE_ID3_FIELDS) {
+      if ((existing as any)[field] != null) safeTags[field] = (existing as any)[field];
+    }
+
+    // Preserve TXXX (userDefinedText) — filter out entries with undefined values
+    if (existing.userDefinedText) {
+      const udt = Array.isArray(existing.userDefinedText) ? existing.userDefinedText : [existing.userDefinedText];
+      safeTags.userDefinedText = udt.filter((t: any) => t && t.description != null && t.value != null);
+    }
+
+    // Preserve album artwork if buffer exists
+    if (existing.image && existing.image.imageBuffer) {
+      safeTags.image = existing.image;
+    }
+
+    // Extract non-hashtag text from existing comment
     let existingComment = '';
-    try {
-      const existing = NodeID3.read(filePath, { noRaw: true, include: ['COMM'] }) || {};
-      if (existing.comment) {
-        const comment = existing.comment;
-        const text = typeof comment === 'string' ? comment
-          : Array.isArray(comment) ? (comment[0]?.text || comment[0] || '')
-          : (comment.text || '');
-        // Strip existing hashtags, keep other text
-        existingComment = String(text).replace(/#\w+/g, '').trim();
-      }
-    } catch { /* ignore read errors */ }
+    if (existing.comment) {
+      const comment = existing.comment;
+      const text = typeof comment === 'string' ? comment
+        : Array.isArray(comment) ? (comment[0]?.text || comment[0] || '')
+        : (comment.text || '');
+      existingComment = String(text).replace(/#\w+/g, '').replace(/\|/g, '').trim();
+    }
 
+    // Build hashtag string
     const hashtags = tags.map(t => `#${t.replace(/\s+/g, '_').toLowerCase()}`).join(' ');
-
-    // Combine: hashtags first, then any existing non-hashtag text
     const fullComment = existingComment
       ? `${hashtags} | ${existingComment}`
       : hashtags;
 
-    const success = NodeID3.update({
-      comment: { language: 'eng', text: fullComment },
-    }, filePath, { include: ['COMM'] });
+    // Set comment
+    safeTags.comment = { language: 'eng', text: fullComment };
 
-    if (!success) throw new Error('Failed to write hashtags to comment field');
+    // Write all safe tags back (preserves TKEY, TBPM, TXXX, artwork)
+    const success = NodeID3.write(safeTags, filePath);
+    if (!success) throw new Error('Failed to write hashtags to file');
   }
 }
