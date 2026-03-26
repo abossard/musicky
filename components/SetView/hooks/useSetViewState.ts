@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   onGetLibrarySongs, onGetSongTags, onGetAllTags,
 } from '../../Moodboard/MoodboardPage.telefunc';
+import { onImportHashtagsForSong } from '../../TagSync.telefunc';
 import { standardToCamelot } from '../../../lib/camelot';
 import type { SongCardData } from '../SongCard';
 
@@ -54,6 +55,29 @@ export function useSetViewState(): UseSetViewStateReturn {
           };
         })
       );
+
+      // Auto-import hashtags for songs that have no tags in the database
+      const untagged = allSongData.filter(
+        s => s.genres.length === 0 && s.moods.length === 0 && !s.phase
+      );
+      if (untagged.length > 0) {
+        const importResults = await Promise.all(
+          untagged.map(s =>
+            onImportHashtagsForSong(s.filePath).catch(() => null)
+          )
+        );
+        const imported = importResults.some(r => r !== null);
+        if (imported) {
+          // Re-fetch tags for songs that were just imported
+          for (const song of untagged) {
+            const tags = await onGetSongTags(song.filePath);
+            song.genres = tags.filter((t: any) => t.category === 'genre').map((t: any) => t.label);
+            song.moods = tags.filter((t: any) => t.category === 'mood').map((t: any) => t.label);
+            song.phase = tags.find((t: any) => t.category === 'phase')?.label;
+          }
+        }
+      }
+
       setSongs(allSongData);
     } catch (e) {
       console.error('Failed to load songs:', e);

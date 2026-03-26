@@ -1,5 +1,6 @@
 import { MP3MetadataManager, type MusickTagData, type MusickRelatedSong, MUSICK_TAG_PREFIX } from '../lib/mp3-metadata';
-import { buildHashtagString } from '../lib/mp3-parsing';
+import { buildHashtagString, parseHashtags } from '../lib/mp3-parsing';
+import { categorizeHashtags, type CategorizedTags } from '../lib/hashtag-categorizer';
 import {
   generateExportDiff,
   generateImportDiff,
@@ -30,6 +31,7 @@ import {
   addSongTag,
   clearSongTags,
   bulkSetSongTags,
+  getAllTags,
   type TagCategory,
 } from '../database/sqlite/queries/song-tags';
 import {
@@ -926,4 +928,41 @@ export async function onApplyHashtagExport(filePaths: string[]): Promise<{ succe
   }
 
   return { success, failed };
+}
+
+// ─── Import: Comment Hashtags → Database Tags ─────────────────────────────
+
+/**
+ * Import hashtags from a song's comment field into database tags.
+ * Idempotent: skips if the song already has tags in the database.
+ * Returns categorized tags on success, null if skipped or no hashtags found.
+ */
+export async function onImportHashtagsForSong(filePath: string): Promise<CategorizedTags | null> {
+  // Don't re-import if song already has tags
+  const existingTags = getTagsForSong(filePath);
+  if (existingTags.length > 0) return null;
+
+  const meta = await mp3Manager.readMetadata(filePath);
+  if (!meta.comment) return null;
+
+  const hashtags = parseHashtags(meta.comment);
+  if (hashtags.length === 0) return null;
+
+  // Get known vocabularies from the database for better categorization
+  const allGenres = getAllTags('genre').map(t => t.tag_label);
+  const allMoods = getAllTags('mood').map(t => t.tag_label);
+  const allPhases = getAllTags('phase').map(t => t.tag_label);
+
+  const categorized = categorizeHashtags(
+    hashtags,
+    new Set(allGenres),
+    new Set(allMoods),
+    new Set(allPhases),
+  );
+
+  for (const p of categorized.phases) addSongTag(filePath, p, 'phase', 'id3_import');
+  for (const g of categorized.genres) addSongTag(filePath, g, 'genre', 'id3_import');
+  for (const m of categorized.moods) addSongTag(filePath, m, 'mood', 'id3_import');
+
+  return categorized;
 }

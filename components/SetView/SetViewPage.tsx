@@ -9,7 +9,7 @@ import { TagPaletteSidebar } from './TagPaletteSidebar';
 import { LibraryPanel } from '../Shared/LibraryPanel';
 import { SongDetailPanel } from '../Shared/SongDetailPanel';
 import { SettingsDrawer } from '../Shared/SettingsDrawer';
-import { ReviewPanel } from '../Shared/ReviewPanel';
+import { ExportReviewTable } from './ExportReviewTable';
 import { AudioPlayerBar } from '../Shared/AudioPlayerBar';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
 import { useSetViewState } from './hooks/useSetViewState';
@@ -283,8 +283,8 @@ export function SetViewPage() {
       <Drawer opened={settingsOpen} onClose={() => setSettingsOpen(false)} position="right" size="sm" title="Settings">
         <SettingsDrawer onClose={() => setSettingsOpen(false)} />
       </Drawer>
-      <Drawer opened={reviewOpen} onClose={() => setReviewOpen(false)} position="right" size="lg" title="Export Tags">
-        <ReviewPanel onClose={() => setReviewOpen(false)} />
+      <Drawer opened={reviewOpen} onClose={() => setReviewOpen(false)} position="right" size="lg" title="Export Tags to Files">
+        <ExportReviewTable onClose={() => setReviewOpen(false)} />
       </Drawer>
 
       <Box className="set-view-player">
