@@ -26,13 +26,13 @@ function ContainerNode({ data }: NodeProps) {
       height: d.height || 400,
       borderRadius: 16,
       border: `4px solid ${borderColor}`,
-      backgroundColor: '#1e1f25',
+      backgroundColor: 'transparent',
       boxShadow: d.isDropTarget
         ? `0 0 30px ${borderColor}, 0 0 60px ${borderColor}55`
-        : `0 0 30px ${borderColor}55`,
+        : `0 0 20px ${borderColor}33`,
       transform: d.isDropTarget ? 'scale(1.02)' : undefined,
       transition: 'box-shadow 0.2s ease, transform 0.2s ease',
-      overflow: 'hidden',
+      overflow: 'visible',
       pointerEvents: 'none',
     }}>
       {/* Header is the drag handle — pointer-events enabled */}

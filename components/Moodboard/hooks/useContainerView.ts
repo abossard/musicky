@@ -85,7 +85,7 @@ export function transformToContainerView(
         height: h,
       } satisfies ContainerNodeData as any,
       style: { width: w, height: h },
-      zIndex: 0,
+      zIndex: -1,
     });
 
     maxHeightInRow = Math.max(maxHeightInRow, h);
