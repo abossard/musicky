@@ -1,11 +1,11 @@
 import { test as base } from '@playwright/test';
 import { NavigationHelper } from '../pages/navigation';
-import { MoodboardPage } from '../pages/moodboard-page';
+import { SetViewPage } from '../pages/set-view-page';
 import { SettingsPage } from '../pages/settings-page';
 
 type AppFixtures = {
   nav: NavigationHelper;
-  moodboardPage: MoodboardPage;
+  setViewPage: SetViewPage;
   settingsPage: SettingsPage;
 };
 
@@ -14,8 +14,8 @@ export const test = base.extend<AppFixtures>({
     await use(new NavigationHelper(page));
   },
 
-  moodboardPage: async ({ page }, use) => {
-    await use(new MoodboardPage(page));
+  setViewPage: async ({ page }, use) => {
+    await use(new SetViewPage(page));
   },
 
   settingsPage: async ({ page }, use) => {

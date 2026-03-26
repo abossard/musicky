@@ -6,10 +6,9 @@ test.describe('Navigation & Layout', () => {
     await expect(page).toHaveURL(/\/moodboard/, { timeout: 15000 });
   });
 
-  test('moodboard page loads with canvas and toolbar', async ({ moodboardPage }) => {
-    await moodboardPage.goto();
-    await expect(moodboardPage.canvas).toBeVisible({ timeout: 15000 });
-    await expect(moodboardPage.toolbar).toBeVisible({ timeout: 15000 });
+  test('set view page loads', async ({ setViewPage }) => {
+    await setViewPage.goto();
+    await setViewPage.waitForReady();
   });
 
   test('settings page loads', async ({ settingsPage }) => {
@@ -17,7 +16,7 @@ test.describe('Navigation & Layout', () => {
     await settingsPage.expectPlaybackSettingsVisible();
   });
 
-  test('sidebar navigation works on desktop', async ({ nav, page }) => {
+  test('sidebar navigation works on desktop', async ({ nav, page, setViewPage }) => {
     await nav.goToMoodboard();
     await nav.expectNavLinksVisible();
 
@@ -27,7 +26,7 @@ test.describe('Navigation & Layout', () => {
 
     await nav.navigateViaLink(nav.navLinks.moodboard);
     await expect(page).toHaveURL(/\/moodboard/);
-    await expect(page.locator('.react-flow')).toBeVisible({ timeout: 15000 });
+    await setViewPage.waitForReady();
   });
 
   test('mobile burger menu', async ({ nav, page }) => {
