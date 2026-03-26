@@ -73,8 +73,9 @@ export function transformToContainerView(
       id: def.id,
       type: 'container',
       position: { x: containerX, y: containerY },
-      draggable: false,
+      draggable: true,
       selectable: false,
+      dragHandle: '.container-drag-handle',
       data: {
         label: (def.tag.data as any)?.label || 'Tag',
         category: (def.tag.data as any)?.category || category,

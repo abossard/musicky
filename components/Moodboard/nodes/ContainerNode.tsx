@@ -35,13 +35,17 @@ function ContainerNode({ data }: NodeProps) {
       overflow: 'hidden',
       pointerEvents: 'none',
     }}>
+      {/* Header is the drag handle — pointer-events enabled */}
       <Group
         gap={8}
         px="md"
         py={10}
+        className="container-drag-handle"
         style={{
           borderBottom: `3px solid ${borderColor}`,
           background: headerBg,
+          cursor: 'grab',
+          pointerEvents: 'auto',
         }}
       >
         <CategoryIcon size={16} />
