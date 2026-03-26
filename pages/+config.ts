@@ -10,8 +10,8 @@ export default {
   Layout,
 
   // https://vike.dev/head-tags
-  title: "My Vike App",
-  description: "Demo showcasing Vike",
+  title: "Musicky — DJ Set Moodboard",
+  description: "Prepare, tag, and visualize your DJ sets",
 
   extends: vikeReact,
 } satisfies Config;
