@@ -1,4 +1,5 @@
 import { MP3MetadataManager, type MusickTagData, type MusickRelatedSong, MUSICK_TAG_PREFIX } from '../lib/mp3-metadata';
+import { buildHashtagString } from '../lib/mp3-parsing';
 import {
   generateExportDiff,
   generateImportDiff,
@@ -840,4 +841,89 @@ export async function onDebugMoodboardState(): Promise<{
   const songNodes = db().prepare("SELECT id, song_path as songPath FROM moodboard_nodes WHERE node_type = 'song'").all() as any[];
   const tagNodes = db().prepare("SELECT id, tag_label as label, tag_category as category FROM moodboard_nodes WHERE node_type = 'tag'").all() as any[];
   return { nodeCount, edgeCount, songNodes, tagNodes, baseFolder: readBaseFolder() };
+}
+
+// ─── Hashtag Export ───────────────────────────────────────────────────────
+
+/**
+ * Export tags as hashtags in the comment field for a single file.
+ */
+export async function onExportHashtags(filePath: string): Promise<void> {
+  const tags = getTagsForSong(filePath);
+  const tagStrings = tags.map(t => t.tag_label);
+  await mp3Manager.writeHashtags(filePath, tagStrings);
+}
+
+/**
+ * Preview hashtag export for all songs that have tags.
+ * Compares current comment vs proposed hashtag comment.
+ */
+export async function onPreviewHashtagExport(): Promise<Array<{
+  filePath: string;
+  title: string;
+  artist: string;
+  currentComment: string;
+  proposedComment: string;
+  hasChanges: boolean;
+}>> {
+  const paths = await getLibraryFilePaths();
+  const results: Array<{
+    filePath: string;
+    title: string;
+    artist: string;
+    currentComment: string;
+    proposedComment: string;
+    hasChanges: boolean;
+  }> = [];
+
+  for (const fp of paths) {
+    const tags = getTagsForSong(fp);
+    if (tags.length === 0) continue;
+
+    const cached = getMP3CacheByPath(fp);
+    const hashtags = buildHashtagString(tags.map(t => ({ label: t.tag_label, category: t.tag_category })));
+
+    let currentComment = '';
+    try {
+      const meta = await mp3Manager.readMetadata(fp);
+      currentComment = meta.comment || '';
+    } catch { /* skip unreadable */ continue; }
+
+    // Strip existing hashtags from current comment to get non-hashtag text
+    const existingText = currentComment.replace(/#\w+/g, '').trim();
+    const proposedComment = existingText
+      ? `${hashtags} | ${existingText}`
+      : hashtags;
+
+    results.push({
+      filePath: fp,
+      title: cached?.title || 'Unknown',
+      artist: cached?.artist || 'Unknown',
+      currentComment,
+      proposedComment,
+      hasChanges: currentComment !== proposedComment,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Apply hashtag export to approved files.
+ */
+export async function onApplyHashtagExport(filePaths: string[]): Promise<{ success: number; failed: string[] }> {
+  let success = 0;
+  const failed: string[] = [];
+
+  for (const fp of filePaths) {
+    try {
+      const tags = getTagsForSong(fp);
+      await mp3Manager.writeHashtags(fp, tags.map(t => t.tag_label));
+      success++;
+    } catch {
+      failed.push(fp);
+    }
+  }
+
+  return { success, failed };
 }

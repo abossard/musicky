@@ -632,4 +632,41 @@ export class MP3MetadataManager {
     const ext = path.extname(filePath).toLowerCase();
     return ext === '.mp3';
   }
+
+  /**
+   * Write tags as hashtags in the COMM (Comment) field.
+   * Format: "#peak #techno #house #dark #energetic"
+   * Preserves any existing non-hashtag text in the comment.
+   */
+  async writeHashtags(filePath: string, tags: string[]): Promise<void> {
+    await fs.access(filePath);
+    const NodeID3 = await getNodeID3();
+
+    // Read existing comment to preserve non-hashtag text
+    let existingComment = '';
+    try {
+      const existing = NodeID3.read(filePath, { noRaw: true, include: ['COMM'] }) || {};
+      if (existing.comment) {
+        const comment = existing.comment;
+        const text = typeof comment === 'string' ? comment
+          : Array.isArray(comment) ? (comment[0]?.text || comment[0] || '')
+          : (comment.text || '');
+        // Strip existing hashtags, keep other text
+        existingComment = String(text).replace(/#\w+/g, '').trim();
+      }
+    } catch { /* ignore read errors */ }
+
+    const hashtags = tags.map(t => `#${t.replace(/\s+/g, '_').toLowerCase()}`).join(' ');
+
+    // Combine: hashtags first, then any existing non-hashtag text
+    const fullComment = existingComment
+      ? `${hashtags} | ${existingComment}`
+      : hashtags;
+
+    const success = NodeID3.update({
+      comment: { language: 'eng', text: fullComment },
+    }, filePath, { include: ['COMM'] });
+
+    if (!success) throw new Error('Failed to write hashtags to comment field');
+  }
 }

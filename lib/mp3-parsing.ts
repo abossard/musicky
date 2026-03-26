@@ -91,3 +91,21 @@ export function extractCommentText(comments?: any[]): string | undefined {
 
   return undefined;
 }
+
+/**
+ * Build a hashtag string from categorized tags.
+ * Pure calculation — no I/O.
+ */
+export function buildHashtagString(tags: { label: string; category: string }[]): string {
+  return tags.map(t => `#${t.label.replace(/\s+/g, '_').toLowerCase()}`).join(' ');
+}
+
+/**
+ * Parse hashtags from a comment string.
+ * Returns array of tag strings (without #).
+ */
+export function parseHashtags(comment: string): string[] {
+  const matches = comment.match(/#(\w+)/g);
+  if (!matches) return [];
+  return matches.map(m => m.slice(1).toLowerCase());
+}
