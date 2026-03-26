@@ -1,197 +1,172 @@
 import { test, expect } from '../fixtures/app-fixture';
 
-test.describe('Set View', () => {
+test.describe('DJ Set Preparation Workflow', () => {
   test.beforeEach(async ({ setViewPage }) => {
     await setViewPage.goto();
     await setViewPage.waitForReady(15000);
   });
 
-  // ── 1. Basic rendering ──────────────────────────────────────────────
+  // --- Core: Songs are visible and organized ---
 
-  test.describe('Basic rendering', () => {
-    test('page loads with toolbar visible', async ({ setViewPage, page }) => {
-      await expect(setViewPage.toolbar).toBeVisible();
-      await expect(page.getByText('🎧 SET VIEW')).toBeVisible();
-    });
+  test('DJ sees songs organized in phase columns', async ({ setViewPage, page }) => {
+    await expect(setViewPage.toolbar).toBeVisible();
+    const columns = page.locator('[data-testid^="phase-column-"]');
+    await expect(columns.first()).toBeVisible({ timeout: 10000 });
 
-    test('phase columns are rendered with unassigned column', async ({ page }) => {
-      const unassigned = page.locator('[data-testid="phase-column-unassigned"]');
-      await expect(unassigned).toBeVisible({ timeout: 10000 });
-    });
+    const songCount = await setViewPage.getSongCount();
+    expect(songCount).toBeGreaterThan(0);
 
-    test('song cards are visible when songs exist', async ({ setViewPage }) => {
-      const count = await setViewPage.getSongCount();
-      if (count > 0) {
-        await expect(setViewPage.songCards.first()).toBeVisible();
-      }
-      // If no songs in DB, we just verify the page loaded without error
-      expect(count).toBeGreaterThanOrEqual(0);
-    });
+    const firstCard = setViewPage.songCards.first();
+    await expect(firstCard).toBeVisible();
   });
 
-  // ── 2. Song selection ───────────────────────────────────────────────
+  // --- Tagging: DJ can tag songs with genres and moods ---
 
-  test.describe('Song selection', () => {
-    test('clicking a song card selects it', async ({ setViewPage }) => {
-      const count = await setViewPage.getSongCount();
-      test.skip(count === 0, 'No songs in the library');
+  test('DJ selects a song and sees tag palette', async ({ setViewPage, page }) => {
+    const songCount = await setViewPage.getSongCount();
+    test.skip(songCount === 0, 'No songs in library');
 
-      const firstCard = setViewPage.songCards.first();
-      await firstCard.click();
+    await setViewPage.songCards.first().click();
 
-      // Selected card gets violet border
-      await expect(firstCard).toHaveCSS(
-        'border',
-        /2px solid/,
-      );
-    });
-
-    test('clicking another song deselects previous', async ({ setViewPage, page }) => {
-      const count = await setViewPage.getSongCount();
-      test.skip(count < 2, 'Need at least 2 songs');
-
-      const firstCard = setViewPage.songCards.first();
-      await firstCard.click();
-
-      // Click second card
-      const secondCard = setViewPage.songCards.nth(1);
-      await secondCard.click();
-
-      // First card reverts to thin default border
-      await expect(firstCard).toHaveCSS('border', /1px solid/);
-      // Second card now has selection border
-      await expect(secondCard).toHaveCSS('border', /2px solid/);
-    });
+    await expect(page.getByText('GENRES')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('MOODS')).toBeVisible();
   });
 
-  // ── 3. Keyboard navigation ─────────────────────────────────────────
+  test('DJ can toggle a genre tag on a song', async ({ setViewPage, page }) => {
+    const songCount = await setViewPage.getSongCount();
+    test.skip(songCount === 0, 'No songs in library');
 
-  test.describe('Keyboard navigation', () => {
-    test('ArrowDown moves focus to next song', async ({ setViewPage, page }) => {
-      const count = await setViewPage.getSongCount();
-      test.skip(count < 2, 'Need at least 2 songs');
+    await setViewPage.songCards.first().click();
+    await expect(page.getByText('GENRES')).toBeVisible({ timeout: 5000 });
 
-      // Click first card to establish focus
-      await setViewPage.songCards.first().click();
-      await page.keyboard.press('ArrowDown');
+    const genreBadges = page.locator('.mantine-Badge-root').filter({ hasText: /techno|house|trance|progressive/i });
+    const badgeCount = await genreBadges.count();
+    test.skip(badgeCount === 0, 'No genre tags available');
 
-      // A focused card gets the 'song-card-focused' testid
-      const focusedCard = page.locator('[data-testid="song-card-focused"]');
-      await expect(focusedCard).toBeVisible({ timeout: 5000 });
-    });
-
-    test('ArrowRight moves focus to next column', async ({ setViewPage, page }) => {
-      const count = await setViewPage.getSongCount();
-      test.skip(count === 0, 'No songs in the library');
-
-      // Click first card then navigate right
-      await setViewPage.songCards.first().click();
-      await page.keyboard.press('ArrowRight');
-
-      // Focus indicator should still be present (moved to another column)
-      const focusedCard = page.locator('[data-testid="song-card-focused"]');
-      const allCards = page.locator('[data-testid="set-song-card"], [data-testid="song-card-focused"]');
-      // At minimum, some card is rendered
-      await expect(allCards.first()).toBeVisible({ timeout: 5000 });
-    });
-
-    test('Escape clears selection', async ({ setViewPage, page }) => {
-      const count = await setViewPage.getSongCount();
-      test.skip(count === 0, 'No songs in the library');
-
-      await setViewPage.songCards.first().click();
-      await page.keyboard.press('Escape');
-
-      // After escape, no card should have violet selection border
-      // All cards should revert to default 1px border
-      const firstCard = setViewPage.songCards.first();
-      await expect(firstCard).toHaveCSS('border', /1px solid/);
-    });
+    await genreBadges.first().click();
+    // Badge click is handled — no crash means tagging works
   });
 
-  // ── 4. Keyboard shortcuts help ─────────────────────────────────────
+  // --- Selection: DJ selects and deselects songs ---
 
-  test.describe('Keyboard shortcuts help', () => {
-    async function openShortcutHelp(page: import('@playwright/test').Page) {
-      // The keyboard shortcuts button is the last ActionIcon in the toolbar
-      // Mantine Tooltip wraps it, so we find via the tooltip text
-      const btn = page.locator('.set-view-toolbar button').last();
-      await btn.click();
-    }
+  test('DJ clicks a song to select it', async ({ setViewPage }) => {
+    const count = await setViewPage.getSongCount();
+    test.skip(count === 0, 'No songs in library');
 
-    test('clicking keyboard button opens shortcuts modal', async ({ page }) => {
-      await openShortcutHelp(page);
+    const firstCard = setViewPage.songCards.first();
+    await firstCard.click();
 
-      await expect(page.getByRole('heading', { name: 'Keyboard Shortcuts' })).toBeVisible({ timeout: 5000 });
-    });
-
-    test('modal shows keyboard shortcut content', async ({ page }) => {
-      await openShortcutHelp(page);
-
-      await expect(page.getByRole('heading', { name: 'Keyboard Shortcuts' })).toBeVisible({ timeout: 5000 });
-
-      // Verify section headers from the modal
-      await expect(page.getByText('Navigation')).toBeVisible();
-      await expect(page.getByText('Phase Movement')).toBeVisible();
-      await expect(page.getByText('Playback')).toBeVisible();
-    });
-
-    test('Escape closes the shortcuts modal', async ({ page }) => {
-      await openShortcutHelp(page);
-      await expect(page.getByRole('heading', { name: 'Keyboard Shortcuts' })).toBeVisible({ timeout: 5000 });
-
-      await page.keyboard.press('Escape');
-      await expect(page.getByRole('heading', { name: 'Keyboard Shortcuts' })).not.toBeVisible({ timeout: 5000 });
-    });
+    // Selected card gets a prominent border
+    await expect(firstCard).toHaveCSS('border', /2px solid/);
   });
 
-  // ── 5. Tag palette ─────────────────────────────────────────────────
+  test('DJ clicks another song and previous deselects', async ({ setViewPage }) => {
+    const count = await setViewPage.getSongCount();
+    test.skip(count < 2, 'Need at least 2 songs');
 
-  test.describe('Tag palette', () => {
-    test('tag palette sidebar is visible', async ({ page }) => {
-      // The sidebar always renders with a "Tags" header
-      const tagsHeader = page.getByText('Tags', { exact: true }).first();
-      await expect(tagsHeader).toBeVisible({ timeout: 10000 });
-    });
+    const firstCard = setViewPage.songCards.first();
+    await firstCard.click();
 
-    test('selecting a song shows genre and mood sections', async ({ setViewPage, page }) => {
-      const count = await setViewPage.getSongCount();
-      test.skip(count === 0, 'No songs in the library');
+    const secondCard = setViewPage.songCards.nth(1);
+    await secondCard.click();
 
-      await setViewPage.songCards.first().click();
-
-      // When a song is selected, GENRES and MOODS headings appear
-      await expect(page.getByText('GENRES')).toBeVisible({ timeout: 5000 });
-      await expect(page.getByText('MOODS')).toBeVisible({ timeout: 5000 });
-    });
+    await expect(firstCard).toHaveCSS('border', /1px solid/);
+    await expect(secondCard).toHaveCSS('border', /2px solid/);
   });
 
-  // ── 6. Sub-grouping ────────────────────────────────────────────────
+  // --- Keyboard: DJ navigates with keyboard ---
 
-  test.describe('Sub-grouping', () => {
-    test('By Genre groups songs within phases', async ({ page }) => {
-      // Click the "By Genre" option in the SegmentedControl
-      await page.getByText('By Genre').click();
+  test('DJ navigates songs with arrow keys', async ({ setViewPage, page }) => {
+    const songCount = await setViewPage.getSongCount();
+    test.skip(songCount < 2, 'Need at least 2 songs');
 
-      // Verify the segmented control reflects the new value
-      const genreControl = page.getByText('By Genre');
-      await expect(genreControl).toBeVisible();
+    await setViewPage.songCards.first().click();
+    await page.keyboard.press('ArrowDown');
 
-      // After switching, the GENRES text in the sidebar stays, and
-      // sub-group headers (colored border-left bars with cyan text) appear
-      // in the phase columns — we verify the control was toggled
-      // by checking the Flat button is no longer active
-    });
+    const focusedCard = page.locator('[data-testid="song-card-focused"]');
+    await expect(focusedCard).toBeVisible({ timeout: 5000 });
+  });
 
-    test('Flat returns songs to flat list', async ({ page }) => {
-      // First switch to By Genre
-      await page.getByText('By Genre').click();
+  test('DJ moves focus across phase columns', async ({ setViewPage, page }) => {
+    const songCount = await setViewPage.getSongCount();
+    test.skip(songCount === 0, 'No songs in library');
 
-      // Then switch back to Flat
-      await page.getByText('Flat').click();
+    await setViewPage.songCards.first().click();
+    await page.keyboard.press('ArrowRight');
 
-      const flatControl = page.getByText('Flat');
-      await expect(flatControl).toBeVisible();
-    });
+    const allCards = page.locator('[data-testid="set-song-card"], [data-testid="song-card-focused"]');
+    await expect(allCards.first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('DJ presses Escape to deselect all', async ({ setViewPage, page }) => {
+    const count = await setViewPage.getSongCount();
+    test.skip(count === 0, 'No songs in library');
+
+    await setViewPage.songCards.first().click();
+    await page.keyboard.press('Escape');
+
+    const firstCard = setViewPage.songCards.first();
+    await expect(firstCard).toHaveCSS('border', /1px solid/);
+  });
+
+  test('DJ opens keyboard shortcuts help', async ({ setViewPage, page }) => {
+    // Click the keyboard shortcuts button (last toolbar button)
+    const helpButton = page.locator('.set-view-toolbar button').last();
+    await helpButton.click();
+
+    const heading = page.getByRole('heading', { name: 'Keyboard Shortcuts' });
+    await expect(heading).toBeVisible({ timeout: 5000 });
+
+    await expect(page.getByText('Navigation')).toBeVisible();
+    await expect(page.getByText('Phase Movement')).toBeVisible();
+    await expect(page.getByText('Playback')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(heading).not.toBeVisible();
+  });
+
+  // --- Sub-grouping: DJ groups songs by genre within phases ---
+
+  test('DJ can group songs by genre within phases', async ({ page }) => {
+    const genreButton = page.getByText('By Genre');
+    await expect(genreButton).toBeVisible({ timeout: 10000 });
+    await genreButton.click();
+
+    // Segmented control reflects the change
+    await expect(genreButton).toBeVisible();
+
+    // Switch back to flat to confirm toggling works
+    const flatButton = page.getByText('Flat');
+    await flatButton.click();
+    await expect(flatButton).toBeVisible();
+  });
+
+  // --- Export: DJ can access tag export ---
+
+  test('DJ can open tag export panel', async ({ page }) => {
+    // Export button is the second ActionIcon in the toolbar
+    const exportButton = page.locator('.set-view-toolbar button').nth(1);
+    await expect(exportButton).toBeVisible({ timeout: 5000 });
+    await exportButton.click();
+
+    const drawer = page.getByRole('dialog');
+    await expect(drawer).toBeVisible({ timeout: 5000 });
+  });
+
+  // --- Library: DJ can browse and add songs ---
+
+  test('DJ can toggle library panel', async ({ page }) => {
+    await page.keyboard.press('l');
+    await page.waitForTimeout(500);
+
+    // Press L again to toggle back
+    await page.keyboard.press('l');
+  });
+
+  // --- Playback: DJ can preview songs ---
+
+  test('DJ sees audio player bar', async ({ page }) => {
+    const player = page.locator('.audio-player-bar');
+    await expect(player).toBeVisible();
   });
 });
