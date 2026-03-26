@@ -1,30 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Stack, Text, Box, Badge, Group, Divider, ActionIcon, Tooltip, Loader } from '@mantine/core';
 import { IconSparkles } from '@tabler/icons-react';
-import { onGetAllTags, onGetTagSuggestions } from '../Moodboard/MoodboardPage.telefunc';
+import { onGetTagSuggestions } from '../Moodboard/MoodboardPage.telefunc';
 
 interface TagPaletteProps {
   selectedSong: string | null;
   activeTags: { label: string; category: string }[];
   onToggleTag: (label: string, category: string) => void;
+  genres: { label: string; count: number }[];
+  moods: { label: string; count: number }[];
 }
 
-interface TagOption {
-  label: string;
-  count: number;
-}
-
-function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag }: TagPaletteProps) {
-  const [genres, setGenres] = useState<TagOption[]>([]);
-  const [moods, setMoods] = useState<TagOption[]>([]);
+function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag, genres, moods }: TagPaletteProps) {
   const [suggestions, setSuggestions] = useState<{ genres: string[]; moods: string[] } | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-
-  // Load available tags
-  useEffect(() => {
-    onGetAllTags('genre').then(tags => setGenres(tags.map(t => ({ label: t.label, count: t.count }))));
-    onGetAllTags('mood').then(tags => setMoods(tags.map(t => ({ label: t.label, count: t.count }))));
-  }, []);
 
   // Clear suggestions when song changes
   useEffect(() => {
@@ -47,8 +36,15 @@ function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag }: TagPa
   const isActive = (label: string, category: string) =>
     activeTags.some(t => t.label === label && t.category === category);
 
-  const renderTagButton = (label: string, category: string, color: string, isSuggested?: boolean) => {
+  const renderTagButton = (label: string, category: string, color: string, isSuggested?: boolean, keyNumber?: number) => {
     const active = isActive(label, category);
+    const leftParts: React.ReactNode[] = [];
+    if (keyNumber !== undefined) {
+      leftParts.push(<span key="num" style={{ fontSize: '0.7em', fontWeight: 700, opacity: 0.5 }}>{keyNumber}</span>);
+    }
+    if (isSuggested && !active) {
+      leftParts.push(<IconSparkles key="spark" size={8} />);
+    }
     return (
       <Badge
         key={`${category}-${label}`}
@@ -61,7 +57,7 @@ function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag }: TagPa
           boxShadow: isSuggested && !active ? '0 0 8px rgba(124,58,237,0.3)' : undefined,
           transition: 'all 0.15s',
         }}
-        leftSection={isSuggested && !active ? <IconSparkles size={8} /> : undefined}
+        leftSection={leftParts.length > 0 ? <>{leftParts}</> : undefined}
         onClick={() => selectedSong && onToggleTag(label, category)}
       >
         {label}
@@ -100,7 +96,7 @@ function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag }: TagPa
           <Stack gap="md">
             {/* Genres */}
             <Box>
-              <Text size="xs" fw={600} c="cyan" mb={4}>GENRES</Text>
+              <Text size="xs" fw={600} c="cyan" mb={4}>GENRES <Text component="span" size="xs" c="dimmed" fw={400}>1-9</Text></Text>
               <Group gap={4} wrap="wrap">
                 {/* AI-suggested genres first */}
                 {suggestions?.genres
@@ -108,10 +104,16 @@ function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag }: TagPa
                   .map(g => renderTagButton(g, 'genre', 'cyan', true))}
                 {suggestions?.genres
                   .filter(g => genres.some(gx => gx.label === g))
-                  .map(g => renderTagButton(g, 'genre', 'cyan', true))}
+                  .map(g => {
+                    const idx = genres.findIndex(gx => gx.label === g);
+                    return renderTagButton(g, 'genre', 'cyan', true, idx < 9 ? idx + 1 : undefined);
+                  })}
                 {genres
                   .filter(g => !suggestions?.genres.includes(g.label))
-                  .map(g => renderTagButton(g.label, 'genre', 'cyan'))}
+                  .map(g => {
+                    const idx = genres.indexOf(g);
+                    return renderTagButton(g.label, 'genre', 'cyan', false, idx < 9 ? idx + 1 : undefined);
+                  })}
               </Group>
             </Box>
 
@@ -119,17 +121,23 @@ function TagPaletteSidebarInner({ selectedSong, activeTags, onToggleTag }: TagPa
 
             {/* Moods */}
             <Box>
-              <Text size="xs" fw={600} c="pink" mb={4}>MOODS</Text>
+              <Text size="xs" fw={600} c="pink" mb={4}>MOODS <Text component="span" size="xs" c="dimmed" fw={400}>⇧1-9</Text></Text>
               <Group gap={4} wrap="wrap">
                 {suggestions?.moods
                   .filter(m => !moods.some(mx => mx.label === m))
                   .map(m => renderTagButton(m, 'mood', 'pink', true))}
                 {suggestions?.moods
                   .filter(m => moods.some(mx => mx.label === m))
-                  .map(m => renderTagButton(m, 'mood', 'pink', true))}
+                  .map(m => {
+                    const idx = moods.findIndex(mx => mx.label === m);
+                    return renderTagButton(m, 'mood', 'pink', true, idx < 9 ? idx + 1 : undefined);
+                  })}
                 {moods
                   .filter(m => !suggestions?.moods.includes(m.label))
-                  .map(m => renderTagButton(m.label, 'mood', 'pink'))}
+                  .map(m => {
+                    const idx = moods.indexOf(m);
+                    return renderTagButton(m.label, 'mood', 'pink', false, idx < 9 ? idx + 1 : undefined);
+                  })}
               </Group>
             </Box>
           </Stack>
