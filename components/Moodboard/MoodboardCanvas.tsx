@@ -499,8 +499,50 @@ export function MoodboardCanvas({
     }
   }, [onSongSelect]);
 
-  // Container drag: track which container a song hovers over during drag
+  // Track container drag start position for moving children
+  const containerDragStart = useRef<{ id: string; x: number; y: number } | null>(null);
+
+  // Container drag: track which container a song hovers over during drag,
+  // AND move child songs when a container is dragged
   const handleNodeDrag = useCallback((_event: React.MouseEvent, node: Node) => {
+    // Container being dragged → move its child songs along
+    if (node.type === 'container' && containerViewNodes) {
+      if (!containerDragStart.current || containerDragStart.current.id !== node.id) {
+        containerDragStart.current = { id: node.id, x: node.position.x, y: node.position.y };
+        return;
+      }
+      const dx = node.position.x - containerDragStart.current.x;
+      const dy = node.position.y - containerDragStart.current.y;
+      if (dx === 0 && dy === 0) return;
+
+      containerDragStart.current = { id: node.id, x: node.position.x, y: node.position.y };
+
+      // Find songs inside this container by checking which song nodes overlap it
+      setContainerViewNodes(prev => {
+        if (!prev) return prev;
+        const container = prev.find(n => n.id === node.id);
+        if (!container) return prev;
+        const cData = container.data as any;
+        const cw = cData.width || 600;
+        const ch = cData.height || 400;
+
+        return prev.map(n => {
+          if (n.type !== 'song' || n.id === node.id) return n;
+          // Check if song was inside the container bounds (before the delta)
+          const sx = n.position.x;
+          const sy = n.position.y;
+          const prevCx = node.position.x - dx;
+          const prevCy = node.position.y - dy;
+          if (sx >= prevCx && sx <= prevCx + cw && sy >= prevCy && sy <= prevCy + ch) {
+            return { ...n, position: { x: sx + dx, y: sy + dy } };
+          }
+          return n;
+        });
+      });
+      return;
+    }
+
+    // Song being dragged over containers → highlight drop target
     if (viewMode === 'free' || node.type !== 'song') {
       if (dragOverContainerId) setDragOverContainerId(null);
       return;
@@ -526,6 +568,8 @@ export function MoodboardCanvas({
 
   // Container drag: reassign tag on drop
   const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
+    containerDragStart.current = null;
+
     if (viewMode === 'free' || node.type !== 'song') {
       setDragOverContainerId(null);
       return;
