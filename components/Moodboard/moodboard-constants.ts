@@ -4,7 +4,7 @@ export type TagCategory = 'genre' | 'phase' | 'mood' | 'topic' | 'custom';
 
 export type EdgeType = 'genre' | 'phase' | 'mood' | 'similarity' | 'topic' | 'custom';
 
-export type ViewMode = 'free' | 'genre' | 'phase' | 'mood';
+export type ViewMode = 'free' | 'genre' | 'phase' | 'mood' | 'set';
 
 export const CATEGORY_ICONS: Record<TagCategory, typeof IconVinyl> = {
   genre: IconVinyl,

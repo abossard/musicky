@@ -20,7 +20,7 @@ import TagNode from './nodes/TagNode';
 import ContainerNode from './nodes/ContainerNode';
 import WeightedEdge, { type EdgeType, type EdgeStyle } from './edges/WeightedEdge';
 import type { TagCategory } from './nodes/TagNode';
-import { applyClusterLayout, applyGridLayout } from './hooks/useMoodboardLayout';
+import { applyClusterLayout, applyGridLayout, applySetLayout } from './hooks/useMoodboardLayout';
 import { computeFilterStates } from './hooks/useMoodboardFilter';
 import { transformToContainerView } from './hooks/useContainerView';
 import { TagPalette } from './TagPalette';
@@ -230,6 +230,12 @@ export function MoodboardCanvas({
     const laid = applyGridLayout(nodes);
     onNodesUpdate(laid);
   }, [nodes, onNodesUpdate]);
+
+  const handleSetLayout = useCallback(() => {
+    const laid = applySetLayout(nodes, edges);
+    onNodesUpdate(laid);
+    setViewMode('free'); // Stay in free mode so nodes remain draggable
+  }, [nodes, edges, onNodesUpdate]);
 
   // Compute pure filter states, then apply callbacks/UI concerns
   const { nodeStates, edgeStates } = useMemo(
@@ -632,6 +638,11 @@ export function MoodboardCanvas({
             <Tooltip label="Grid layout">
               <ActionIcon variant="light" color="gray" onClick={handleGridLayout} aria-label="Grid layout">
                 <IconGridDots size={18} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Set layout (timeline left→right)">
+              <ActionIcon variant="light" color="violet" onClick={handleSetLayout} aria-label="Set layout" data-testid="set-layout-btn">
+                <IconArrowMergeRight size={18} />
               </ActionIcon>
             </Tooltip>
             <Box style={{ width: 1, height: 20, background: '#555', margin: '0 2px' }} />
