@@ -1,5 +1,5 @@
-import { MoodboardPage } from '../../components/Moodboard/MoodboardPage';
+import { SetViewPage } from '../../components/SetView/SetViewPage';
 
 export default function Page() {
-  return <MoodboardPage />;
+  return <SetViewPage />;
 }

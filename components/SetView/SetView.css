@@ -1,0 +1,34 @@
+.set-view {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--mantine-color-dark-8);
+  overflow: hidden;
+}
+
+.set-view-toolbar {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--mantine-color-dark-5);
+  background: var(--mantine-color-dark-7);
+}
+
+.set-view-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.set-view-library {
+  flex-shrink: 0;
+}
+
+.set-view-columns {
+  flex: 1;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.set-view-player {
+  flex-shrink: 0;
+}
