@@ -1,5 +1,6 @@
 .react-flow__node-container {
   visibility: visible !important;
+  pointer-events: none !important;
 }
 
 /* Dark theme for React Flow controls */

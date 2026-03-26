@@ -33,6 +33,7 @@ function ContainerNode({ data }: NodeProps) {
       transform: d.isDropTarget ? 'scale(1.02)' : undefined,
       transition: 'box-shadow 0.2s ease, transform 0.2s ease',
       overflow: 'hidden',
+      pointerEvents: 'none',
     }}>
       <Group
         gap={8}
