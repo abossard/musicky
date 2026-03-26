@@ -2,7 +2,7 @@ import React from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Card, Group, Text, Badge } from '@mantine/core';
 import { CATEGORY_ICONS } from '../moodboard-constants';
-import type { TagCategory } from '../moodboard-constants';
+import type { TagCategory } from '../../../lib/types';
 
 export type { TagCategory };
 

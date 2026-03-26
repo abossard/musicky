@@ -1,6 +1,6 @@
 import type { Node, Edge } from '@xyflow/react';
 import type { ContainerNodeData } from '../nodes/ContainerNode';
-import type { TagCategory } from '../moodboard-constants';
+import type { TagCategory } from '../../../lib/types';
 import type { ViewMode } from '../moodboard-constants';
 
 const SONG_TILE = 150;

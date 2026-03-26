@@ -18,7 +18,7 @@ import {
   onRebuildFromTags,
   type RebuildResult,
 } from './TagSync.telefunc';
-import type { PendingTagEdit } from '../database/sqlite/queries/mp3-tag-edits';
+import type { PendingTagEdit } from '../lib/types';
 import type { FileDiffSummary, TagDiff } from '../lib/tag-sync-engine';
 import './TagSync.css';
 

@@ -1,6 +1,7 @@
 import { IconVinyl, IconWaveSine, IconHeart, IconTag, IconStar } from '@tabler/icons-react';
+import type { TagCategory } from '../../lib/types';
 
-export type TagCategory = 'genre' | 'phase' | 'mood' | 'topic' | 'custom';
+export type { TagCategory };
 
 export type EdgeType = 'genre' | 'phase' | 'mood' | 'similarity' | 'topic' | 'custom';
 

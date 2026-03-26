@@ -17,7 +17,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconMusic, IconX } from '@tabler/icons-react';
 import { onSearchMusic } from './MusicSearch.telefunc';
 import { onAddSongToSet } from './DJSetItems.telefunc';
-import type { MP3SearchResult } from '../database/sqlite/queries/dj-sets';
+import type { MP3SearchResult } from '../lib/types';
 // Browser-compatible basename function
 const basename = (path: string): string => {
   return path.split('/').pop() || path.split('\\').pop() || path;

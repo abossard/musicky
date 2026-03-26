@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ActionIcon, Tooltip, Popover, ScrollArea, Stack, Box, Text, Group, Badge, TextInput, Button } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
-import { TAG_PRESETS, type TagCategory } from './moodboard-constants';
+import { TAG_PRESETS } from './moodboard-constants';
+import type { TagCategory } from '../../lib/types';
 
 interface TagPaletteProps {
   onAddTag: (label: string, category: TagCategory, color: string) => void;

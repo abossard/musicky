@@ -19,7 +19,7 @@ import SongNode from './nodes/SongNode';
 import TagNode from './nodes/TagNode';
 import ContainerNode from './nodes/ContainerNode';
 import WeightedEdge, { type EdgeType, type EdgeStyle } from './edges/WeightedEdge';
-import type { TagCategory } from './nodes/TagNode';
+import type { TagCategory } from '../../lib/types';
 import { applyClusterLayout, applyGridLayout, applySetLayout } from './hooks/useMoodboardLayout';
 import { computeFilterStates } from './hooks/useMoodboardFilter';
 import { transformToContainerView } from './hooks/useContainerView';

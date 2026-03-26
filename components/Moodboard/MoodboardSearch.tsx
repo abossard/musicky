@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Modal, TextInput, ScrollArea, Stack, Group, Text, Card, Box, Loader, Badge, Highlight } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconCheck } from '@tabler/icons-react';
-import type { MP3SearchResult } from '../../database/sqlite/queries/dj-sets';
+import type { MP3SearchResult } from '../../lib/types';
 
 interface MoodboardSearchProps {
   opened: boolean;

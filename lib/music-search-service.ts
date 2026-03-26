@@ -8,7 +8,7 @@ import {
   deleteMP3Cache,
   clearOldCache 
 } from '../database/sqlite/queries/dj-sets';
-import type { MP3CacheItem, MP3SearchResult } from '../database/sqlite/queries/dj-sets';
+import type { MP3CacheItem, MP3SearchResult } from './types';
 
 export class MusicSearchService {
   private static instance: MusicSearchService;

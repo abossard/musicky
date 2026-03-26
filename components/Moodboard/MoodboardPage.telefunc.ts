@@ -8,8 +8,9 @@
 import { saveBaseFolder, readBaseFolder } from '../../database/sqlite/queries/library-settings';
 import {
   addSongTag, removeSongTag, getTagsForSong, getAllTags, searchTags, bulkSetSongTags,
-  type TagCategory, type SongTag, type TagCount,
+  type SongTag, type TagCount,
 } from '../../database/sqlite/queries/song-tags';
+import type { TagCategory } from '../../lib/types';
 import {
   addSongConnection as dbAddConnection,
   removeSongConnectionByPaths, updateConnectionWeight as dbUpdateWeight,

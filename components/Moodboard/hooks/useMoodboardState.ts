@@ -12,9 +12,9 @@ import {
   onSearchSongs, onGetSongMetadata, onGetSongTags,
 } from '../MoodboardPage.telefunc';
 import type { SongNodeData } from '../nodes/SongNode';
-import type { TagNodeData, TagCategory } from '../nodes/TagNode';
+import type { TagNodeData } from '../nodes/TagNode';
+import type { TagCategory, MP3SearchResult } from '../../../lib/types';
 import type { MoodboardEdgeData, EdgeType } from '../edges/WeightedEdge';
-import type { MP3SearchResult } from '../../../database/sqlite/queries/dj-sets';
 
 const CATEGORY_DEFAULT_COLORS: Record<string, string> = {
   genre: 'cyan', phase: 'violet', mood: 'pink', topic: 'orange', custom: 'gray',

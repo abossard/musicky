@@ -1,7 +1,7 @@
 import React from 'react';
 import { type NodeProps } from '@xyflow/react';
 import { Text, Group, Badge } from '@mantine/core';
-import type { TagCategory } from './TagNode';
+import type { TagCategory } from '../../../lib/types';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../moodboard-constants';
 
 export interface ContainerNodeData {
