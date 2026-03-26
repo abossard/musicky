@@ -10,4 +10,5 @@ import './canvas-state';
 import './playlists';
 import './song-tags';
 import './phase-edges';
+import './phase-versions';
 import './migrate-legacy';

@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef } from 'react';
-import { Box, Group, Drawer, SegmentedControl, Text, ActionIcon, Tooltip, Badge } from '@mantine/core';
-import { IconLayoutSidebar, IconSettings, IconChecklist, IconKeyboard } from '@tabler/icons-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Box, Group, Drawer, SegmentedControl, Text, ActionIcon, Tooltip, Badge, TextInput } from '@mantine/core';
+import { IconLayoutSidebar, IconSettings, IconChecklist, IconKeyboard, IconPlus } from '@tabler/icons-react';
 import { onAddSongTag, onRemoveSongTag } from '../Moodboard/MoodboardPage.telefunc';
+import { onGetAllPhaseVersions, onGetPhaseVersions, onCreatePhaseVersion, onGetSongsForVersion } from '../Moodboard/PhaseVersions.telefunc';
 import { PhaseColumn } from './PhaseColumn';
 import { ShortcutHelpModal } from './ShortcutHelpModal';
 import { TagPaletteSidebar } from './TagPaletteSidebar';
@@ -14,6 +15,7 @@ import { useAudioQueue } from '../../hooks/useAudioQueue';
 import { useSetViewState } from './hooks/useSetViewState';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 import { useTagManagement } from './hooks/useTagManagement';
+import type { SongCardData } from './SongCard';
 
 import './SetView.css';
 
@@ -26,8 +28,51 @@ export function SetViewPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
+  const [addingPhase, setAddingPhase] = useState(false);
+  const [newPhaseName, setNewPhaseName] = useState('');
+
+  // Phase versioning state
+  const [phaseVersions, setPhaseVersions] = useState<Map<string, { active: number; versions: number[] }>>(new Map());
+  const [viewingVersions, setViewingVersions] = useState<Map<string, number>>(new Map());
+  const [versionSongs, setVersionSongs] = useState<Map<string, SongCardData[]>>(new Map());
+
   const audioQueue = useAudioQueue();
-  const { songs, setSongs, loading, allGenres, allMoods, phases, phaseColumns, loadSongs } = useSetViewState();
+  const { songs, setSongs, loading, allGenres, allMoods, phases, phaseColumns, loadSongs, addExplicitPhase } = useSetViewState();
+
+  // Load phase version data whenever songs change
+  useEffect(() => {
+    onGetAllPhaseVersions().then(async (data) => {
+      const map = new Map<string, { active: number; versions: number[] }>();
+      for (const item of data) {
+        const allVersions = await onGetPhaseVersions(item.phaseName);
+        map.set(item.phaseName, {
+          active: item.activeVersion,
+          versions: allVersions.map(v => v.version).sort((a, b) => a - b),
+        });
+      }
+      setPhaseVersions(map);
+    });
+  }, [songs]);
+
+  const handleNewVersion = useCallback(async (phaseName: string) => {
+    await onCreatePhaseVersion(phaseName);
+    await loadSongs();
+  }, [loadSongs]);
+
+  const handleViewVersion = useCallback(async (phaseName: string, version: number) => {
+    const info = phaseVersions.get(phaseName);
+    if (info && version === info.active) {
+      // Viewing active version — clear override
+      setViewingVersions(prev => { const m = new Map(prev); m.delete(phaseName); return m; });
+      setVersionSongs(prev => { const m = new Map(prev); m.delete(phaseName); return m; });
+      return;
+    }
+    setViewingVersions(prev => new Map(prev).set(phaseName, version));
+    const songPaths = await onGetSongsForVersion(phaseName, version);
+    // Build SongCardData from the full songs list for matching paths
+    const matched = songPaths.map(fp => songs.find(s => s.filePath === fp)).filter((s): s is SongCardData => !!s);
+    setVersionSongs(prev => new Map(prev).set(phaseName, matched));
+  }, [phaseVersions, songs]);
 
   const handlePlay = useCallback((filePath: string) => {
     const song = songs.find(s => s.filePath === filePath);
@@ -145,22 +190,36 @@ export function SetViewPage() {
         )}
 
         <Box className="set-view-columns">
-          {phases.map(phase => (
-            <PhaseColumn
-              key={phase}
-              phase={phase}
-              songs={phaseColumns.byPhase.get(phase) || []}
-              selectedSong={selectedSong}
-              selectedSongs={selectedSongs}
-              focusedSong={focusedSong}
-              isLocked={isLocked}
-              playingSong={audioQueue.currentTrack?.filePath || null}
-              groupBy={groupBy}
-              onSongClick={handleSongClick}
-              onSongDoubleClick={handleSongDoubleClick}
-              onDrop={handleDrop}
-            />
-          ))}
+          {phases.map(phase => {
+            const vInfo = phaseVersions.get(phase);
+            const viewing = viewingVersions.get(phase);
+            const isViewingOld = viewing !== undefined && viewing !== vInfo?.active;
+            const displaySongs = isViewingOld
+              ? (versionSongs.get(phase) || [])
+              : (phaseColumns.byPhase.get(phase) || []);
+            return (
+              <PhaseColumn
+                key={phase}
+                phase={phase}
+                songs={displaySongs}
+                selectedSong={selectedSong}
+                selectedSongs={selectedSongs}
+                focusedSong={focusedSong}
+                isLocked={isLocked}
+                playingSong={audioQueue.currentTrack?.filePath || null}
+                groupBy={groupBy}
+                onSongClick={handleSongClick}
+                onSongDoubleClick={handleSongDoubleClick}
+                onDrop={handleDrop}
+                activeVersion={vInfo?.active}
+                versions={vInfo?.versions}
+                viewingVersion={viewing}
+                onNewVersion={() => handleNewVersion(phase)}
+                onViewVersion={(v) => handleViewVersion(phase, v)}
+                isReadOnly={isViewingOld}
+              />
+            );
+          })}
           <PhaseColumn
             phase="unassigned"
             songs={phaseColumns.unassigned}
@@ -175,6 +234,31 @@ export function SetViewPage() {
             onDrop={(fp) => handleDrop(fp, '__unassigned__')}
             color="gray"
           />
+          <Box style={{ minWidth: 160, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 40 }}>
+            {addingPhase ? (
+              <TextInput
+                size="xs"
+                placeholder="Phase name..."
+                value={newPhaseName}
+                onChange={e => setNewPhaseName(e.currentTarget.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newPhaseName.trim()) {
+                    addExplicitPhase(newPhaseName.trim().toLowerCase());
+                    setNewPhaseName('');
+                    setAddingPhase(false);
+                  }
+                  if (e.key === 'Escape') { setAddingPhase(false); setNewPhaseName(''); }
+                }}
+                onBlur={() => { setAddingPhase(false); setNewPhaseName(''); }}
+                autoFocus
+                data-testid="new-phase-input"
+              />
+            ) : (
+              <ActionIcon size="lg" variant="subtle" color="violet" onClick={() => setAddingPhase(true)} data-testid="add-phase-btn">
+                <IconPlus size={20} />
+              </ActionIcon>
+            )}
+          </Box>
         </Box>
 
         <TagPaletteSidebar

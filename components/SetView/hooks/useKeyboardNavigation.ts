@@ -206,10 +206,10 @@ export function useKeyboardNavigation(params: UseKeyboardNavigationParams): UseK
         }
         case ' ': {
           e.preventDefault();
-          if (p.audioQueue.currentTrack) {
-            p.audioQueue.togglePlayPause();
-          } else if (focusedSong) {
+          if (focusedSong && focusedSong !== p.audioQueue.currentTrack?.filePath) {
             p.handlePlay(focusedSong);
+          } else {
+            p.audioQueue.togglePlayPause();
           }
           break;
         }

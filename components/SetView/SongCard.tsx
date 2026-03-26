@@ -22,6 +22,7 @@ interface SongCardProps {
   isFocused?: boolean;
   isInSelection?: boolean;
   isLocked?: boolean;
+  isReadOnly?: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -33,7 +34,7 @@ const TAG_COLORS: Record<string, string> = {
   mood: 'pink',
 };
 
-function SongCardInner({ song, isSelected, isPlaying, isFocused, isInSelection, isLocked, onClick, onDoubleClick, onDragStart, compact }: SongCardProps) {
+function SongCardInner({ song, isSelected, isPlaying, isFocused, isInSelection, isLocked, isReadOnly, onClick, onDoubleClick, onDragStart, compact }: SongCardProps) {
   const cardRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -51,8 +52,9 @@ function SongCardInner({ song, isSelected, isPlaying, isFocused, isInSelection, 
       ref={cardRef}
       p={compact ? 6 : 8}
       radius="sm"
-      draggable
+      draggable={!isReadOnly}
       onDragStart={(e) => {
+        if (isReadOnly) { e.preventDefault(); return; }
         e.dataTransfer.setData('application/x-setview-song', song.filePath);
         e.dataTransfer.effectAllowed = 'move';
         onDragStart(e);
@@ -61,7 +63,8 @@ function SongCardInner({ song, isSelected, isPlaying, isFocused, isInSelection, 
       onDoubleClick={onDoubleClick}
       data-testid={isFocused ? 'song-card-focused' : 'set-song-card'}
       style={{
-        cursor: 'grab',
+        cursor: isReadOnly ? 'default' : 'grab',
+        opacity: isReadOnly ? 0.6 : undefined,
         border: isFocused
           ? '2px dashed var(--mantine-color-yellow-5)'
           : isInSelection

@@ -19,6 +19,7 @@ export interface UseSetViewStateReturn {
   phases: string[];
   phaseColumns: PhaseColumns;
   loadSongs: () => Promise<void>;
+  addExplicitPhase: (name: string) => void;
 }
 
 export function useSetViewState(): UseSetViewStateReturn {
@@ -26,6 +27,11 @@ export function useSetViewState(): UseSetViewStateReturn {
   const [loading, setLoading] = useState(true);
   const [allGenres, setAllGenres] = useState<{ label: string; count: number }[]>([]);
   const [allMoods, setAllMoods] = useState<{ label: string; count: number }[]>([]);
+  const [explicitPhases, setExplicitPhases] = useState<string[]>([]);
+
+  const addExplicitPhase = useCallback((name: string) => {
+    setExplicitPhases(prev => prev.includes(name) ? prev : [...prev, name]);
+  }, []);
 
   const loadSongs = useCallback(async () => {
     setLoading(true);
@@ -68,6 +74,10 @@ export function useSetViewState(): UseSetViewStateReturn {
     const byPhase = new Map<string, SongCardData[]>();
     const unassigned: SongCardData[] = [];
 
+    for (const ep of explicitPhases) {
+      phaseSet.add(ep);
+    }
+
     for (const song of songs) {
       if (song.phase) {
         phaseSet.add(song.phase);
@@ -84,7 +94,7 @@ export function useSetViewState(): UseSetViewStateReturn {
       phases,
       phaseColumns: { byPhase, unassigned },
     };
-  }, [songs]);
+  }, [songs, explicitPhases]);
 
-  return { songs, setSongs, loading, allGenres, allMoods, phases, phaseColumns, loadSongs };
+  return { songs, setSongs, loading, allGenres, allMoods, phases, phaseColumns, loadSongs, addExplicitPhase };
 }

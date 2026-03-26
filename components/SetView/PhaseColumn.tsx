@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Stack, Text, Group, Badge, Box, ScrollArea } from '@mantine/core';
+import { Stack, Text, Group, Badge, Box, ScrollArea, Menu } from '@mantine/core';
 import { SongCard, type SongCardData } from './SongCard';
 
 interface PhaseColumnProps {
@@ -15,6 +15,12 @@ interface PhaseColumnProps {
   onSongDoubleClick: (filePath: string) => void;
   onDrop: (filePath: string, targetPhase: string) => void;
   color?: string;
+  activeVersion?: number;
+  versions?: number[];
+  viewingVersion?: number;
+  onNewVersion?: () => void;
+  onViewVersion?: (version: number) => void;
+  isReadOnly?: boolean;
 }
 
 const PHASE_COLORS: Record<string, string> = {
@@ -26,17 +32,19 @@ function PhaseColumnInner({
   phase, songs, selectedSong, selectedSongs, focusedSong, isLocked: columnLocked,
   playingSong, groupBy,
   onSongClick, onSongDoubleClick, onDrop, color,
+  activeVersion, versions, viewingVersion, onNewVersion, onViewVersion, isReadOnly,
 }: PhaseColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const phaseColor = color || PHASE_COLORS[phase.toLowerCase()] || 'gray';
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (isReadOnly) return;
     if (e.dataTransfer.types.includes('application/x-setview-song')) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       setIsDragOver(true);
     }
-  }, []);
+  }, [isReadOnly]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     if (!e.currentTarget.contains(e.relatedTarget as globalThis.Node)) {
@@ -47,9 +55,10 @@ function PhaseColumnInner({
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    if (isReadOnly) return;
     const filePath = e.dataTransfer.getData('application/x-setview-song');
     if (filePath) onDrop(filePath, phase);
-  }, [phase, onDrop]);
+  }, [phase, onDrop, isReadOnly]);
 
   // Sub-group songs if groupBy is set
   const renderSongs = () => {
@@ -63,6 +72,7 @@ function PhaseColumnInner({
           isFocused={focusedSong === song.filePath}
           isInSelection={selectedSongs?.has(song.filePath) ?? false}
           isLocked={columnLocked}
+          isReadOnly={isReadOnly}
           onClick={() => onSongClick(song.filePath)}
           onDoubleClick={() => onSongDoubleClick(song.filePath)}
           onDragStart={() => {}}
@@ -109,6 +119,7 @@ function PhaseColumnInner({
                   isFocused={focusedSong === song.filePath}
                   isInSelection={selectedSongs?.has(song.filePath) ?? false}
                   isLocked={columnLocked}
+                  isReadOnly={isReadOnly}
                   onClick={() => onSongClick(song.filePath)}
                   onDoubleClick={() => onSongDoubleClick(song.filePath)}
                   onDragStart={() => {}}
@@ -131,6 +142,7 @@ function PhaseColumnInner({
                   isFocused={focusedSong === song.filePath}
                   isInSelection={selectedSongs?.has(song.filePath) ?? false}
                   isLocked={columnLocked}
+                  isReadOnly={isReadOnly}
                   onClick={() => onSongClick(song.filePath)}
                   onDoubleClick={() => onSongDoubleClick(song.filePath)}
                   onDragStart={() => {}}
@@ -171,6 +183,28 @@ function PhaseColumnInner({
           {phase}
         </Text>
         <Badge size="xs" variant="filled" color={phaseColor}>{songs.length}</Badge>
+        {activeVersion && activeVersion > 1 && (
+          <Menu position="bottom-start" withinPortal>
+            <Menu.Target>
+              <Badge size="xs" variant="light" color={phaseColor} style={{ cursor: 'pointer' }}>
+                v{viewingVersion || activeVersion}
+              </Badge>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {versions?.map(v => (
+                <Menu.Item key={v} onClick={() => onViewVersion?.(v)}
+                  rightSection={v === activeVersion ? <Badge size="xs">active</Badge> : null}>
+                  Version {v}
+                </Menu.Item>
+              ))}
+              <Menu.Divider />
+              <Menu.Item onClick={onNewVersion}>+ New Version</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        )}
+        {isReadOnly && (
+          <Badge size="xs" variant="outline" color="yellow">Read-only</Badge>
+        )}
       </Group>
 
       {/* Song list */}
