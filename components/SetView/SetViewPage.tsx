@@ -149,7 +149,7 @@ export function SetViewPage() {
     await loadSongs();
   }, [loadSongs]);
 
-  if (loading) {
+  if (loading && viewMode === 'set') {
     return (
       <Box className="set-view">
         <Group className="set-view-toolbar" gap={6} px={10} py={6}>
