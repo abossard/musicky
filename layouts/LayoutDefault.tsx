@@ -6,14 +6,16 @@ import { Notifications } from "@mantine/notifications";
 import { useEffect } from "react";
 import theme from "./theme.js";
 import { StatusProvider } from "../contexts/StatusContext";
+import { useTauriTrayActions } from "../hooks/useTauriIntegration";
 
 export default function LayoutDefault({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Detect Tauri desktop environment and apply titlebar class
     if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
       document.documentElement.classList.add('tauri-app');
     }
   }, []);
+
+  useTauriTrayActions();
 
   return (
     <MantineProvider theme={theme} defaultColorScheme="dark">

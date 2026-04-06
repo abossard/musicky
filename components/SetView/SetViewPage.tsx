@@ -39,6 +39,16 @@ export function SetViewPage() {
   const audioQueue = useAudioQueue();
   const { songs, setSongs, loading, allGenres, allMoods, phases, phaseColumns, loadSongs, addExplicitPhase } = useSetViewState();
 
+  // Handle tray actions from Tauri system tray
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const action = (e as CustomEvent<string>).detail;
+      if (action === 'play_pause') audioQueue.togglePlayPause();
+    };
+    window.addEventListener('musicky:tray-action', handler);
+    return () => window.removeEventListener('musicky:tray-action', handler);
+  }, [audioQueue.togglePlayPause]);
+
   // Load phase version data whenever songs change
   useEffect(() => {
     onGetAllPhaseVersions().then(async (data) => {
