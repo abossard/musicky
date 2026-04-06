@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Stack, Group, TextInput, Button, Switch,
   Divider, Text, Badge, Loader, Alert,
@@ -11,6 +11,18 @@ import { onGetKeepPlayHead, onSetKeepPlayHead } from '../Settings.telefunc';
 import { onGetBaseFolder, onSetBaseFolder, onScanLibrary } from '../Moodboard/MoodboardPage.telefunc';
 import { showSuccess, showError } from '../../lib/notifications';
 import './SettingsDrawer.css';
+
+/** Open native folder picker when running in Tauri, returns null if cancelled or unavailable */
+async function pickFolderNative(): Promise<string | null> {
+  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return null;
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({ directory: true, multiple: false, title: 'Select Music Folder' });
+    return typeof selected === 'string' ? selected : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface SettingsDrawerProps {
   onClose?: () => void;
@@ -65,6 +77,16 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete }: SettingsDr
     setBaseFolder(trimmed);
     setFolderEditing(false);
   };
+
+  const handleBrowseFolder = useCallback(async () => {
+    const picked = await pickFolderNative();
+    if (picked) {
+      setFolderInput(picked);
+      await onSetBaseFolder(picked);
+      setBaseFolder(picked);
+      setFolderEditing(false);
+    }
+  }, []);
 
   // ---- Scan ----
   const handleScan = async () => {
@@ -142,6 +164,16 @@ export function SettingsDrawer({ onClose: _onClose, onScanComplete }: SettingsDr
               >
                 Change
               </Button>
+              {'__TAURI_INTERNALS__' in (typeof window !== 'undefined' ? window : {}) && (
+                <Button
+                  size="xs"
+                  variant="light"
+                  leftSection={<IconFolderOpen size={14} />}
+                  onClick={handleBrowseFolder}
+                >
+                  Browse…
+                </Button>
+              )}
               <Button
                 size="xs"
                 variant="filled"
