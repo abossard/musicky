@@ -8,7 +8,8 @@ export default function HeadDefault() {
   return (
     <>
       <link rel="icon" href={logoUrl} />
-      <ColorSchemeScript />
+      <ColorSchemeScript defaultColorScheme="dark" />
+      <style>{`html, body { background-color: #1a1a1a; color: #c9c9c9; }`}</style>
     </>
   );
 }

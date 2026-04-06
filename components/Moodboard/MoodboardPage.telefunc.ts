@@ -8,6 +8,7 @@
 import { saveBaseFolder, readBaseFolder } from '../../database/sqlite/queries/library-settings';
 import {
   addSongTag, removeSongTag, getTagsForSong, getAllTags, searchTags, bulkSetSongTags,
+  getAllSongTags,
   type SongTag, type TagCount,
 } from '../../database/sqlite/queries/song-tags';
 import type { TagCategory } from '../../lib/types';
@@ -436,6 +437,40 @@ export async function onGetLibrarySongs(): Promise<LibrarySong[]> {
     bpm: r.bpm ?? undefined,
     energyLevel: r.energy_level ?? undefined,
     label: r.label ?? undefined,
+  }));
+}
+
+/** Batch load: songs + all their tags in 2 queries instead of N+1 */
+export async function onGetLibrarySongsWithTags(): Promise<(LibrarySong & { tags: SongTagInfo[] })[]> {
+  const base = readBaseFolder();
+  if (!base) return [];
+
+  const results = searchMP3Cache('', 10000);
+  const allTags = getAllSongTags();
+
+  // Group tags by file path
+  const tagsByPath = new Map<string, SongTagInfo[]>();
+  for (const t of allTags) {
+    const info = songTagToInfo(t);
+    const list = tagsByPath.get(t.file_path) || [];
+    list.push(info);
+    tagsByPath.set(t.file_path, list);
+  }
+
+  return results.map(r => ({
+    filePath: r.file_path,
+    title: r.title ?? '',
+    artist: r.artist ?? '',
+    album: r.album ?? '',
+    duration: r.duration ?? 0,
+    fileSize: 0,
+    artworkUrl: artworkUrl(r.file_path),
+    key: r.key ?? undefined,
+    camelotKey: r.camelot_key ?? undefined,
+    bpm: r.bpm ?? undefined,
+    energyLevel: r.energy_level ?? undefined,
+    label: r.label ?? undefined,
+    tags: tagsByPath.get(r.file_path) || [],
   }));
 }
 

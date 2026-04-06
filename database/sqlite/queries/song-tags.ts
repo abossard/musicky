@@ -37,6 +37,11 @@ export function getTagsForSong(filePath: string): SongTag[] {
   return client.prepare(queries.getTagsForSong).all(filePath) as SongTag[];
 }
 
+// Get all tags for all songs in a single query
+export function getAllSongTags(): SongTag[] {
+  return client.prepare('SELECT * FROM song_tags ORDER BY file_path').all() as SongTag[];
+}
+
 // Get all tags for a song filtered by category
 export function getTagsForSongByCategory(filePath: string, category: TagCategory): SongTag[] {
   return client.prepare(queries.getTagsForSongByCategory).all(filePath, category) as SongTag[];

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, Group, Drawer, SegmentedControl, Text, ActionIcon, Tooltip, Badge, TextInput } from '@mantine/core';
+import { Box, Group, Drawer, SegmentedControl, Text, ActionIcon, Tooltip, Badge, TextInput, Skeleton } from '@mantine/core';
 import { IconLayoutSidebar, IconSettings, IconChecklist, IconKeyboard, IconPlus } from '@tabler/icons-react';
 import { onAddSongTag, onRemoveSongTag } from '../Moodboard/MoodboardPage.telefunc';
 import { onGetAllPhaseVersions, onGetPhaseVersions, onCreatePhaseVersion, onGetSongsForVersion } from '../Moodboard/PhaseVersions.telefunc';
@@ -151,8 +151,36 @@ export function SetViewPage() {
 
   if (loading) {
     return (
-      <Box style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Text c="dimmed">Loading set...</Text>
+      <Box className="set-view">
+        <Group className="set-view-toolbar" gap={6} px={10} py={6}>
+          <Text size="sm" fw={700} style={{ letterSpacing: 1 }}>🎧 SET VIEW</Text>
+          <SegmentedControl
+            size="xs"
+            value={viewMode}
+            onChange={(v) => setViewMode(v as 'set' | 'canvas')}
+            data={[
+              { label: 'Set View', value: 'set' },
+              { label: 'Canvas', value: 'canvas' },
+            ]}
+          />
+          <Box style={{ flex: 1 }} />
+          <Tooltip label="Settings"><ActionIcon size="sm" variant="subtle" onClick={() => setSettingsOpen(true)}><IconSettings size={14} /></ActionIcon></Tooltip>
+        </Group>
+        <Box className="set-view-main">
+          <Box className="set-view-columns">
+            {['Loading...'].map((label, i) => (
+              <Box key={i} style={{ minWidth: 280, padding: 12 }}>
+                <Text size="sm" fw={700} tt="uppercase" c="dimmed" mb={8}>{label}</Text>
+                {[1, 2, 3, 4].map(j => (
+                  <Skeleton key={j} height={60} radius="sm" mb={8} />
+                ))}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+        <Drawer opened={settingsOpen} onClose={() => setSettingsOpen(false)} position="right" size="sm" title="Settings">
+          <SettingsDrawer onClose={() => setSettingsOpen(false)} />
+        </Drawer>
       </Box>
     );
   }

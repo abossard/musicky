@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  onGetLibrarySongs, onGetSongTags, onGetAllTags,
+  onGetLibrarySongsWithTags, onGetAllTags,
 } from '../../Moodboard/MoodboardPage.telefunc';
-import { onImportHashtagsForSong } from '../../TagSync.telefunc';
 import { standardToCamelot } from '../../../lib/camelot';
 import type { SongCardData } from '../SongCard';
 
@@ -37,48 +36,29 @@ export function useSetViewState(): UseSetViewStateReturn {
   const loadSongs = useCallback(async () => {
     setLoading(true);
     try {
-      const libSongs = await onGetLibrarySongs();
-      const allSongData: SongCardData[] = await Promise.all(
-        libSongs.map(async (s: any) => {
-          const tags = await onGetSongTags(s.filePath);
-          return {
-            filePath: s.filePath,
-            title: s.title || s.filename || 'Unknown',
-            artist: s.artist || 'Unknown',
-            artworkUrl: `/artwork/${encodeURIComponent(s.filePath)}`,
-            camelotKey: s.camelotKey || (s.key ? standardToCamelot(s.key) : undefined) || undefined,
-            bpm: s.bpm,
-            energyLevel: s.energyLevel,
-            genres: tags.filter((t: any) => t.category === 'genre').map((t: any) => t.label),
-            moods: tags.filter((t: any) => t.category === 'mood').map((t: any) => t.label),
-            phase: tags.find((t: any) => t.category === 'phase')?.label,
-          };
-        })
-      );
+      // Single batch call: songs + tags in 2 SQL queries (not N+1)
+      const [songsWithTags, genres, moods] = await Promise.all([
+        onGetLibrarySongsWithTags(),
+        onGetAllTags('genre').then(tags => tags.map((t: any) => ({ label: t.label, count: t.count }))),
+        onGetAllTags('mood').then(tags => tags.map((t: any) => ({ label: t.label, count: t.count }))),
+      ]);
 
-      // Auto-import hashtags for songs that have no tags in the database
-      const untagged = allSongData.filter(
-        s => s.genres.length === 0 && s.moods.length === 0 && !s.phase
-      );
-      if (untagged.length > 0) {
-        const importResults = await Promise.all(
-          untagged.map(s =>
-            onImportHashtagsForSong(s.filePath).catch(() => null)
-          )
-        );
-        const imported = importResults.some(r => r !== null);
-        if (imported) {
-          // Re-fetch tags for songs that were just imported
-          for (const song of untagged) {
-            const tags = await onGetSongTags(song.filePath);
-            song.genres = tags.filter((t: any) => t.category === 'genre').map((t: any) => t.label);
-            song.moods = tags.filter((t: any) => t.category === 'mood').map((t: any) => t.label);
-            song.phase = tags.find((t: any) => t.category === 'phase')?.label;
-          }
-        }
-      }
+      const allSongData: SongCardData[] = songsWithTags.map(s => ({
+        filePath: s.filePath,
+        title: s.title || 'Unknown',
+        artist: s.artist || 'Unknown',
+        artworkUrl: `/artwork/${encodeURIComponent(s.filePath)}`,
+        camelotKey: s.camelotKey || (s.key ? standardToCamelot(s.key) : undefined) || undefined,
+        bpm: s.bpm,
+        energyLevel: s.energyLevel,
+        genres: s.tags.filter(t => t.category === 'genre').map(t => t.label),
+        moods: s.tags.filter(t => t.category === 'mood').map(t => t.label),
+        phase: s.tags.find(t => t.category === 'phase')?.label,
+      }));
 
       setSongs(allSongData);
+      setAllGenres(genres);
+      setAllMoods(moods);
     } catch (e) {
       console.error('Failed to load songs:', e);
     } finally {
@@ -87,11 +67,6 @@ export function useSetViewState(): UseSetViewStateReturn {
   }, []);
 
   useEffect(() => { loadSongs(); }, [loadSongs]);
-
-  useEffect(() => {
-    onGetAllTags('genre').then(tags => setAllGenres(tags.map((t: any) => ({ label: t.label, count: t.count }))));
-    onGetAllTags('mood').then(tags => setAllMoods(tags.map((t: any) => ({ label: t.label, count: t.count }))));
-  }, []);
 
   const { phaseColumns, phases } = useMemo(() => {
     const phaseSet = new Set<string>();
