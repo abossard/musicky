@@ -12,7 +12,7 @@ export interface UseTagManagementParams {
   selectedSong: string | null;
   selectedSongs: ReadonlySet<string>;
   songs: SongCardData[];
-  setSongs: React.Dispatch<React.SetStateAction<SongCardData[]>>;
+  updateSongTags: (filePath: string, updater: (song: SongCardData) => SongCardData) => void;
 }
 
 export interface UseTagManagementReturn {
@@ -27,7 +27,7 @@ export function useTagManagement({
   selectedSong,
   selectedSongs,
   songs,
-  setSongs,
+  updateSongTags,
 }: UseTagManagementParams): UseTagManagementReturn {
   const [tagState, dispatchTag] = useReducer(tagOpReducer, initialTagState);
 
@@ -56,17 +56,16 @@ export function useTagManagement({
       const mapped = tags.map((t: any) => ({ label: t.label, category: t.category }));
       dispatchTag({ type: 'TOGGLE_SUCCESS', tags: mapped });
 
-      setSongs(prev => prev.map(s => {
-        if (s.filePath !== selectedSong) return s;
-        const newGenres = tags.filter((t: any) => t.category === 'genre').map((t: any) => t.label);
-        const newMoods = tags.filter((t: any) => t.category === 'mood').map((t: any) => t.label);
-        const newPhase = tags.find((t: any) => t.category === 'phase')?.label;
-        return { ...s, genres: newGenres, moods: newMoods, phase: newPhase };
+      updateSongTags(selectedSong, (s) => ({
+        ...s,
+        genres: tags.filter((t: any) => t.category === 'genre').map((t: any) => t.label),
+        moods: tags.filter((t: any) => t.category === 'mood').map((t: any) => t.label),
+        phase: tags.find((t: any) => t.category === 'phase')?.label,
       }));
     } catch (e) {
       dispatchTag({ type: 'TOGGLE_FAILURE', error: String(e) });
     }
-  }, [selectedSong, tagState, setSongs]);
+  }, [selectedSong, tagState, updateSongTags]);
 
   const handleBulkToggleTag = useCallback(async (label: string, category: string) => {
     if (selectedSongs.size === 0) return;
@@ -100,28 +99,29 @@ export function useTagManagement({
       console.warn(`Bulk tag: ${failed.length}/${results.length} operations failed`);
     }
 
-    setSongs(prev => prev.map(s => {
-      if (!selectedSongs.has(s.filePath)) return s;
-      if (category === 'genre') {
-        const newGenres = allHaveTag
-          ? s.genres.filter(g => g !== label)
-          : s.genres.includes(label) ? s.genres : [...s.genres, label];
-        return { ...s, genres: newGenres };
-      }
-      if (category === 'mood') {
-        const newMoods = allHaveTag
-          ? s.moods.filter(m => m !== label)
-          : s.moods.includes(label) ? s.moods : [...s.moods, label];
-        return { ...s, moods: newMoods };
-      }
-      return s;
-    }));
+    for (const fp of selectedSongs) {
+      updateSongTags(fp, (s) => {
+        if (category === 'genre') {
+          const newGenres = allHaveTag
+            ? s.genres.filter(g => g !== label)
+            : s.genres.includes(label) ? s.genres : [...s.genres, label];
+          return { ...s, genres: newGenres };
+        }
+        if (category === 'mood') {
+          const newMoods = allHaveTag
+            ? s.moods.filter(m => m !== label)
+            : s.moods.includes(label) ? s.moods : [...s.moods, label];
+          return { ...s, moods: newMoods };
+        }
+        return s;
+      });
+    }
 
     if (selectedSong && selectedSongs.has(selectedSong)) {
       const tags = await onGetSongTags(selectedSong);
       dispatchTag({ type: 'TAGS_LOADED', tags: tags.map((t: any) => ({ label: t.label, category: t.category })) });
     }
-  }, [selectedSongs, songs, selectedSong, setSongs]);
+  }, [selectedSongs, songs, selectedSong, updateSongTags]);
 
   return {
     selectedSongTags: getDisplayTags(tagState),

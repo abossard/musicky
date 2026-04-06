@@ -14,7 +14,7 @@ import { AudioPlayerBar } from '../Shared/AudioPlayerBar';
 import { MoodboardCanvasView } from '../Moodboard/MoodboardCanvasView';
 import { BoardManager } from '../Moodboard/BoardManager';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
-import { useSetViewState } from './hooks/useSetViewState';
+import { useSetViewData } from './hooks/useSetViewData';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 import { useTagManagement } from './hooks/useTagManagement';
 import type { SongCardData } from './SongCard';
@@ -42,7 +42,7 @@ export function SetViewPage() {
   const [versionSongs, setVersionSongs] = useState<Map<string, SongCardData[]>>(new Map());
 
   const audioQueue = useAudioQueue();
-  const { songs, setSongs, loading, allGenres, allMoods, phases, phaseColumns, loadSongs, addExplicitPhase } = useSetViewState();
+  const { songs, loading, genres: allGenres, moods: allMoods, phases, phaseColumns, loadSongs, addExplicitPhase, updateSongPhase, updateSongTags } = useSetViewData();
 
   // Handle tray actions from Tauri system tray
   useEffect(() => {
@@ -109,12 +109,8 @@ export function SetViewPage() {
     if (targetPhase !== '__unassigned__') {
       await onAddSongTag(filePath, targetPhase, 'phase');
     }
-    setSongs(prev => prev.map(s =>
-      s.filePath === filePath
-        ? { ...s, phase: targetPhase === '__unassigned__' ? undefined : targetPhase }
-        : s
-    ));
-  }, [songs, setSongs]);
+    updateSongPhase(filePath, targetPhase === '__unassigned__' ? undefined : targetPhase);
+  }, [songs, updateSongPhase]);
 
   // Ref breaks circular dependency: keyboard hook → bulkToggleTag → keyboard hook's selectedSongs
   const handleBulkToggleTagRef = useRef<((label: string, category: string) => Promise<void>) | undefined>(undefined);
@@ -132,7 +128,7 @@ export function SetViewPage() {
   });
 
   const { selectedSongTags, tagPending, handleToggleTag, handleBulkToggleTag } = useTagManagement({
-    selectedSong, selectedSongs, songs, setSongs,
+    selectedSong, selectedSongs, songs, updateSongTags,
   });
   handleBulkToggleTagRef.current = handleBulkToggleTag;
 
