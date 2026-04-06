@@ -12,6 +12,19 @@
   background: var(--mantine-color-dark-7);
 }
 
+/* Tauri macOS: make toolbar draggable as titlebar, inset for traffic lights */
+:root.tauri-app .set-view-toolbar {
+  padding-left: 80px;
+  -webkit-app-region: drag;
+}
+:root.tauri-app .set-view-toolbar button,
+:root.tauri-app .set-view-toolbar input,
+:root.tauri-app .set-view-toolbar a,
+:root.tauri-app .set-view-toolbar [role="tab"],
+:root.tauri-app .set-view-toolbar [data-mantine-stop-propagation] {
+  -webkit-app-region: no-drag;
+}
+
 .set-view-main {
   flex: 1;
   display: flex;
