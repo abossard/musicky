@@ -165,3 +165,70 @@ export async function onRestoreRevision(boardId: number, revisionId: number): Pr
 export async function onGetRevisionCount(boardId: number): Promise<number> {
   return getRevisionCount(boardId);
 }
+
+// --- Export / Import ---
+
+export interface MoodboardExport {
+  version: 1;
+  type: 'musicky-moodboard';
+  exportedAt: string;
+  board: { name: string; viewport: string | null };
+  nodes: { id: string; type: string; songPath?: string; tagLabel?: string; tagCategory?: string; tagColor?: string; x: number; y: number }[];
+  edges: { id: string; source: string; target: string; type: string; weight: number; label?: string }[];
+}
+
+export async function onExportMoodboard(boardId: number): Promise<MoodboardExport | null> {
+  const board = getMoodboardById(boardId);
+  if (!board) return null;
+  const nodes = getNodes(boardId);
+  const edges = getEdges(boardId);
+  return {
+    version: 1,
+    type: 'musicky-moodboard',
+    exportedAt: new Date().toISOString(),
+    board: { name: board.name, viewport: board.viewport_json },
+    nodes: nodes.map(n => ({
+      id: n.id, type: n.node_type,
+      songPath: n.song_path ?? undefined,
+      tagLabel: n.tag_label ?? undefined,
+      tagCategory: n.tag_category ?? undefined,
+      tagColor: n.tag_color ?? undefined,
+      x: n.position_x, y: n.position_y,
+    })),
+    edges: edges.map(e => ({
+      id: e.id, source: e.source_node_id, target: e.target_node_id,
+      type: e.edge_type, weight: e.weight,
+      label: e.label ?? undefined,
+    })),
+  };
+}
+
+export async function onImportMoodboard(data: MoodboardExport): Promise<{ boardId: number; nodesImported: number; edgesImported: number }> {
+  const board = createMoodboard(data.board.name);
+  if (data.board.viewport) {
+    updateMoodboardViewport(board.id, data.board.viewport);
+  }
+  const oldToNew = new Map<string, string>();
+  for (const node of data.nodes) {
+    const newId = `${node.type}:${node.songPath || node.tagLabel || node.id}`;
+    oldToNew.set(node.id, newId);
+    upsertNode({
+      id: newId, boardId: board.id, nodeType: node.type,
+      positionX: node.x, positionY: node.y,
+      songPath: node.songPath, tagLabel: node.tagLabel,
+      tagCategory: node.tagCategory, tagColor: node.tagColor,
+    });
+  }
+  let edgesImported = 0;
+  for (const edge of data.edges) {
+    const source = oldToNew.get(edge.source) ?? edge.source;
+    const target = oldToNew.get(edge.target) ?? edge.target;
+    upsertEdge({
+      id: `e-${source}-${target}`, boardId: board.id,
+      sourceNodeId: source, targetNodeId: target,
+      edgeType: edge.type, weight: edge.weight, label: edge.label,
+    });
+    edgesImported++;
+  }
+  return { boardId: board.id, nodesImported: data.nodes.length, edgesImported };
+}

@@ -12,6 +12,7 @@ import { SettingsDrawer } from '../Shared/SettingsDrawer';
 import { ExportReviewTable } from './ExportReviewTable';
 import { AudioPlayerBar } from '../Shared/AudioPlayerBar';
 import { MoodboardCanvasView } from '../Moodboard/MoodboardCanvasView';
+import { BoardManager } from '../Moodboard/BoardManager';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
 import { useSetViewState } from './hooks/useSetViewState';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
@@ -25,6 +26,7 @@ export function SetViewPage() {
   // Panel states
   const [groupBy, setGroupBy] = useState<'none' | 'genre' | 'mood'>('none');
   const [viewMode, setViewMode] = useState<'set' | 'canvas'>('set');
+  const [activeBoardId, setActiveBoardId] = useState<number | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -181,6 +183,12 @@ export function SetViewPage() {
               { label: 'By Genre', value: 'genre' },
               { label: 'By Mood', value: 'mood' },
             ]}
+          />
+        )}
+        {viewMode === 'canvas' && (
+          <BoardManager
+            activeBoardId={activeBoardId}
+            onBoardChange={setActiveBoardId}
           />
         )}
         <Tooltip label="Library"><ActionIcon size="sm" variant="subtle" onClick={() => setLibraryOpen(v => !v)}><IconLayoutSidebar size={14} /></ActionIcon></Tooltip>
