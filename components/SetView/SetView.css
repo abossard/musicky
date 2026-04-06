@@ -14,7 +14,8 @@
 
 /* Tauri macOS: make toolbar draggable as titlebar, inset for traffic lights */
 :root.tauri-app .set-view-toolbar {
-  padding-left: 80px;
+  padding-left: 80px !important;
+  padding-top: 32px !important;
   -webkit-app-region: drag;
 }
 :root.tauri-app .set-view-toolbar button,
