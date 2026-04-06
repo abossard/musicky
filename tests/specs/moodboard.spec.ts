@@ -8,8 +8,8 @@ test.describe('Moodboard Management', () => {
   });
 
   test('view toggle switches between Set View and Canvas', async ({ page }) => {
-    // Switch to Canvas
-    await page.getByText('Canvas', { exact: true }).click();
+    // Switch to Canvas via the radio button
+    await page.getByRole('radio', { name: 'Canvas' }).click();
 
     // Canvas view should render — wait for loading to finish first
     await expect(page.locator('.react-flow')).toBeVisible({ timeout: 30000 });
@@ -18,12 +18,12 @@ test.describe('Moodboard Management', () => {
     await expect(page.locator('.set-view-columns')).not.toBeVisible();
 
     // Switch back to Set View
-    await page.getByText('Set View', { exact: true }).click();
+    await page.getByRole('radio', { name: 'Set View' }).click();
     await expect(page.locator('.set-view-columns')).toBeVisible({ timeout: 10000 });
   });
 
   test('canvas view shows board selector', async ({ page }) => {
-    await page.getByText('Canvas', { exact: true }).click();
+    await page.getByRole('radio', { name: 'Canvas' }).click();
 
     // Board selector should appear after canvas loads
     const selector = page.getByTestId('board-selector');
@@ -31,7 +31,7 @@ test.describe('Moodboard Management', () => {
   });
 
   test('can create a new board', async ({ page }) => {
-    await page.getByText('Canvas', { exact: true }).click();
+    await page.getByRole('radio', { name: 'Canvas' }).click();
     await expect(page.getByTestId('board-selector')).toBeVisible({ timeout: 30000 });
 
     // Click new board button
@@ -48,7 +48,7 @@ test.describe('Moodboard Management', () => {
   });
 
   test('export and import buttons are available', async ({ page }) => {
-    await page.getByText('Canvas', { exact: true }).click();
+    await page.getByRole('radio', { name: 'Canvas' }).click();
     await expect(page.getByTestId('board-selector')).toBeVisible({ timeout: 30000 });
 
     await expect(page.getByTestId('export-board-btn')).toBeVisible();
