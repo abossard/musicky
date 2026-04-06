@@ -15,6 +15,7 @@ import { MoodboardCanvasView } from '../Moodboard/MoodboardCanvasView';
 import { BoardManager } from '../Moodboard/BoardManager';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
 import { useSetViewData } from './hooks/useSetViewData';
+import { useSetViewUI } from './hooks/useSetViewUI';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 import { useTagManagement } from './hooks/useTagManagement';
 import type { SongCardData } from './SongCard';
@@ -23,18 +24,13 @@ import type { MP3Metadata } from '../../lib/mp3-metadata';
 import './SetView.css';
 
 export function SetViewPage() {
-  // Panel states
+  // View mode (kept as simple state — only 2 values, no coordination needed)
   const [groupBy, setGroupBy] = useState<'none' | 'genre' | 'mood'>('none');
   const [viewMode, setViewMode] = useState<'set' | 'canvas'>('set');
   const [activeBoardId, setActiveBoardId] = useState<number | null>(null);
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
 
-  const [addingPhase, setAddingPhase] = useState(false);
-  const [newPhaseName, setNewPhaseName] = useState('');
+  // UI state machines
+  const ui = useSetViewUI();
 
   // Phase versioning state
   const [phaseVersions, setPhaseVersions] = useState<Map<string, { active: number; versions: number[] }>>(new Map());
@@ -115,8 +111,8 @@ export function SetViewPage() {
   // Ref breaks circular dependency: keyboard hook → bulkToggleTag → keyboard hook's selectedSongs
   const handleBulkToggleTagRef = useRef<((label: string, category: string) => Promise<void>) | undefined>(undefined);
 
-  const toggleHelp = useCallback(() => setHelpOpen(true), []);
-  const toggleLibrary = useCallback(() => setLibraryOpen(v => !v), []);
+  const toggleHelp = useCallback(() => ui.openHelp(), [ui.openHelp]);
+  const toggleLibrary = useCallback(() => ui.toggleLibrary(), [ui.toggleLibrary]);
 
   const {
     selectedSongs, isLocked, selectedSong, setSelectedSong,
@@ -138,8 +134,8 @@ export function SetViewPage() {
 
   const handleSongDoubleClick = useCallback((filePath: string) => {
     setSelectedSong(filePath);
-    setDetailOpen(true);
-  }, [setSelectedSong]);
+    ui.openDetail(filePath);
+  }, [setSelectedSong, ui.openDetail]);
 
   const handleAddFromLibrary = useCallback(async (_filePaths: string[]) => {
     await loadSongs();
@@ -160,7 +156,7 @@ export function SetViewPage() {
             ]}
           />
           <Box style={{ flex: 1 }} />
-          <Tooltip label="Settings"><ActionIcon size="sm" variant="subtle" onClick={() => setSettingsOpen(true)}><IconSettings size={14} /></ActionIcon></Tooltip>
+          <Tooltip label="Settings"><ActionIcon size="sm" variant="subtle" onClick={ui.openSettings}><IconSettings size={14} /></ActionIcon></Tooltip>
         </Group>
         <Box className="set-view-main">
           <Box className="set-view-columns">
@@ -174,8 +170,8 @@ export function SetViewPage() {
             ))}
           </Box>
         </Box>
-        <Drawer opened={settingsOpen} onClose={() => setSettingsOpen(false)} position="right" size="sm" title="Settings">
-          <SettingsDrawer onClose={() => setSettingsOpen(false)} />
+        <Drawer opened={ui.settingsOpen} onClose={ui.closeDrawer} position="right" size="sm" title="Settings">
+          <SettingsDrawer onClose={ui.closeDrawer} />
         </Drawer>
       </Box>
     );
@@ -215,7 +211,7 @@ export function SetViewPage() {
             onBoardChange={setActiveBoardId}
           />
         )}
-        <Tooltip label="Library"><ActionIcon size="sm" variant="subtle" onClick={() => setLibraryOpen(v => !v)}><IconLayoutSidebar size={14} /></ActionIcon></Tooltip>
+        <Tooltip label="Library"><ActionIcon size="sm" variant="subtle" onClick={ui.toggleLibrary}><IconLayoutSidebar size={14} /></ActionIcon></Tooltip>
         {selectedSongs.size > 0 && (
           <Badge
             size="sm"
@@ -225,10 +221,10 @@ export function SetViewPage() {
             {isLocked ? `⇄ Moving ${selectedSongs.size} song${selectedSongs.size > 1 ? 's' : ''}` : `${selectedSongs.size} selected`}
           </Badge>
         )}
-        <Tooltip label="Export Tags"><ActionIcon size="sm" variant="subtle" onClick={() => setReviewOpen(true)}><IconChecklist size={14} /></ActionIcon></Tooltip>
-        <Tooltip label="Settings"><ActionIcon size="sm" variant="subtle" onClick={() => setSettingsOpen(true)}><IconSettings size={14} /></ActionIcon></Tooltip>
+        <Tooltip label="Export Tags"><ActionIcon size="sm" variant="subtle" onClick={ui.openReview}><IconChecklist size={14} /></ActionIcon></Tooltip>
+        <Tooltip label="Settings"><ActionIcon size="sm" variant="subtle" onClick={ui.openSettings}><IconSettings size={14} /></ActionIcon></Tooltip>
         <Tooltip label="Keyboard shortcuts (?)">
-          <ActionIcon size="sm" variant="subtle" onClick={() => setHelpOpen(true)}>
+          <ActionIcon size="sm" variant="subtle" onClick={ui.openHelp}>
             <IconKeyboard size={14} />
           </ActionIcon>
         </Tooltip>
@@ -245,7 +241,7 @@ export function SetViewPage() {
         />
       ) : (
       <Box className="set-view-main">
-        {libraryOpen && (
+        {ui.libraryOpen && (
           <Box className="set-view-library">
             <LibraryPanel
               onSongSelect={handleSongClick}
@@ -301,26 +297,25 @@ export function SetViewPage() {
             color="gray"
           />
           <Box style={{ minWidth: 160, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 40 }}>
-            {addingPhase ? (
+            {ui.addingPhase ? (
               <TextInput
                 size="xs"
                 placeholder="Phase name..."
-                value={newPhaseName}
-                onChange={e => setNewPhaseName(e.currentTarget.value)}
+                value={ui.newPhaseName}
+                onChange={e => ui.updatePhaseInput(e.currentTarget.value)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter' && newPhaseName.trim()) {
-                    addExplicitPhase(newPhaseName.trim().toLowerCase());
-                    setNewPhaseName('');
-                    setAddingPhase(false);
+                  if (e.key === 'Enter' && ui.newPhaseName.trim()) {
+                    addExplicitPhase(ui.newPhaseName.trim().toLowerCase());
+                    ui.confirmAddingPhase();
                   }
-                  if (e.key === 'Escape') { setAddingPhase(false); setNewPhaseName(''); }
+                  if (e.key === 'Escape') { ui.cancelAddingPhase(); }
                 }}
-                onBlur={() => { setAddingPhase(false); setNewPhaseName(''); }}
+                onBlur={() => { ui.cancelAddingPhase(); }}
                 autoFocus
                 data-testid="new-phase-input"
               />
             ) : (
-              <ActionIcon size="lg" variant="subtle" color="violet" onClick={() => setAddingPhase(true)} data-testid="add-phase-btn">
+              <ActionIcon size="lg" variant="subtle" color="violet" onClick={ui.startAddingPhase} data-testid="add-phase-btn">
                 <IconPlus size={20} />
               </ActionIcon>
             )}
@@ -339,7 +334,7 @@ export function SetViewPage() {
       )}
 
       {/* Drawers */}
-      <Drawer opened={detailOpen} onClose={() => setDetailOpen(false)} position="right" size="md" title="Song Detail">
+      <Drawer opened={ui.detailOpen} onClose={ui.closeDrawer} position="right" size="md" title="Song Detail">
         <SongDetailPanel
           filePath={selectedSong}
           onSongSelect={(fp) => { setSelectedSong(fp); }}
@@ -347,11 +342,11 @@ export function SetViewPage() {
           onTagsChanged={loadSongs}
         />
       </Drawer>
-      <Drawer opened={settingsOpen} onClose={() => setSettingsOpen(false)} position="right" size="sm" title="Settings">
-        <SettingsDrawer onClose={() => setSettingsOpen(false)} />
+      <Drawer opened={ui.settingsOpen} onClose={ui.closeDrawer} position="right" size="sm" title="Settings">
+        <SettingsDrawer onClose={ui.closeDrawer} />
       </Drawer>
-      <Drawer opened={reviewOpen} onClose={() => setReviewOpen(false)} position="right" size="lg" title="Export Tags to Files">
-        <ExportReviewTable onClose={() => setReviewOpen(false)} />
+      <Drawer opened={ui.reviewOpen} onClose={ui.closeDrawer} position="right" size="lg" title="Export Tags to Files">
+        <ExportReviewTable onClose={ui.closeDrawer} />
       </Drawer>
 
       <Box className="set-view-player">
@@ -367,7 +362,7 @@ export function SetViewPage() {
         />
       </Box>
 
-      <ShortcutHelpModal opened={helpOpen} onClose={() => setHelpOpen(false)} />
+      <ShortcutHelpModal opened={ui.helpOpen} onClose={ui.closeDrawer} />
     </Box>
   );
 }
