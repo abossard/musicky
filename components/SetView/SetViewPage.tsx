@@ -11,17 +11,20 @@ import { SongDetailPanel } from '../Shared/SongDetailPanel';
 import { SettingsDrawer } from '../Shared/SettingsDrawer';
 import { ExportReviewTable } from './ExportReviewTable';
 import { AudioPlayerBar } from '../Shared/AudioPlayerBar';
+import { MoodboardCanvasView } from '../Moodboard/MoodboardCanvasView';
 import { useAudioQueue } from '../../hooks/useAudioQueue';
 import { useSetViewState } from './hooks/useSetViewState';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 import { useTagManagement } from './hooks/useTagManagement';
 import type { SongCardData } from './SongCard';
+import type { MP3Metadata } from '../../lib/mp3-metadata';
 
 import './SetView.css';
 
 export function SetViewPage() {
   // Panel states
   const [groupBy, setGroupBy] = useState<'none' | 'genre' | 'mood'>('none');
+  const [viewMode, setViewMode] = useState<'set' | 'canvas'>('set');
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -156,18 +159,30 @@ export function SetViewPage() {
     <Box className="set-view">
       {/* Top toolbar */}
       <Group className="set-view-toolbar" gap={6} px={10} py={6}>
-        <Text size="sm" fw={700} style={{ letterSpacing: 1 }}>🎧 SET VIEW</Text>
-        <Box style={{ flex: 1 }} />
+        <Text size="sm" fw={700} style={{ letterSpacing: 1 }}>🎧 {viewMode === 'set' ? 'SET VIEW' : 'CANVAS'}</Text>
         <SegmentedControl
           size="xs"
-          value={groupBy}
-          onChange={(v) => setGroupBy(v as 'none' | 'genre' | 'mood')}
+          value={viewMode}
+          onChange={(v) => setViewMode(v as 'set' | 'canvas')}
           data={[
-            { label: 'Flat', value: 'none' },
-            { label: 'By Genre', value: 'genre' },
-            { label: 'By Mood', value: 'mood' },
+            { label: 'Set View', value: 'set' },
+            { label: 'Canvas', value: 'canvas' },
           ]}
+          data-testid="view-mode-toggle"
         />
+        <Box style={{ flex: 1 }} />
+        {viewMode === 'set' && (
+          <SegmentedControl
+            size="xs"
+            value={groupBy}
+            onChange={(v) => setGroupBy(v as 'none' | 'genre' | 'mood')}
+            data={[
+              { label: 'Flat', value: 'none' },
+              { label: 'By Genre', value: 'genre' },
+              { label: 'By Mood', value: 'mood' },
+            ]}
+          />
+        )}
         <Tooltip label="Library"><ActionIcon size="sm" variant="subtle" onClick={() => setLibraryOpen(v => !v)}><IconLayoutSidebar size={14} /></ActionIcon></Tooltip>
         {selectedSongs.size > 0 && (
           <Badge
@@ -188,6 +203,15 @@ export function SetViewPage() {
       </Group>
 
       {/* Main content */}
+      {viewMode === 'canvas' ? (
+        <MoodboardCanvasView
+          currentPlayingPath={audioQueue.currentTrack?.filePath}
+          onPlaySong={(fp) => {
+            const song = songs.find(s => s.filePath === fp);
+            if (song) audioQueue.playTrack({ filePath: fp, title: song.title, artist: song.artist } as MP3Metadata);
+          }}
+        />
+      ) : (
       <Box className="set-view-main">
         {libraryOpen && (
           <Box className="set-view-library">
@@ -280,6 +304,7 @@ export function SetViewPage() {
           tagPending={tagPending}
         />
       </Box>
+      )}
 
       {/* Drawers */}
       <Drawer opened={detailOpen} onClose={() => setDetailOpen(false)} position="right" size="md" title="Song Detail">
