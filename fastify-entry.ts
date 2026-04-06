@@ -10,7 +10,6 @@ import { telefuncHandler } from "./server/telefunc-handler";
 import Fastify from "fastify";
 import { createHandler, createMiddleware } from "@universal-middleware/fastify";
 import { dbMiddleware } from "./server/db-middleware";
-import { createDevMiddleware } from "vike";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,6 +38,7 @@ async function startServer() {
     // Instantiate Vite's development server and integrate its middleware to our server.
     // ⚠️ We should instantiate it *only* in development. (It isn't needed in production
     // and would unnecessarily bloat our server in production.)
+    const { createDevMiddleware } = await import("vike");
     const viteDevMiddleware = (
       await createDevMiddleware({
         root,

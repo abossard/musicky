@@ -1,7 +1,9 @@
 {
   "scripts": {
     "dev": "tsx ./fastify-entry.ts",
+    "dev:tauri": "tauri dev",
     "build": "vike build",
+    "build:desktop": "tauri build",
     "preview": "cross-env NODE_ENV=production tsx ./fastify-entry.ts",
     "lint": "eslint .",
     "sqlite:migrate": "tsx ./database/sqlite/schema/all.ts",
@@ -44,6 +46,7 @@
   "devDependencies": {
     "@eslint/js": "^9.29.0",
     "@playwright/test": "^1.54.1",
+    "@tauri-apps/cli": "^2.10.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/dagre": "^0.7.54",
     "@types/node": "^20.19.0",
