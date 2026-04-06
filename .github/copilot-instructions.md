@@ -4,7 +4,9 @@
 
 ```bash
 npm run dev              # Start dev server (Fastify + Vite HMR on port 3000)
+npm run dev:tauri         # Start as native macOS desktop app (Tauri + Fastify)
 npm run build            # Production build (vike build)
+npm run build:desktop    # Build macOS .dmg/.app (tauri build)
 npm run preview          # Preview production build
 npm run lint             # ESLint (flat config, TypeScript)
 npm run sqlite:migrate   # Create/update SQLite tables
@@ -29,16 +31,25 @@ E2E tests run against `http://localhost:3000` (auto-started via Playwright's `we
 
 ## Architecture
 
-**Stack:** Vike (SSR framework) + React 19 + Fastify 5 + Telefunc (RPC) + SQLite (better-sqlite3) + Mantine v8 + React Flow (@xyflow/react)
+**Stack:** Vike (SSR framework) + React 19 + Fastify 5 + Telefunc (RPC) + SQLite (better-sqlite3) + Mantine v8 + React Flow (@xyflow/react) + Tauri 2 (desktop shell)
 
 ### Request Flow
 
 ```
-Browser → Fastify server (fastify-entry.ts)
+Browser/WKWebView → Fastify server (fastify-entry.ts)
   ├─ POST /_telefunc  → telefunc-handler.ts → *.telefunc.ts functions → SQLite queries
   ├─ GET /audio/*     → HTTP Range streaming (supports seeking)
   └─ GET /*           → vike-handler.ts → SSR page rendering
 ```
+
+### Desktop App (Tauri 2)
+
+The app runs as a native macOS desktop application via Tauri 2:
+- `src-tauri/` — Rust core: window management, system tray, native dialogs
+- Fastify server runs as the backend (via `beforeDevCommand` in dev, sidecar in production)
+- WKWebView loads `http://localhost:3000` — same React UI
+- Tauri-specific features gated by `__TAURI_INTERNALS__` check (see `LayoutDefault.tsx`)
+- System tray emits events to WebView via `app.emit("tray-action", ...)`
 
 ### Key Feature Areas
 
