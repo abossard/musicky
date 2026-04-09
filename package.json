@@ -37,7 +37,7 @@
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
     "dotenv": "^16.5.0",
-    "fastify": "^5.4.0",
+    "fastify": "^5.8.3",
     "mantine-datatable": "^8.1.2",
     "music-metadata": "^11.3.0",
     "node-id3": "^0.2.9",
